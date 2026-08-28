@@ -1,0 +1,200 @@
+plugins {
+    id 'fabric-loom' version '1.9-SNAPSHOT'
+    id 'org.jetbrains.kotlin.jvm' version '2.2.21'
+    id 'java'
+}
+
+version = project.mod_version
+group = project.maven_group
+
+base {
+    archivesName = project.archives_base_name
+}
+
+repositories {
+    mavenLocal()
+    maven {
+        name = "Modrinth"
+        url = "https://api.modrinth.com/maven"
+    }
+    maven {
+        name = "Kosmx"
+        url = "https://maven.kosmx.dev/"
+    }
+    maven {
+        name = "Fabric"
+        url = "https://maven.fabricmc.net/"
+    }
+    maven {
+        name = "Shedaniel"
+        url = "https://maven.shedaniel.me/"
+    }
+    maven {
+        name = "Ladysnake"
+        url = "https://maven.ladysnake.org/releases"
+    }
+    maven {
+        name = "DevsOS"
+        url = "https://mvn.devos.one/snapshots/"
+    }
+    maven {
+        name = "Terraformers"
+        url = "https://maven.terraformersmc.com/"
+    }
+    maven {
+        name = "Pool"
+        url = "https://maven.pool.net.eu.org"
+    }
+    maven {
+        name = "FirstDarkDev"
+        url = "https://maven.firstdarkdev.xyz/snapshots"
+    }
+    maven {
+        name = "Hex Casting"
+        url = "https://maven.blamejared.com"
+    }
+    maven {
+        name = "Hexxy"
+        url = "https://maven.hexxy.media"
+    }
+    maven {
+        name = "Wisp Forest"
+        url = "https://maven.wispforest.io"
+    }
+    maven {
+        name = "GeckoLib"
+        url = "https://dl.cloudsmith.io/public/geckolib3/geckolib/maven/"
+    }
+    mavenCentral()
+}
+
+def devRecipeViewer = (project.findProperty("dev_recipe_viewer") ?: "both").toString().toLowerCase()
+if (!(devRecipeViewer in ["jei", "emi", "both"])) {
+    throw new GradleException("dev_recipe_viewer must be jei, emi or both (got '${devRecipeViewer}')")
+}
+def devJei = devRecipeViewer in ["jei", "both"]
+def devEmi = devRecipeViewer in ["emi", "both"]
+
+configurations.configureEach { config ->
+    if (devEmi) {
+        config.resolutionStrategy.force "dev.emi:emi-fabric:${project.emi_version}"
+    } else if (!config.name.toLowerCase().contains("compile")) {
+        config.exclude group: "dev.emi", module: "emi-fabric"
+    }
+}
+
+loom {
+    runs {
+        client {
+            if (project.hasProperty("quickplay")) {
+                programArgs "--quickPlaySingleplayer", project.property("quickplay").toString()
+            }
+            [
+                "hexwright.portal.views",
+                "hexwright.portal.cone",
+                "hexwright.portal.scissor",
+                "hexwright.portal.freshfill",
+                "hexwright.portal.debug",
+                "hexwright.portal.panebloom",
+                "hexwright.portal.fabulous",
+                "hexwright.vault.debug",
+                "hexwright.vault.retain",
+                "hexwright.vault.outsideRadius",
+                "hexwright.shield.debug",
+                "hexwright.shield.face",
+                "hexwright.shield.faces",
+                "hexwright.shield.glow",
+                "hexwright.mixin.disable"
+            ].each { key ->
+                def value = System.getProperty(key)
+                if (value != null) {
+                    property key, value
+                }
+            }
+        }
+    }
+}
+
+dependencies {
+    modCompileOnly "dev.emi:trinkets:3.7.2"
+    modCompileOnly "maven.modrinth:accessories:${project.accessories_modrinth_version}"
+
+    modCompileOnly "mezz.jei:jei-${project.minecraft_version}-fabric-api:${project.jei_version}"
+    modCompileOnly "dev.emi:emi-fabric:${project.emi_version}:api"
+
+    if (devJei) {
+        modLocalRuntime("mezz.jei:jei-${project.minecraft_version}-fabric:${project.jei_version}") {
+            transitive = false
+        }
+    }
+    if (devEmi) {
+        modLocalRuntime "dev.emi:emi-fabric:${project.emi_version}"
+    }
+    compileOnly "com.google.code.findbugs:jsr305:3.0.2"
+
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    mappings loom.officialMojangMappings()
+    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+    modImplementation "dev.kosmx.player-anim:player-animation-lib-fabric:1.0.2+1.19.4"
+
+    modImplementation "net.fabricmc:fabric-language-kotlin:${project.fabric_kotlin_version}"
+    modImplementation "at.petra-k.hexcasting:hexcasting-fabric-${project.minecraft_version}:${project.hexcasting_version}"
+    modImplementation "ram.talia.moreiotas:moreiotas-fabric-${project.minecraft_version}:${project.moreiotas_version}"
+    modImplementation "com.lowdragmc.ldlib:ldlib-fabric-${project.minecraft_version}:${project.ldlib_version}"
+    modImplementation "maven.modrinth:photon-editor:${project.photon_modrinth_version}"
+
+    modImplementation "software.bernie.geckolib:geckolib-fabric-${project.minecraft_version}:${project.geckolib_version}"
+
+    modLocalRuntime "dev.onyxstudios.cardinal-components-api:cardinal-components-base:${project.cardinal_components_version}"
+    modLocalRuntime "dev.onyxstudios.cardinal-components-api:cardinal-components-entity:${project.cardinal_components_version}"
+    modLocalRuntime "dev.onyxstudios.cardinal-components-api:cardinal-components-item:${project.cardinal_components_version}"
+    modLocalRuntime "dev.onyxstudios.cardinal-components-api:cardinal-components-block:${project.cardinal_components_version}"
+    modLocalRuntime "at.petra-k.paucal:paucal-fabric-${project.minecraft_version}:${project.paucal_version}"
+    modLocalRuntime "me.shedaniel.cloth:cloth-config-fabric:${project.cloth_config_version}"
+    modLocalRuntime "vazkii.patchouli:Patchouli:${project.minecraft_version}-${project.patchouli_version}-FABRIC"
+    modLocalRuntime "com.samsthenerd.inline:inline-fabric:${project.minecraft_version}-${project.inline_version}"
+    modLocalRuntime "io.github.tropheusj:serialization-hooks:${project.serialization_hooks_version}"
+    modLocalRuntime "maven.modrinth:accessories:${project.accessories_modrinth_version}"
+
+    modLocalRuntime "maven.modrinth:hexdebug:${project.hexdebug_modrinth_version}"
+    modLocalRuntime "maven.modrinth:ioticblocks:${project.ioticblocks_modrinth_version}"
+    modLocalRuntime "maven.modrinth:architectury-api:${project.architectury_modrinth_version}"
+    modLocalRuntime "gay.object.hexdebug:hexdebug-core-fabric:${project.hexdebug_modrinth_version}"
+    modLocalRuntime "io.github.llamalad7:mixinextras-fabric:0.5.0"
+    runtimeOnly "org.eclipse.lsp4j:org.eclipse.lsp4j:0.23.0"
+    runtimeOnly "org.eclipse.lsp4j:org.eclipse.lsp4j.debug:0.23.0"
+    runtimeOnly "org.eclipse.lsp4j:org.eclipse.lsp4j.jsonrpc:0.23.0"
+    runtimeOnly "org.eclipse.lsp4j:org.eclipse.lsp4j.jsonrpc.debug:0.23.0"
+    runtimeOnly "io.ktor:ktor-io-jvm:2.3.10"
+    runtimeOnly "io.ktor:ktor-network-jvm:2.3.10"
+    runtimeOnly "io.ktor:ktor-utils-jvm:2.3.10"
+    modLocalRuntime "io.wispforest:endec:0.1.8"
+    modLocalRuntime "io.wispforest.endec:gson:0.1.5"
+    modLocalRuntime "io.wispforest.endec:netty:0.1.4"
+}
+
+fileTree(dir: "gradle/local", include: "*.gradle").files.toSorted().each { apply from: it }
+
+processResources {
+    inputs.property "version", project.version
+    filesMatching("fabric.mod.json") {
+        expand "version": project.version
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    it.options.release = 17
+}
+
+tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+    kotlinOptions {
+        jvmTarget = "17"
+    }
+}
+
+java {
+    withSourcesJar()
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}

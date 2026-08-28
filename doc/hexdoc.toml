@@ -1,0 +1,131 @@
+modid = "hexwright"
+book = "hexwright:folio"
+default_lang = "en_us"
+default_branch = "master"
+
+resource_dirs = [
+    "resources",
+    "{$_common.src}/main/resources",
+    { path = "{$_common.src}/generated/resources", required = false },
+    { modid = "minecraft" },
+    { modid = "hexcasting" },
+    { modid = "hexdoc" },
+]
+export_dir = "src/hexdoc_hexwright/_export/generated"
+
+[textures]
+strict = false
+missing = [
+    "minecraft:chest",
+    "hexwright:wither_storm_spawn_egg",
+    "hexwright:blossom_staff", "hexwright:dark_forest_staff", "hexwright:dark_forest_tome_staff",
+    "hexwright:dark_forest_tome_staff_open", "hexwright:eclipse_staff", "hexwright:eclipse_tome_staff",
+    "hexwright:eclipse_tome_staff_open", "hexwright:end_staff", "hexwright:end_tome_staff",
+    "hexwright:end_tome_staff_open", "hexwright:engineers_tome_staff", "hexwright:engineers_tome_staff_open",
+    "hexwright:fern_staff", "hexwright:geode_staff", "hexwright:geode_tome_staff",
+    "hexwright:geode_tome_staff_open", "hexwright:holy_tome_staff", "hexwright:holy_tome_staff_open",
+    "hexwright:hydra_staff", "hexwright:hydra_tome_staff", "hexwright:hydra_tome_staff_open",
+    "hexwright:light_tome_staff", "hexwright:light_tome_staff_open", "hexwright:lovers_tome_staff",
+    "hexwright:lovers_tome_staff_open", "hexwright:nature_tome_staff", "hexwright:nature_tome_staff_open",
+    "hexwright:nether_staff", "hexwright:nether_tome_staff", "hexwright:nether_tome_staff_open",
+    "hexwright:ocean_staff", "hexwright:ocean_tome_staff", "hexwright:ocean_tome_staff_open",
+    "hexwright:penitence_staff", "hexwright:redstone_staff", "hexwright:shadow_staff",
+    "hexwright:shadow_tome_staff", "hexwright:shadow_tome_staff_open", "hexwright:totem_staff",
+    "hexwright:totem_tome_staff", "hexwright:totem_tome_staff_open", "hexwright:weather_tome_staff",
+    "hexwright:weather_tome_staff_open", "hexwright:wind_staff"
+]
+
+[textures.override."hexwright:pocket_caster"]
+texture = "hexwright:textures/item/pocket_caster_icon.png"
+
+[textures.override."hexwright:echo_core"]
+texture = "hexwright:textures/item/echo_core_icon.png"
+
+[textures.override."hexwright:vault_key"]
+texture = "hexwright:textures/item/vault_key_icon.png"
+
+[textures.override."hexwright:reliquary_mirror"]
+texture = "hexwright:textures/item/hexbound_chest_icon.png"
+
+[extra.hexcasting]
+_pattern_regex = { "!Raw" = 'Registry\.register\((?:registry|IXplatAbstractions\.INSTANCE\.getActionRegistry\(\)),\s*Hexwright\.id\("(?P<name>[a-zA-Z0-9_\/]+)"\),\s*new ActionRegistryEntry\(\s*HexPattern\.fromAngles\("(?P<signature>[qweasd]+)",\s*HexDir\.(?P<startdir>\w+)\)' }
+
+[[extra.hexcasting.pattern_stubs]]
+path = "{$_common.src}/main/java/com/bluup/hexwright/server/hexpatterns/HexwrightActions.java"
+regex = "{^_pattern_regex}"
+
+[[extra.hexcasting.pattern_stubs]]
+path = "{$_common.src}/main/java/com/bluup/hexwright/server/hexpatterns/HeldSealActions.java"
+regex = "{^_pattern_regex}"
+
+[[extra.hexcasting.pattern_stubs]]
+path = "{$_common.src}/main/java/com/bluup/hexwright/server/hexpatterns/ResonantAnchorActions.java"
+regex = "{^_pattern_regex}"
+
+[[extra.hexcasting.pattern_stubs]]
+path = "{$_common.src}/main/java/com/bluup/hexwright/server/talisman/TalismanActions.java"
+regex = "{^_pattern_regex}"
+
+[[extra.hexcasting.pattern_stubs]]
+path = "{$_common.src}/main/java/com/bluup/hexwright/server/vehicle/FlightActions.java"
+regex = "{^_pattern_regex}"
+
+[[extra.hexcasting.pattern_stubs]]
+path = "{$_common.src}/main/java/com/bluup/hexwright/server/hexpatterns/WielderActions.java"
+regex = "{^_pattern_regex}"
+
+[[extra.hexcasting.pattern_stubs]]
+path = "{$_common.src}/main/java/com/bluup/hexwright/server/hexpatterns/CantorActions.java"
+regex = "{^_pattern_regex}"
+
+[[extra.hexcasting.pattern_stubs]]
+path = "{$_common.src}/main/java/com/bluup/hexwright/server/hexpatterns/WardingBoxActions.java"
+regex = "{^_pattern_regex}"
+
+[[extra.hexcasting.pattern_stubs]]
+path = "{$_common.src}/main/java/com/bluup/hexwright/server/hexpatterns/HarmonicActions.java"
+regex = "{^_pattern_regex}"
+
+[[extra.hexcasting.pattern_stubs]]
+path = "{$_common.src}/main/java/com/bluup/hexwright/server/hexpatterns/HarmonicEmitterActions.java"
+regex = "{^_pattern_regex}"
+
+[[extra.hexcasting.pattern_stubs]]
+path = "{$_common.src}/main/java/com/bluup/hexwright/server/hexpatterns/HarmonicTransducerActions.java"
+regex = "{^_pattern_regex}"
+
+[[extra.hexcasting.pattern_stubs]]
+path = "{$_common.src}/main/java/com/bluup/hexwright/server/hexpatterns/ResonantRingActions.java"
+regex = "{^_pattern_regex}"
+
+[[extra.hexcasting.pattern_stubs]]
+path = "{$_common.src}/main/java/com/bluup/hexwright/server/hexpatterns/VaultActions.java"
+regex = "{^_pattern_regex}"
+
+[[extra.hexcasting.pattern_stubs]]
+path = "{$_common.src}/main/java/com/bluup/hexwright/server/hexpatterns/VaultRelocationActions.java"
+regex = "{^_pattern_regex}"
+
+[[extra.hexcasting.pattern_stubs]]
+path = "{$_common.src}/main/java/com/bluup/hexwright/server/region/RegionActions.java"
+regex = "{^_pattern_regex}"
+
+[[extra.hexcasting.pattern_stubs]]
+path = "{$_common.src}/main/java/com/bluup/hexwright/server/portal/PortalActions.java"
+regex = "{^_pattern_regex}"
+
+[template]
+icon = "icon.png"
+include = [
+    "hexwright",
+    "hexcasting",
+    "hexdoc",
+]
+
+[template.args]
+mod_name = "Hexwright"
+author = "withgallantry"
+show_landing_text = true
+
+[_common]
+src = "../src"

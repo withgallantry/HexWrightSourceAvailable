@@ -1,0 +1,8 @@
+{
+  hexdoc: {
+    hexwright: {
+      title: "The Hexwright's Folio",
+      description: "The Hexwright Hex Casting addon documentation.",
+    },
+  },
+}

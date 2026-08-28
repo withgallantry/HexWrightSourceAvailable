@@ -1,0 +1,119 @@
+package com.bluup.hexwright.client.render.emissive;
+
+import com.bluup.hexwright.client.render.IrisCompat;
+import com.mojang.brigadier.arguments.FloatArgumentType;
+import com.mojang.brigadier.arguments.IntegerArgumentType;
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
+import com.mojang.brigadier.context.CommandContext;
+import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
+import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
+import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
+
+import static com.mojang.brigadier.Command.SINGLE_SUCCESS;
+
+final class EmissiveBloomCommands {
+    private static final String[] DEBUG_MODE_NAMES = {
+        "normal",
+        "composite skipped",
+        "showing the mask",
+        "capture only",
+    };
+
+    private EmissiveBloomCommands() {
+    }
+
+    static void register() {
+        ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) ->
+            dispatcher.register(ClientCommandManager.literal("hexwrightglow")
+                .then(ClientCommandManager.literal("reload").executes(EmissiveBloomCommands::reload))
+                .then(ClientCommandManager.literal("status").executes(EmissiveBloomCommands::status))
+                .then(ClientCommandManager.literal("on").executes(ctx -> setEnabled(ctx.getSource(), true)))
+                .then(ClientCommandManager.literal("off").executes(ctx -> setEnabled(ctx.getSource(), false)))
+                .then(setting("intensity", EmissiveBloomConfigManager::clampIntensity,
+                    (config, value) -> config.intensity = value))
+                .then(setting("threshold", EmissiveBloomConfigManager::clampGlowThreshold,
+                    (config, value) -> config.glowThreshold = value))
+                .then(setting("saturation", EmissiveBloomConfigManager::clampGlowSaturation,
+                    (config, value) -> config.glowSaturation = value))
+                .then(setting("knee", EmissiveBloomConfigManager::clampGlowKnee,
+                    (config, value) -> config.glowKnee = value))
+                .then(setting("core", EmissiveBloomConfigManager::clampCoreStrength,
+                    (config, value) -> config.coreStrength = value))
+                .then(setting("radius", EmissiveBloomConfigManager::clampBlurRadius,
+                    (config, value) -> config.blurRadius = value))
+                .then(setting("scale", EmissiveBloomConfigManager::clampFramebufferScale,
+                    (config, value) -> config.framebufferScale = value))
+                .then(ClientCommandManager.literal("debug")
+                    .then(ClientCommandManager.argument("mode", IntegerArgumentType.integer(0, 3))
+                        .executes(EmissiveBloomCommands::setDebugMode)))));
+    }
+
+    private static LiteralArgumentBuilder<FabricClientCommandSource> setting(String name, Clamp clamp, Setter setter) {
+        return ClientCommandManager.literal(name)
+            .then(ClientCommandManager.argument("value", FloatArgumentType.floatArg())
+                .executes(ctx -> {
+                    float value = clamp.clamp(FloatArgumentType.getFloat(ctx, "value"));
+                    setter.set(EmissiveBloomConfigManager.get(), value);
+                    EmissiveBloomConfigManager.save();
+                    feedback(ctx.getSource(), "Bloom " + name + " = " + value);
+                    return SINGLE_SUCCESS;
+                }));
+    }
+
+    private static int setDebugMode(CommandContext<FabricClientCommandSource> ctx) {
+        int mode = EmissiveBloomConfigManager.clampDebugMode(IntegerArgumentType.getInteger(ctx, "mode"));
+        EmissiveBloomConfigManager.get().debugMode = mode;
+        EmissiveBloomConfigManager.save();
+        feedback(ctx.getSource(), "Bloom debug " + mode + " (" + DEBUG_MODE_NAMES[mode] + ")");
+        return SINGLE_SUCCESS;
+    }
+
+    private static int reload(CommandContext<FabricClientCommandSource> ctx) {
+        EmissiveBloomConfigManager.reload();
+        EmissiveBloomShaders.retry();
+        feedback(ctx.getSource(), "Bloom config reloaded.");
+        return SINGLE_SUCCESS;
+    }
+
+    private static int status(CommandContext<FabricClientCommandSource> ctx) {
+        EmissiveBloomConfig config = EmissiveBloomConfigManager.get();
+        boolean suppressed = config.disableWhenShaderPackActive && IrisCompat.isShaderPackActive();
+
+        feedback(ctx.getSource(), "Bloom "
+            + (config.enabled ? "on" : "off")
+            + (suppressed ? " (suppressed: shader pack active)" : "")
+            + " | intensity " + config.intensity
+            + " | threshold " + config.glowThreshold
+            + " | saturation " + config.glowSaturation
+            + " | knee " + config.glowKnee
+            + " | core " + config.coreStrength
+            + " | radius " + config.blurRadius
+            + " | scale " + config.framebufferScale
+            + " | shaders " + (EmissiveBloomShaders.shadersReady() ? "loaded" : "NOT LOADED")
+            + (config.debugMode == 0 ? "" : " | DEBUG " + config.debugMode + ": " + DEBUG_MODE_NAMES[config.debugMode]));
+        return SINGLE_SUCCESS;
+    }
+
+    private static int setEnabled(FabricClientCommandSource source, boolean enabled) {
+        EmissiveBloomConfigManager.get().enabled = enabled;
+        EmissiveBloomConfigManager.save();
+        feedback(source, "Bloom " + (enabled ? "enabled." : "disabled."));
+        return SINGLE_SUCCESS;
+    }
+
+    private static void feedback(FabricClientCommandSource source, String message) {
+        source.sendFeedback(Component.literal(message).withStyle(ChatFormatting.AQUA));
+    }
+
+    @FunctionalInterface
+    private interface Clamp {
+        float clamp(float value);
+    }
+
+    @FunctionalInterface
+    private interface Setter {
+        void set(EmissiveBloomConfig config, float value);
+    }
+}

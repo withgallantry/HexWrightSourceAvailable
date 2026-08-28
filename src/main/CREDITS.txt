@@ -1,0 +1,24 @@
+======================================================================
+ASSET ATTRIBUTION & LICENSING
+======================================================================
+The 3D models and textures utilized in this mod were legally purchased
+from MCModels (mcmodels.net) and Patreon. 
+
+Model Creator: LittleRoomDev
+License Type: A  usage agreement was established granting permission to compile and 
+distribute these models inside this mod. It also adheres to the marketplace from which
+they were purchase.
+
+Model Creator: Skulpt
+License Type: A  usage agreement was established granting permission to compile and 
+distribute these models inside this mod. It also adheres to the marketplace from which
+they were purchase.
+
+Model Creator: Zrikons Blacksmith
+License Type: A  usage agreement was established granting permission to compile and 
+distribute these models inside this mod. It also adheres to the marketplace from which
+they were purchase.
+
+Per the marketplace Terms of Service, redistribution of these raw assets 
+outside of this compiled mod file is strictly prohibited.
+======================================================================
