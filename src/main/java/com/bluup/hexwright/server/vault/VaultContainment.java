@@ -79,15 +79,11 @@ public final class VaultContainment {
             player.teleportTo(vaultLevel, arrival.x, arrival.y, arrival.z,
                 player.getYRot(), player.getXRot());
             player.resetFallDistance();
-            player.displayClientMessage(
-                Component.translatable("hexwright.vault.contained_inside", home.id()), true);
             log(server, player, from, "returned to vault " + home.id());
             return;
         }
         CLAIMS.remove(player.getUUID());
         VaultManager.expel(player, home);
-        player.displayClientMessage(
-            Component.translatable("hexwright.vault.contained_outside"), true);
         log(server, player, from, "put outside the vault dimension");
     }
 

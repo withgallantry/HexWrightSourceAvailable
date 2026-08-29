@@ -119,6 +119,9 @@ public final class GradedTooltips {
         if (stack.getItem() instanceof com.bluup.hexwright.server.vault.VaultKeyItem) {
             return com.bluup.hexwright.server.vault.VaultKeyItem.grade(stack);
         }
+        if (stack.getItem() instanceof com.bluup.hexwright.server.remnant.HexEngravedBottleItem) {
+            return com.bluup.hexwright.server.remnant.BottleData.getQuality(stack);
+        }
         return null;
     }
 

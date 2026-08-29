@@ -9,6 +9,7 @@ import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket
 import net.minecraft.resources.ResourceKey
 import net.minecraft.resources.ResourceLocation
 import net.minecraft.server.level.ServerPlayer
+import com.bluup.hexwright.server.worldgen.ruinedportal.RuinedPortalManager
 import net.minecraft.world.level.Level
 import net.minecraft.world.level.block.entity.BlockEntity
 import net.minecraft.world.level.block.state.BlockState
@@ -42,7 +43,9 @@ class DecadentVaultExitBlockEntity(
         val pos = portalPos ?: return false
         val destination = server.getLevel(dimension) ?: return false
         destination.getChunk(pos.x shr 4, pos.z shr 4)
-        player.teleportTo(destination, pos.x + 0.5, pos.y + 1.0, pos.z + 0.5, player.yRot, player.xRot)
+        val landing = RuinedPortalManager.landingBeside(destination, pos)
+        RuinedPortalManager.markCooldown(player)
+        player.teleportTo(destination, landing.x, landing.y, landing.z, player.yRot, player.xRot)
         return true
     }
 

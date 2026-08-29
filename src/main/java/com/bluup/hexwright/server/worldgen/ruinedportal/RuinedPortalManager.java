@@ -6,10 +6,12 @@ import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -48,6 +50,42 @@ public final class RuinedPortalManager {
         if (positions != null) {
             positions.remove(pos);
         }
+    }
+
+    public static Vec3 landingBeside(ServerLevel level, BlockPos portalPos) {
+        AABB box = triggerBox(portalPos);
+        int[] offsets = {3, -3, 4, -4, 5, -5};
+        for (int offset : offsets) {
+            for (boolean alongX : new boolean[]{false, true}) {
+                BlockPos column = alongX
+                    ? portalPos.offset(offset, 0, 0)
+                    : portalPos.offset(0, 0, offset);
+                Vec3 stand = standingSpot(level, column);
+                if (stand != null && !playerBox(stand).intersects(box)) {
+                    return stand;
+                }
+            }
+        }
+        return new Vec3(portalPos.getX() + 0.5, portalPos.getY() + 1.0, portalPos.getZ() + 3.5);
+    }
+
+    private static Vec3 standingSpot(ServerLevel level, BlockPos column) {
+        for (int dy = 4; dy >= -4; dy--) {
+            BlockPos feet = column.above(dy);
+            if (!level.getBlockState(feet.below()).isFaceSturdy(level, feet.below(), net.minecraft.core.Direction.UP)) {
+                continue;
+            }
+            if (!level.getBlockState(feet).getCollisionShape(level, feet).isEmpty()
+                || !level.getBlockState(feet.above()).getCollisionShape(level, feet.above()).isEmpty()) {
+                continue;
+            }
+            return new Vec3(feet.getX() + 0.5, feet.getY(), feet.getZ() + 0.5);
+        }
+        return null;
+    }
+
+    private static AABB playerBox(Vec3 feet) {
+        return new AABB(feet.x - 0.3, feet.y, feet.z - 0.3, feet.x + 0.3, feet.y + 1.8, feet.z + 0.3);
     }
 
     private static AABB triggerBox(BlockPos pos) {
@@ -92,7 +130,7 @@ public final class RuinedPortalManager {
         return last != null && player.level().getGameTime() - last < COOLDOWN_TICKS;
     }
 
-    private static void markCooldown(ServerPlayer player) {
+    public static void markCooldown(ServerPlayer player) {
         COOLDOWNS.put(player.getUUID(), player.level().getGameTime());
     }
 }

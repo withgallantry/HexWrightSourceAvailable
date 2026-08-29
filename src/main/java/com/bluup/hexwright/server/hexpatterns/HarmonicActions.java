@@ -38,15 +38,15 @@ public final class HarmonicActions {
             new ActionRegistryEntry(HexPattern.fromAngles("qqaeawqqq", HexDir.NORTH_EAST), HARMONIC_PUBLISH));
         Registry.register(registry, Hexwright.id("harmonic_set_state"),
             new ActionRegistryEntry(HexPattern.fromAngles("qqaeawaeedqd", HexDir.NORTH_EAST), HARMONIC_SET_STATE));
-        Registry.register(registry, Hexwright.id("carried_resonance"),
-            new ActionRegistryEntry(HexPattern.fromAngles("qqaeawqqaq", HexDir.NORTH_EAST), CARRIED_RESONANCE));
+        Registry.register(registry, Hexwright.id("carried_resonances_reflection"),
+            new ActionRegistryEntry(HexPattern.fromAngles("qqaeawqqaq", HexDir.NORTH_EAST), CARRIED_RESONANCES_REFLECTION));
     }
 
     private static final SpellAction HARMONIC_PUBLISH = new Broadcast(false);
 
     private static final SpellAction HARMONIC_SET_STATE = new Broadcast(true);
 
-    private static final ConstMediaAction CARRIED_RESONANCE = new HexwrightConstMediaAction() {
+    private static final ConstMediaAction CARRIED_RESONANCES_REFLECTION = new HexwrightConstMediaAction() {
         @Override
         public int getArgc() {
             return 0;

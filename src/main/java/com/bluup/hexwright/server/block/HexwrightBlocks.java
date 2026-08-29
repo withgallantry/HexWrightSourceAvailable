@@ -16,6 +16,7 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.DropExperienceBlock;
 import net.minecraft.world.level.block.SlabBlock;
+import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.StairBlock;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
@@ -331,6 +332,7 @@ public final class HexwrightBlocks {
     public static final VaultPlinthBlock VAULT_PLINTH_BLOCK = new VaultPlinthBlock(
         FabricBlockSettings.copyOf(Blocks.CHISELED_QUARTZ_BLOCK)
             .strength(-1.0f, 3600000.0f)
+            .noOcclusion()
             .noLootTable()
     );
 
@@ -344,6 +346,16 @@ public final class HexwrightBlocks {
     );
 
     public static BlockEntityType<DecadentVaultExitBlockEntity> DECADENT_VAULT_EXIT_BLOCK_ENTITY;
+
+    public static final PlacedBottleBlock PLACED_BOTTLE_BLOCK = new PlacedBottleBlock(
+        FabricBlockSettings.copyOf(Blocks.FLOWER_POT)
+            .sounds(SoundType.GLASS)
+            .strength(0.2f)
+            .noOcclusion()
+            .noLootTable()
+    );
+
+    public static BlockEntityType<PlacedBottleBlockEntity> PLACED_BOTTLE_BLOCK_ENTITY;
 
     public static void register() {
         Registry.register(BuiltInRegistries.BLOCK, Hexwright.id("staff_assembly"), STAFF_ASSEMBLY_BLOCK);
@@ -401,6 +413,7 @@ public final class HexwrightBlocks {
         Registry.register(BuiltInRegistries.BLOCK, Hexwright.id("ruined_portal_frame"), RUINED_PORTAL_FRAME_BLOCK);
         Registry.register(BuiltInRegistries.BLOCK, Hexwright.id("vault_plinth"), VAULT_PLINTH_BLOCK);
         Registry.register(BuiltInRegistries.BLOCK, Hexwright.id("decadent_vault_exit"), DECADENT_VAULT_EXIT_BLOCK);
+        Registry.register(BuiltInRegistries.BLOCK, Hexwright.id("placed_bottle"), PLACED_BOTTLE_BLOCK);
 
         ItemGroupEvents.modifyEntriesEvent(CreativeModeTabs.FUNCTIONAL_BLOCKS).register(entries -> {
             entries.accept(STAFF_ASSEMBLY_ITEM);
@@ -551,6 +564,12 @@ public final class HexwrightBlocks {
             BuiltInRegistries.BLOCK_ENTITY_TYPE,
             Hexwright.id("vault_plinth"),
             FabricBlockEntityTypeBuilder.create(VaultPlinthBlockEntity::new, VAULT_PLINTH_BLOCK).build()
+        );
+
+        PLACED_BOTTLE_BLOCK_ENTITY = Registry.register(
+            BuiltInRegistries.BLOCK_ENTITY_TYPE,
+            Hexwright.id("placed_bottle"),
+            FabricBlockEntityTypeBuilder.create(PlacedBottleBlockEntity::new, PLACED_BOTTLE_BLOCK).build()
         );
 
         DECADENT_VAULT_EXIT_BLOCK_ENTITY = Registry.register(

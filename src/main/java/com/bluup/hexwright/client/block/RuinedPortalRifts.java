@@ -43,7 +43,7 @@ public final class RuinedPortalRifts {
 
     private static final float INTENSITY_BIAS = 1.7f;
 
-    private static final float MIN_VOLUME = 0.50f;
+    private static final float MIN_VOLUME = 0.70f;
     private static final float MAX_VOLUME = 1.00f;
     private static final float MIN_PITCH = 0.72f;
     private static final float MAX_PITCH = 1.45f;

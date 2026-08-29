@@ -139,6 +139,7 @@ public final class HexwrightClient implements ClientModInitializer {
         StaffWorkstationRenderer.register();
         com.bluup.hexwright.client.block.RuinedPortalFrameRenderer.register();
         com.bluup.hexwright.client.block.VaultPlinthRenderer.register();
+        com.bluup.hexwright.client.block.PlacedBottleRenderer.register();
         com.bluup.hexwright.client.render.emissive.EmissiveItemModels.register();
         com.bluup.hexwright.client.render.emissive.EmissiveBloom.register();
         com.bluup.hexwright.client.photon.PhotonSceneTextures.register();
@@ -366,7 +367,7 @@ public final class HexwrightClient implements ClientModInitializer {
             (stack, level, entity, seed) -> ReliquarySealItem.attunedPos(stack) != null ? 1.0f : 0.0f);
 
         ColorProviderRegistry.ITEM.register((stack, tintIndex) -> {
-            if (tintIndex != 2) {
+            if (tintIndex != 0) {
                 return 0xFFFFFFFF;
             }
             var contents = com.bluup.hexwright.server.remnant.BottleData.getContents(stack);
@@ -376,7 +377,7 @@ public final class HexwrightClient implements ClientModInitializer {
             return contents.type().dye().getFireworkColor();
         }, HexwrightItems.HEX_ENGRAVED_BOTTLE);
 
-        ItemProperties.register(HexwrightItems.HEX_ENGRAVED_BOTTLE, Hexwright.id("remnant"),
+        ItemProperties.register(HexwrightItems.HEX_ENGRAVED_BOTTLE, Hexwright.id("bottle"),
             new ClampedItemPropertyFunction() {
                 @SuppressWarnings("deprecation")
                 @Override

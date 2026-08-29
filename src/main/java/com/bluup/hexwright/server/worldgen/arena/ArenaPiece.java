@@ -39,6 +39,8 @@ public class ArenaPiece extends TemplateStructurePiece {
 
     private static final double CREW_OFFSET = 2.0D;
 
+    private static final double BALLISTA_CENTRE = 1.12D;
+
     @Nullable
     private final ChunkPos startChunk;
 
@@ -141,10 +143,16 @@ public class ArenaPiece extends TemplateStructurePiece {
         BlockPos golem = markerPos(GOLEM_MARKER);
         float facing = golem == null ? 0.0F : yawToward(pos, golem);
 
+        double heading = facing * Mth.DEG_TO_RAD;
+        double forwardX = -Math.sin(heading);
+        double forwardZ = Math.cos(heading);
+        double x = pos.getX() + 0.5D - forwardX * BALLISTA_CENTRE;
+        double z = pos.getZ() + 0.5D - forwardZ * BALLISTA_CENTRE;
+
         AncientBallistaEntity ballista =
             HexwrightBossEntities.ANCIENT_BALLISTA.create(level.getLevel());
         if (ballista != null) {
-            ballista.moveTo(pos.getX() + 0.5D, pos.getY(), pos.getZ() + 0.5D, facing, 0.0F);
+            ballista.moveTo(x, pos.getY(), z, facing, 0.0F);
             level.addFreshEntity(ballista);
         }
 

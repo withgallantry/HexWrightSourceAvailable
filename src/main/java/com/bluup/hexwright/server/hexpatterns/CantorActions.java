@@ -39,8 +39,8 @@ public final class CantorActions {
     public static void register() {
         Registry<ActionRegistryEntry> registry = IXplatAbstractions.INSTANCE.getActionRegistry();
 
-        Registry.register(registry, Hexwright.id("cantors_reflection"),
-            new ActionRegistryEntry(HexPattern.fromAngles("qeewdweddwdw", HexDir.NORTH_EAST), CANTORS_REFLECTION));
+        Registry.register(registry, Hexwright.id("cantors_purification"),
+            new ActionRegistryEntry(HexPattern.fromAngles("qeewdweddwdw", HexDir.NORTH_EAST), CANTORS_PURIFICATION));
         Registry.register(registry, Hexwright.id("cantors_gambit"),
             new ActionRegistryEntry(HexPattern.fromAngles("eqqwawqaawaw", HexDir.NORTH_WEST), CANTORS_GAMBIT));
     }
@@ -54,7 +54,7 @@ public final class CantorActions {
         };
     }
 
-    private static final Action CANTORS_REFLECTION = (env, image, continuation) -> {
+    private static final Action CANTORS_PURIFICATION = (env, image, continuation) -> {
         List<Iota> stack = new ArrayList<>(image.getStack());
         List<Iota> args = takeArgs(stack, 1);
         int mind = requireMind(env, args, 0, 1);

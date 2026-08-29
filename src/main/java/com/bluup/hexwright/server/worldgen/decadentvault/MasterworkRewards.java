@@ -13,6 +13,8 @@ import net.minecraft.util.RandomSource;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 
+import java.util.List;
+
 final class MasterworkRewards {
 
     private static final Item[] STAFF_CORES = {
@@ -23,32 +25,27 @@ final class MasterworkRewards {
     private MasterworkRewards() {
     }
 
-    static ItemStack roll(RandomSource random) {
-        return switch (random.nextInt(3)) {
-            case 0 -> staffCore(random);
-            case 1 -> broom();
-            default -> armourPiece(random);
-        };
-    }
-
-    private static ItemStack staffCore(RandomSource random) {
+    static ItemStack staffCore(RandomSource random) {
         Item core = STAFF_CORES[random.nextInt(STAFF_CORES.length)];
         return StaffCoreData.create(core, PocketCasterData.Quality.MASTERWORK);
     }
 
-    private static ItemStack broom() {
+    static ItemStack broom(RandomSource random) {
         ItemStack stack = new ItemStack(HexwrightItems.BROOM);
         CompoundTag data = stack.getOrCreateTagElement(VehicleData.ROOT_TAG);
         VehicleData.setQuality(data, PocketCasterData.Quality.MASTERWORK);
         return stack;
     }
 
-    private static ItemStack armourPiece(RandomSource random) {
+    static List<ItemStack> armourSet(RandomSource random) {
         ArmourSet[] sets = ArmourSet.values();
-        ArmourPiece[] pieces = ArmourPiece.values();
         ArmourSet set = sets[random.nextInt(sets.length)];
-        ArmourPiece piece = pieces[random.nextInt(pieces.length)];
-        Item item = HexwrightArmour.piece(set, ArmourTier.forGrade(PocketCasterData.Quality.MASTERWORK), piece);
-        return new ItemStack(item);
+        ArmourTier tier = ArmourTier.forGrade(PocketCasterData.Quality.MASTERWORK);
+        return List.of(
+            new ItemStack(HexwrightArmour.piece(set, tier, ArmourPiece.HELMET)),
+            new ItemStack(HexwrightArmour.piece(set, tier, ArmourPiece.CHESTPLATE)),
+            new ItemStack(HexwrightArmour.piece(set, tier, ArmourPiece.LEGGINGS)),
+            new ItemStack(HexwrightArmour.piece(set, tier, ArmourPiece.BOOTS))
+        );
     }
 }

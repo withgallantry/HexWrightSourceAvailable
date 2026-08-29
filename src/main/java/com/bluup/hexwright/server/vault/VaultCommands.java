@@ -2,6 +2,7 @@ package com.bluup.hexwright.server.vault;
 
 import com.bluup.hexwright.server.pocketcaster.PocketCasterData;
 import com.bluup.hexwright.server.portal.PortalWindow;
+import com.bluup.hexwright.server.worldgen.decadentvault.DecadentVaultRegistry;
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
@@ -10,6 +11,7 @@ import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.suggestion.SuggestionProvider;
 import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.core.BlockPos;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
@@ -149,6 +151,9 @@ public final class VaultCommands {
                 })
                 .then(Commands.argument("id", IntegerArgumentType.integer(0))
                     .executes(context -> rebuild(context, IntegerArgumentType.getInteger(context, "id")))))
+            .then(Commands.literal("decadent")
+                .requires(source -> source.hasPermission(2))
+                .executes(VaultCommands::rebuildDecadent))
             .then(Commands.literal("escape")
                 .executes(context -> {
                     VaultManager.escape(context.getSource().getPlayerOrException());
@@ -205,6 +210,22 @@ public final class VaultCommands {
         return Command.SINGLE_SUCCESS;
     }
 
+    private static int rebuildDecadent(CommandContext<CommandSourceStack> context)
+            throws CommandSyntaxException {
+        ServerPlayer player = context.getSource().getPlayerOrException();
+        ServerLevel level = player.serverLevel();
+        BlockPos entrance = DecadentVaultRegistry.get(player.server).rebuild(level, player.position());
+        if (entrance == null) {
+            context.getSource().sendFailure(Component.translatable("hexwright.vault.no_decadent"));
+            return 0;
+        }
+        player.teleportTo(level, entrance.getX() + 0.5, entrance.getY(), entrance.getZ() + 0.5,
+            player.getYRot(), player.getXRot());
+        context.getSource().sendSuccess(
+            () -> Component.translatable("hexwright.vault.decadent_rebuilt"), true);
+        return Command.SINGLE_SUCCESS;
+    }
+
     private static void give(ServerPlayer player, ItemStack stack) {
         if (!player.getInventory().add(stack)) {
             player.drop(stack, false);
@@ -254,6 +275,7 @@ public final class VaultCommands {
         "/vault key <id>     - a key bound to a vault (op)",
         "/vault tp <id>      - teleport into a vault room (op)",
         "/vault rebuild [id] - regenerate a vault's template over what is there (op)",
+        "/vault decadent    - rebuild the Decadent Vault you are standing in (op)",
         "/vault escape       - teleport out of the vault dimension",
         "/vault debug        - active session diagnostics (op)",
     };

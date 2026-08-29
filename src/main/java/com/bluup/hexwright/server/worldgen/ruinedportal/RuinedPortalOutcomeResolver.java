@@ -162,8 +162,11 @@ public final class RuinedPortalOutcomeResolver {
             return;
         }
         destination.getChunk(binding.getPos().getX() >> 4, binding.getPos().getZ() >> 4);
+        BlockPos landing = binding.getOutcome() == Outcome.DUNGEON
+            ? RuinedPortalLanding.onAnchor(destination, binding.getPos())
+            : binding.getPos();
         player.teleportTo(destination,
-            binding.getPos().getX() + 0.5, binding.getPos().getY(), binding.getPos().getZ() + 0.5,
+            landing.getX() + 0.5, landing.getY(), landing.getZ() + 0.5,
             player.getYRot(), player.getXRot());
         player.level().playSound(null, player.blockPosition(),
             HexwrightSoundEvents.ruinedPortalTeleport(), SoundSource.PLAYERS, 1.0f, 1.0f);

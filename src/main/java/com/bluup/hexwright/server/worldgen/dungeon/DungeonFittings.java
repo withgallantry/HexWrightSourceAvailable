@@ -11,7 +11,10 @@ import net.minecraft.world.level.block.LadderBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.levelgen.structure.BoundingBox;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -237,6 +240,7 @@ public final class DungeonFittings {
     }
 
     static BlockPos anchorSpot(Set<BlockPos> air, BoundingBox module, BlockPos column, BlockPos trap) {
+        BlockPos foot = shaftFoot(air, column);
         BlockPos best = null;
         double bestDistance = Double.MAX_VALUE;
         for (BlockPos pos : air) {
@@ -250,13 +254,64 @@ public final class DungeonFittings {
             if (trap != null && trap.equals(pos.below())) {
                 continue;
             }
-            double dx = pos.getX() - column.getX();
-            double dz = pos.getZ() - column.getZ();
-            double distance = dx * dx + dz * dz;
+            if (!standingRoom(air, pos)) {
+                continue;
+            }
+            double dx = pos.getX() - foot.getX();
+            double dy = pos.getY() - foot.getY();
+            double dz = pos.getZ() - foot.getZ();
+            double distance = dx * dx + dy * dy + dz * dz;
             if (best == null || distance < bestDistance
                 || (distance == bestDistance && compare(pos, best) < 0)) {
                 best = pos;
                 bestDistance = distance;
+            }
+        }
+        return best;
+    }
+
+    private static BlockPos shaftFoot(Set<BlockPos> air, BlockPos column) {
+        BlockPos foot = column;
+        while (air.contains(foot.below())) {
+            foot = foot.below();
+        }
+        return foot;
+    }
+
+    private static boolean standingRoom(Set<BlockPos> air, BlockPos pos) {
+        for (Direction side : Direction.Plane.HORIZONTAL) {
+            if (!air.contains(pos.relative(side)) || !air.contains(pos.above().relative(side))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    static Set<BlockPos> roomAir(Set<BlockPos> air) {
+        List<BlockPos> seeds = new ArrayList<>(air);
+        seeds.sort(DungeonFittings::compare);
+        Set<BlockPos> visited = new HashSet<>();
+        Set<BlockPos> best = Set.of();
+        for (BlockPos seed : seeds) {
+            if (!visited.add(seed)) {
+                continue;
+            }
+            Set<BlockPos> pocket = new HashSet<>();
+            pocket.add(seed);
+            Deque<BlockPos> queue = new ArrayDeque<>();
+            queue.add(seed);
+            while (!queue.isEmpty()) {
+                BlockPos pos = queue.removeFirst();
+                for (Direction side : Direction.values()) {
+                    BlockPos next = pos.relative(side);
+                    if (air.contains(next) && visited.add(next)) {
+                        pocket.add(next);
+                        queue.add(next);
+                    }
+                }
+            }
+            if (pocket.size() > best.size()) {
+                best = pocket;
             }
         }
         return best;

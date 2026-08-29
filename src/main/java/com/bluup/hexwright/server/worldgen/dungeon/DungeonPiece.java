@@ -53,6 +53,8 @@ public class DungeonPiece extends TemplateStructurePiece {
 
     private Set<BlockPos> air;
 
+    private Set<BlockPos> rooms;
+
     private Set<BlockPos> charges;
 
     public DungeonPiece(StructureTemplateManager templates, ResourceLocation template,
@@ -210,6 +212,13 @@ public class DungeonPiece extends TemplateStructurePiece {
         return this.air;
     }
 
+    private Set<BlockPos> roomAir() {
+        if (this.rooms == null) {
+            this.rooms = DungeonFittings.roomAir(air());
+        }
+        return this.rooms;
+    }
+
     private void stockCrystaliteChest(WorldGenLevel level, BoundingBox box, RandomSource random) {
         List<BlockPos> chests = allOf(Blocks.CHEST);
         if (chests.isEmpty()) {
@@ -265,11 +274,11 @@ public class DungeonPiece extends TemplateStructurePiece {
         if (!this.fittings.anchor()) {
             return null;
         }
-        BlockPos column = DungeonFittings.tapColumn(air(), this.boundingBox);
+        BlockPos column = DungeonFittings.tapColumn(roomAir(), this.boundingBox);
         if (column == null) {
             return null;
         }
-        return DungeonFittings.anchorSpot(air(), this.boundingBox, column, trapSpot());
+        return DungeonFittings.anchorSpot(roomAir(), this.boundingBox, column, trapSpot());
     }
 
     private void standAnchor(WorldGenLevel level, BoundingBox box) {
@@ -290,7 +299,7 @@ public class DungeonPiece extends TemplateStructurePiece {
     }
 
     private void openCaveTap(WorldGenLevel level, BoundingBox box, RandomSource random) {
-        BlockPos column = DungeonFittings.tapColumn(air(), this.boundingBox);
+        BlockPos column = DungeonFittings.tapColumn(roomAir(), this.boundingBox);
         if (column == null || !box.isInside(column)) {
             return;
         }

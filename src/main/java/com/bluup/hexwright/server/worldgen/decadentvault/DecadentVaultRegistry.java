@@ -15,6 +15,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.saveddata.SavedData;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -30,13 +31,13 @@ public final class DecadentVaultRegistry extends SavedData {
     private final Map<Integer, Site> sites = new LinkedHashMap<>();
     private int nextId;
 
-    private record Site(ResourceKey<Level> dimension, BlockPos origin) {
+    private record Site(ResourceKey<Level> dimension, BlockPos origin, @Nullable BlockPos portal) {
         AABB bounds() {
             return new AABB(
                 origin.getX(), origin.getY(), origin.getZ(),
-                origin.getX() + DecadentVaultGenerator.SIZE,
+                origin.getX() + DecadentVaultGenerator.SIZE_X,
                 origin.getY() + DecadentVaultGenerator.HEIGHT,
-                origin.getZ() + DecadentVaultGenerator.SIZE);
+                origin.getZ() + DecadentVaultGenerator.SIZE_Z);
         }
     }
 
@@ -48,7 +49,7 @@ public final class DecadentVaultRegistry extends SavedData {
     public BlockPos createFor(ServerLevel level, BlockPos portalPos) {
         BlockPos origin = siteUnder(level, portalPos);
         int id = nextId++;
-        sites.put(id, new Site(level.dimension(), origin));
+        sites.put(id, new Site(level.dimension(), origin, portalPos));
         setDirty();
         BlockPos entrance = DecadentVaultGenerator.generate(
             level, origin, level.dimension(), portalPos, level.random);
@@ -59,12 +60,12 @@ public final class DecadentVaultRegistry extends SavedData {
 
     private BlockPos siteUnder(ServerLevel level, BlockPos portalPos) {
         int y = level.getMinBuildHeight() + DEPTH_ABOVE_FLOOR;
-        int x = portalPos.getX() - DecadentVaultGenerator.SIZE / 2;
-        int z = portalPos.getZ() - DecadentVaultGenerator.SIZE / 2;
-        int step = DecadentVaultGenerator.SIZE + SEPARATION;
+        int x = portalPos.getX() - DecadentVaultGenerator.SIZE_X / 2;
+        int z = portalPos.getZ() - DecadentVaultGenerator.SIZE_Z / 2;
+        int step = Math.max(DecadentVaultGenerator.SIZE_X, DecadentVaultGenerator.SIZE_Z) + SEPARATION;
         for (int attempt = 0; attempt < 64; attempt++) {
             BlockPos candidate = new BlockPos(x + attempt * step, y, z);
-            if (isClear(level.dimension(), new Site(level.dimension(), candidate).bounds())) {
+            if (isClear(level.dimension(), new Site(level.dimension(), candidate, portalPos).bounds())) {
                 return candidate;
             }
         }
@@ -78,6 +79,20 @@ public final class DecadentVaultRegistry extends SavedData {
             }
         }
         return true;
+    }
+
+    public @Nullable BlockPos rebuild(ServerLevel level, Vec3 position) {
+        for (Site site : sites.values()) {
+            if (!site.dimension().equals(level.dimension()) || !site.bounds().contains(position)) {
+                continue;
+            }
+            if (site.portal() == null) {
+                return null;
+            }
+            return DecadentVaultGenerator.generate(
+                level, site.origin(), level.dimension(), site.portal(), level.random);
+        }
+        return null;
     }
 
     public boolean isEmptyIn(ResourceKey<Level> dimension) {
@@ -113,7 +128,10 @@ public final class DecadentVaultRegistry extends SavedData {
             ResourceKey<Level> dimension = dimensionId == null
                 ? VaultDimension.KEY
                 : ResourceKey.create(Registries.DIMENSION, dimensionId);
-            registry.sites.put(id, new Site(dimension, origin));
+            BlockPos portal = row.contains("PortalX")
+                ? new BlockPos(row.getInt("PortalX"), row.getInt("PortalY"), row.getInt("PortalZ"))
+                : null;
+            registry.sites.put(id, new Site(dimension, origin, portal));
         }
         return registry;
     }
@@ -129,6 +147,11 @@ public final class DecadentVaultRegistry extends SavedData {
             row.putInt("X", site.origin().getX());
             row.putInt("Y", site.origin().getY());
             row.putInt("Z", site.origin().getZ());
+            if (site.portal() != null) {
+                row.putInt("PortalX", site.portal().getX());
+                row.putInt("PortalY", site.portal().getY());
+                row.putInt("PortalZ", site.portal().getZ());
+            }
             entries.add(row);
         });
         tag.put("Vaults", entries);

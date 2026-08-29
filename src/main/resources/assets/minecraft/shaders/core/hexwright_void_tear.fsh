@@ -28,6 +28,13 @@
 // scene behind is refracted, so space is visibly buckled around the wound
 // rather than merely interrupted by it. With SceneReady 0 (no scene copy this
 // frame) that outer band degrades to a plain violet haze.
+//
+// That outer band is measured to the silhouette in *both* axes. Measuring it
+// across only - which is all the interior needs - left the band at full
+// strength everywhere past the tips, where the lens has already tapered to
+// nothing: a bright hairline shooting out of each end of the rip. Wrapping the
+// tips instead gives the band a rounded cap, the same thickness there as along
+// the flanks.
 
 uniform sampler2D SceneSampler;
 
@@ -124,6 +131,9 @@ void main() {
     float edge = edgeProfile(along, across >= 0.0 ? 1.0 : -1.0);
     // Signed distance to the silhouette in normalised units: positive inside.
     float d = edge - abs(across);
+    // How far past a tip we are, along the rip. Zero everywhere the lens still
+    // has width, so it only ever affects the two caps.
+    float beyondTip = max(0.0, abs(along) - 1.0);
     // ...and the same in blocks, which is what the glow falloffs want, so a
     // big rip and a small one get proportionate lips rather than identical ones.
     float dBlocks = d * TearSize.y * openAcross;
@@ -155,7 +165,13 @@ void main() {
         // Outside it. Space buckling around the tear, strongest at the lip and
         // gone within a band; nothing beyond that, so the effect has no edge of
         // its own to give itself away.
-        float outer = exp(d / (WARP_BAND * 0.45));
+        //
+        // Distance to the silhouette itself, not merely across the rip: past a
+        // tip the nearest part of the wound *is* the tip, so the band has to
+        // reckon with the along-axis gap as well or it runs off both ends as a
+        // hairline. With it, the band closes round the tips as a cap.
+        float dOut = -length(vec2(beyondTip, d));
+        float outer = exp(dOut / (WARP_BAND * 0.45));
         if (outer < 0.004) {
             discard;
         }
@@ -172,7 +188,7 @@ void main() {
             // No scene to bend: a violet haze rather than a hard-edged plate.
             veil = mix(VOID_DEEP, VOID_CHURN, fbm(vec2(along * 3.0 + t * 0.1, across * 2.0)));
         }
-        float glow = exp(d / (WARP_BAND * 0.16));
+        float glow = exp(dOut / (WARP_BAND * 0.16));
         color = veil + RIM_COLOR * glow * 0.55;
         // Opacity must not outrun the displacement, or wherever it saturates
         // becomes a hard line - the very thing the band exists to avoid.
