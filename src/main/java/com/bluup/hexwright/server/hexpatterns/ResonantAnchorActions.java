@@ -29,11 +29,11 @@ public final class ResonantAnchorActions {
     public static void register() {
         Registry<ActionRegistryEntry> registry = IXplatAbstractions.INSTANCE.getActionRegistry();
 
-        Registry.register(registry, Hexwright.id("resonant_anchors_ledger"),
-            new ActionRegistryEntry(HexPattern.fromAngles("qaqwwdwdw", HexDir.SOUTH_WEST), RESONANT_ANCHORS_LEDGER));
+        Registry.register(registry, Hexwright.id("resonant_anchors_purification"),
+            new ActionRegistryEntry(HexPattern.fromAngles("qaqwwdwdw", HexDir.SOUTH_WEST), RESONANT_ANCHORS_PURIFICATION));
     }
 
-    private static final ConstMediaAction RESONANT_ANCHORS_LEDGER = new HexwrightConstMediaAction() {
+    private static final ConstMediaAction RESONANT_ANCHORS_PURIFICATION = new HexwrightConstMediaAction() {
         @Override
         public int getArgc() {
             return 1;

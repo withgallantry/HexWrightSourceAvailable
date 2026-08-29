@@ -41,8 +41,8 @@ public final class HeldSealActions {
     public static void register() {
         Registry<ActionRegistryEntry> registry = IXplatAbstractions.INSTANCE.getActionRegistry();
 
-        Registry.register(registry, Hexwright.id("reliquarys_ledger"),
-            new ActionRegistryEntry(HexPattern.fromAngles("weeeew", HexDir.WEST), RELIQUARYS_LEDGER));
+        Registry.register(registry, Hexwright.id("reliquarys_reflection"),
+            new ActionRegistryEntry(HexPattern.fromAngles("weeeew", HexDir.WEST), RELIQUARYS_REFLECTION));
         Registry.register(registry, Hexwright.id("reliquarys_offering"),
             new ActionRegistryEntry(HexPattern.fromAngles("weeeewqaa", HexDir.WEST), RELIQUARYS_OFFERING));
         Registry.register(registry, Hexwright.id("reliquarys_reclamation"),
@@ -105,7 +105,7 @@ public final class HeldSealActions {
         grantOrDrop(caster, evicted);
     }
 
-    private static final ConstMediaAction RELIQUARYS_LEDGER = new HexwrightConstMediaAction() {
+    private static final ConstMediaAction RELIQUARYS_REFLECTION = new HexwrightConstMediaAction() {
         @Override
         public int getArgc() {
             return 0;

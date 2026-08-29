@@ -49,8 +49,8 @@ public final class WardingBoxActions {
 
         Registry.register(registry, Hexwright.id("wardens_attunement"),
             new ActionRegistryEntry(HexPattern.fromAngles("dqaqd", HexDir.EAST), WARDENS_ATTUNEMENT));
-        Registry.register(registry, Hexwright.id("wardens_reflection"),
-            new ActionRegistryEntry(HexPattern.fromAngles("wawqwawa", HexDir.SOUTH_WEST), WARDENS_REFLECTION));
+        Registry.register(registry, Hexwright.id("wardens_purification"),
+            new ActionRegistryEntry(HexPattern.fromAngles("wawqwawa", HexDir.SOUTH_WEST), WARDENS_PURIFICATION));
         Registry.register(registry, Hexwright.id("wardens_gambit"),
             new ActionRegistryEntry(HexPattern.fromAngles("wawqwawaa", HexDir.SOUTH_WEST), WARDENS_GAMBIT));
         Registry.register(registry, Hexwright.id("redirect"),
@@ -108,7 +108,7 @@ public final class WardingBoxActions {
         }
     };
 
-    private static final ConstMediaAction WARDENS_REFLECTION = new HexwrightConstMediaAction() {
+    private static final ConstMediaAction WARDENS_PURIFICATION = new HexwrightConstMediaAction() {
         @Override
         public int getArgc() {
             return 1;
