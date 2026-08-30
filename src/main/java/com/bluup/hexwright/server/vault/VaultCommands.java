@@ -153,7 +153,12 @@ public final class VaultCommands {
                     .executes(context -> rebuild(context, IntegerArgumentType.getInteger(context, "id")))))
             .then(Commands.literal("decadent")
                 .requires(source -> source.hasPermission(2))
-                .executes(VaultCommands::rebuildDecadent))
+                .executes(VaultCommands::rebuildDecadent)
+                .then(Commands.literal("create")
+                    .executes(VaultCommands::createDecadent)))
+            .then(Commands.literal("locate")
+                .requires(source -> source.hasPermission(2))
+                .executes(VaultCommands::locateDecadent))
             .then(Commands.literal("escape")
                 .executes(context -> {
                     VaultManager.escape(context.getSource().getPlayerOrException());
@@ -226,6 +231,34 @@ public final class VaultCommands {
         return Command.SINGLE_SUCCESS;
     }
 
+    private static int createDecadent(CommandContext<CommandSourceStack> context)
+            throws CommandSyntaxException {
+        ServerPlayer player = context.getSource().getPlayerOrException();
+        ServerLevel level = player.serverLevel();
+        BlockPos entrance = DecadentVaultRegistry.get(player.server).createFor(level, player.blockPosition());
+        player.teleportTo(level, entrance.getX() + 0.5, entrance.getY(), entrance.getZ() + 0.5,
+            player.getYRot(), player.getXRot());
+        context.getSource().sendSuccess(
+            () -> Component.translatable("hexwright.vault.decadent_created"), true);
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private static int locateDecadent(CommandContext<CommandSourceStack> context)
+            throws CommandSyntaxException {
+        ServerPlayer player = context.getSource().getPlayerOrException();
+        DecadentVaultRegistry.Located nearest = DecadentVaultRegistry.get(player.server)
+            .nearest(player.level().dimension(), player.blockPosition());
+        if (nearest == null) {
+            context.getSource().sendFailure(Component.translatable("hexwright.vault.no_decadent_found"));
+            return 0;
+        }
+        BlockPos target = nearest.portal() != null ? nearest.portal() : nearest.origin();
+        long distance = Math.round(Math.sqrt(player.blockPosition().distSqr(target)));
+        context.getSource().sendSuccess(() -> Component.translatable("hexwright.vault.decadent_located",
+            target.getX(), target.getY(), target.getZ(), distance), false);
+        return Command.SINGLE_SUCCESS;
+    }
+
     private static void give(ServerPlayer player, ItemStack stack) {
         if (!player.getInventory().add(stack)) {
             player.drop(stack, false);
@@ -276,6 +309,8 @@ public final class VaultCommands {
         "/vault tp <id>      - teleport into a vault room (op)",
         "/vault rebuild [id] - regenerate a vault's template over what is there (op)",
         "/vault decadent    - rebuild the Decadent Vault you are standing in (op)",
+        "/vault decadent create - guarantee a fresh Decadent Vault under you, for testing (op)",
+        "/vault locate       - nearest Decadent Vault in your dimension (op)",
         "/vault escape       - teleport out of the vault dimension",
         "/vault debug        - active session diagnostics (op)",
     };

@@ -2,7 +2,6 @@ package com.bluup.hexwright.server.staff_assembly;
 
 import at.petrak.hexcasting.api.utils.NBTHelper;
 import at.petrak.hexcasting.api.casting.math.HexPattern;
-import at.petrak.hexcasting.api.misc.MediaConstants;
 import at.petrak.hexcasting.common.lib.HexAttributes;
 import com.bluup.hexwright.common.staff_assembly.StaffPartCategory;
 import com.bluup.hexwright.common.staff_assembly.calc.ComponentResult;
@@ -29,11 +28,10 @@ public final class StaffAssemblyData {
     private static final String TAG_AREA_CAST = "area_cast";
     private static final String TAG_AREA_WIDTH = "area_width";
     private static final String TAG_MEDIA_RESERVE = "media_reserve";
-    private static final String TAG_MEDIA_REGEN_PROGRESS = "media_regen_progress";
-    private static final String TAG_STORED_MEDIA = "hexcasting:media";
 
     private static final UUID GRID_ZOOM_MODIFIER_ID = UUID.fromString("fda8cbf8-b585-4be9-8ece-aa5ba95dc581");
     private static final UUID AMBIT_MODIFIER_ID = UUID.fromString("1b5b45f1-3010-4f7e-bd7f-c45faa26d9a7");
+    private static final UUID MEDIA_DISCOUNT_MODIFIER_ID = UUID.fromString("7e5a2b1d-6c3f-4a2e-9b8d-2f6e4c1a9d70");
 
     private StaffAssemblyData() {
     }
@@ -72,15 +70,14 @@ public final class StaffAssemblyData {
         assembly.putDouble("catalyst_attunement", result.catalyst().attunementCost());
         assembly.putDouble("catalyst_efficiency", result.catalyst().efficiency());
 
-        setAttributeModifiers(stack, result.wrap().output(), result.focus().output());
-        setStoredMedia(stack, getMaxMedia(stack));
-        assembly.putDouble(TAG_MEDIA_REGEN_PROGRESS, 0.0);
+        setAttributeModifiers(stack, result.wrap().output(), result.focus().output(), result.catalyst().output());
     }
 
-    private static void setAttributeModifiers(ItemStack stack, double gambit, double ambit) {
+    private static void setAttributeModifiers(ItemStack stack, double gambit, double ambit, double catalystOutput) {
         ListTag modifiers = new ListTag();
         modifiers.add(attributeModifierTag(HexAttributes.GRID_ZOOM, GRID_ZOOM_MODIFIER_ID, "Hexwright Staff Grid Zoom", gambit / 100.0, AttributeModifier.Operation.MULTIPLY_BASE));
         modifiers.add(attributeModifierTag(HexAttributes.AMBIT_RADIUS, AMBIT_MODIFIER_ID, "Hexwright Staff Ambit", ambit, AttributeModifier.Operation.ADDITION));
+        modifiers.add(attributeModifierTag(HexAttributes.MEDIA_CONSUMPTION_MODIFIER, MEDIA_DISCOUNT_MODIFIER_ID, "Hexwright Staff Catalyst Discount", -getMediaDiscount(catalystOutput), AttributeModifier.Operation.ADDITION));
         CompoundTag root = stack.getOrCreateTag();
         root.put("AttributeModifiers", modifiers);
         root.putInt("HideFlags", root.getInt("HideFlags") | ItemStack.TooltipPart.MODIFIERS.getMask());
@@ -206,27 +203,8 @@ public final class StaffAssemblyData {
         return getAssemblyOrEmpty(stack).getDouble(TAG_MEDIA_RESERVE);
     }
 
-    public static int getBatterySize(ItemStack stack) {
-        return getBatterySize(getCatalystOutput(stack));
-    }
-
-    public static int getMediaPerMinute(ItemStack stack) {
-        return getMediaPerMinute(getCatalystOutput(stack));
-    }
-
-    public static long getMaxMedia(ItemStack stack) {
-        return (long) getBatterySize(stack) * MediaConstants.DUST_UNIT;
-    }
-
-    public static long getStoredMedia(ItemStack stack) {
-        if (NBTHelper.hasInt(stack, TAG_STORED_MEDIA)) {
-            return NBTHelper.getInt(stack, TAG_STORED_MEDIA);
-        }
-        return NBTHelper.getLong(stack, TAG_STORED_MEDIA);
-    }
-
-    public static void setStoredMedia(ItemStack stack, long media) {
-        NBTHelper.putLong(stack, TAG_STORED_MEDIA, Math.max(0L, Math.min(media, getMaxMedia(stack))));
+    public static double getMediaDiscount(ItemStack stack) {
+        return getMediaDiscount(getCatalystOutput(stack));
     }
 
     public static void syncDerivedState(ItemStack stack) {
@@ -234,84 +212,26 @@ public final class StaffAssemblyData {
             return;
         }
 
-        setAttributeModifiers(stack, getGambit(stack), getAmbit(stack));
-
-        long maxMedia = getMaxMedia(stack);
-        if (maxMedia <= 0) {
-            setStoredMedia(stack, 0L);
-            return;
-        }
-
-        CompoundTag root = stack.getOrCreateTag();
-        if (!root.contains(TAG_STORED_MEDIA, Tag.TAG_ANY_NUMERIC)) {
-            setStoredMedia(stack, maxMedia);
-            return;
-        }
-
-        setStoredMedia(stack, getStoredMedia(stack));
+        setAttributeModifiers(stack, getGambit(stack), getAmbit(stack), getCatalystOutput(stack));
     }
 
-    public static void rechargeOneTick(ItemStack stack) {
-        long maxMedia = getMaxMedia(stack);
-        if (maxMedia <= 0) {
-            return;
-        }
-
-        int mediaPerMinute = getMediaPerMinute(stack);
-        if (mediaPerMinute <= 0) {
-            return;
-        }
-
-        CompoundTag assembly = NBTHelper.getOrCreateCompound(stack, TAG_ASSEMBLY_ROOT);
-        double perTick = mediaPerMinute * (double) MediaConstants.DUST_UNIT / (20.0 * 60.0);
-        double progress = assembly.getDouble(TAG_MEDIA_REGEN_PROGRESS) + perTick;
-        long wholeMedia = (long) progress;
-        if (wholeMedia > 0) {
-            long currentMedia = getStoredMedia(stack);
-            long inserted = Math.min(wholeMedia, Math.max(0L, maxMedia - currentMedia));
-            if (inserted > 0) {
-                setStoredMedia(stack, currentMedia + inserted);
-                progress -= inserted;
-            } else {
-                progress = 0.0;
-            }
-        }
-        assembly.putDouble(TAG_MEDIA_REGEN_PROGRESS, progress);
-    }
-
-    public static int getBatterySize(double catalystOutput) {
+    public static double getMediaDiscount(double catalystOutput) {
         if (catalystOutput <= 0.0) {
-            return 0;
+            return 0.0;
         }
         if (catalystOutput <= 30.0) {
-            return 50;
+            return 0.10;
         }
         if (catalystOutput <= 60.0) {
-            return 100;
+            return 0.20;
         }
         if (catalystOutput <= 90.0) {
-            return 200;
+            return 0.30;
         }
 
         double capped = Math.min(catalystOutput, 120.0);
         double progress = (capped - 90.0) / 30.0;
-        return 300 + (int) Math.round(progress * 100.0);
-    }
-
-    public static int getMediaPerMinute(double catalystOutput) {
-        if (catalystOutput <= 0.0) {
-            return 0;
-        }
-        if (catalystOutput <= 30.0) {
-            return 2;
-        }
-        if (catalystOutput <= 60.0) {
-            return 4;
-        }
-        if (catalystOutput <= 90.0) {
-            return 6;
-        }
-        return 10;
+        return 0.30 + progress * 0.10;
     }
 
     public static double getEfficiency(ItemStack stack) {

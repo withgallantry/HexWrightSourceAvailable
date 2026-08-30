@@ -95,6 +95,26 @@ public final class DecadentVaultRegistry extends SavedData {
         return null;
     }
 
+    public record Located(int id, BlockPos origin, @Nullable BlockPos portal) {
+    }
+
+    public @Nullable Located nearest(ResourceKey<Level> dimension, BlockPos from) {
+        Located best = null;
+        double bestDist = Double.MAX_VALUE;
+        for (Map.Entry<Integer, Site> entry : sites.entrySet()) {
+            Site site = entry.getValue();
+            if (!site.dimension().equals(dimension)) {
+                continue;
+            }
+            double dist = site.origin().distSqr(from);
+            if (dist < bestDist) {
+                bestDist = dist;
+                best = new Located(entry.getKey(), site.origin(), site.portal());
+            }
+        }
+        return best;
+    }
+
     public boolean isEmptyIn(ResourceKey<Level> dimension) {
         for (Site site : sites.values()) {
             if (site.dimension().equals(dimension)) {

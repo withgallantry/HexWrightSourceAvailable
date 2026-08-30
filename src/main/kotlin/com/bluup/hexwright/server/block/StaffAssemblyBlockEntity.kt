@@ -721,23 +721,21 @@ class StaffAssemblyBlockEntity(
 
     private fun reserveValueText(): String {
         val catalystOutput = mergedResultForUi().catalyst().output()
-        val batterySize = StaffAssemblyData.getBatterySize(catalystOutput)
-        val mediaPerMinute = StaffAssemblyData.getMediaPerMinute(catalystOutput)
-        return if (batterySize <= 0 || mediaPerMinute <= 0) {
+        val discountPercent = Math.round(StaffAssemblyData.getMediaDiscount(catalystOutput) * 100.0).toInt()
+        return if (discountPercent <= 0) {
             "0"
         } else {
-            Component.translatable("gui.hexwright.staff_assembly.reserve.value", batterySize.toString(), mediaPerMinute.toString()).string
+            Component.translatable("gui.hexwright.staff_assembly.reserve.value", discountPercent.toString()).string
         }
     }
 
     private fun reserveTooltip(): Component {
         val catalystOutput = mergedResultForUi().catalyst().output()
-        val batterySize = StaffAssemblyData.getBatterySize(catalystOutput)
-        val mediaPerMinute = StaffAssemblyData.getMediaPerMinute(catalystOutput)
-        return if (batterySize <= 0 || mediaPerMinute <= 0) {
+        val discountPercent = Math.round(StaffAssemblyData.getMediaDiscount(catalystOutput) * 100.0).toInt()
+        return if (discountPercent <= 0) {
             Component.translatable("gui.hexwright.staff_assembly.reserve.tooltip.empty")
         } else {
-            Component.translatable("gui.hexwright.staff_assembly.reserve.tooltip", batterySize, mediaPerMinute)
+            Component.translatable("gui.hexwright.staff_assembly.reserve.tooltip", discountPercent)
         }
     }
 

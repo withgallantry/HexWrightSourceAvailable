@@ -132,26 +132,19 @@ public final class StaffCoreBeamHandler {
         if (cost <= 0) {
             return true;
         }
-        if (drawMedia(player, staff, cost, true) > 0) {
+        long discounted = Math.round(cost * (1.0 - StaffAssemblyData.getMediaDiscount(staff)));
+        if (discounted <= 0) {
+            return true;
+        }
+        if (drawMedia(player, discounted, true) > 0) {
             return false;
         }
-        drawMedia(player, staff, cost, false);
+        drawMedia(player, discounted, false);
         return true;
     }
 
-    private static long drawMedia(ServerPlayer player, ItemStack staff, long cost, boolean simulate) {
+    private static long drawMedia(ServerPlayer player, long cost, boolean simulate) {
         long remaining = cost;
-        long staffAvailable = StaffAssemblyData.getStoredMedia(staff);
-        long fromStaff = Math.min(remaining, staffAvailable);
-        if (fromStaff > 0) {
-            remaining -= fromStaff;
-            if (!simulate) {
-                StaffAssemblyData.setStoredMedia(staff, staffAvailable - fromStaff);
-            }
-        }
-        if (remaining <= 0) {
-            return 0;
-        }
         for (ADMediaHolder source : MediaHelper.scanPlayerForMediaStuff(player)) {
             long got = MediaHelper.extractMedia(source, remaining, false, simulate);
             remaining -= got;

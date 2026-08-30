@@ -13,13 +13,10 @@ import com.bluup.hexwright.server.staff_assembly.StaffCoreData;
 import com.bluup.hexwright.server.staff_assembly.StaffCoreItem;
 import com.bluup.hexwright.server.staff_assembly.StaffGreatSpellData;
 import com.bluup.hexwright.server.staff_assembly.StaffPowers;
-import at.petrak.hexcasting.api.item.MediaHolderItem;
-import at.petrak.hexcasting.api.utils.MediaHelper;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.level.Level;
@@ -28,7 +25,7 @@ import org.jetbrains.annotations.Nullable;
 import java.util.List;
 import java.util.Optional;
 
-public class ConfigurableStaffItem extends ItemHexwrightStaff implements MediaHolderItem {
+public class ConfigurableStaffItem extends ItemHexwrightStaff {
     public ConfigurableStaffItem(Properties properties) {
         super(properties);
     }
@@ -39,9 +36,6 @@ public class ConfigurableStaffItem extends ItemHexwrightStaff implements MediaHo
         if (!level.isClientSide && StaffAssemblyData.hasStats(stack)) {
             StaffAssemblyData.ensureModifierTooltipHidden(stack);
             StaffAssemblyData.syncDerivedState(stack);
-            if (entity instanceof net.minecraft.world.entity.player.Player && slotId >= 0 && slotId < Inventory.getSelectionSize()) {
-                StaffAssemblyData.rechargeOneTick(stack);
-            }
         }
     }
 
@@ -111,15 +105,9 @@ public class ConfigurableStaffItem extends ItemHexwrightStaff implements MediaHo
                     .withStyle(ChatFormatting.BLUE));
             }
 
-            int batterySize = StaffAssemblyData.getBatterySize(stack);
-            if (batterySize > 0) {
-                tooltip.add(Component.translatable("tooltip.hexwright.staff.battery_size", batterySize)
-                    .withStyle(ChatFormatting.GREEN));
-            }
-
-            int mediaPerMinute = StaffAssemblyData.getMediaPerMinute(stack);
-            if (mediaPerMinute > 0) {
-                tooltip.add(Component.translatable("tooltip.hexwright.staff.recharge", mediaPerMinute)
+            int mediaDiscountPercent = (int) Math.round(StaffAssemblyData.getMediaDiscount(stack) * 100.0);
+            if (mediaDiscountPercent > 0) {
+                tooltip.add(Component.translatable("tooltip.hexwright.staff.media_discount", mediaDiscountPercent)
                     .withStyle(ChatFormatting.GREEN));
             }
 
@@ -161,45 +149,5 @@ public class ConfigurableStaffItem extends ItemHexwrightStaff implements MediaHo
 
     private static String format(double value) {
         return String.valueOf(Math.round(value));
-    }
-
-    @Override
-    public long getMedia(ItemStack stack) {
-        return StaffAssemblyData.getStoredMedia(stack);
-    }
-
-    @Override
-    public long getMaxMedia(ItemStack stack) {
-        return StaffAssemblyData.getMaxMedia(stack);
-    }
-
-    @Override
-    public void setMedia(ItemStack stack, long media) {
-        StaffAssemblyData.setStoredMedia(stack, media);
-    }
-
-    @Override
-    public boolean canProvideMedia(ItemStack stack) {
-        return getMaxMedia(stack) > 0;
-    }
-
-    @Override
-    public boolean canRecharge(ItemStack stack) {
-        return getMaxMedia(stack) > 0;
-    }
-
-    @Override
-    public boolean isBarVisible(ItemStack stack) {
-        return getMaxMedia(stack) > 0;
-    }
-
-    @Override
-    public int getBarWidth(ItemStack stack) {
-        return MediaHelper.mediaBarWidth(getMedia(stack), getMaxMedia(stack));
-    }
-
-    @Override
-    public int getBarColor(ItemStack stack) {
-        return MediaHelper.mediaBarColor(getMedia(stack), getMaxMedia(stack));
     }
 }

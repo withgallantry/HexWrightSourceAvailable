@@ -18,12 +18,18 @@ import at.petrak.hexcasting.api.misc.MediaConstants;
 import at.petrak.hexcasting.xplat.IXplatAbstractions;
 import com.bluup.hexwright.Hexwright;
 import net.minecraft.Util;
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.Registry;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.util.Mth;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 public final class PortalActions {
@@ -189,6 +195,41 @@ public final class PortalActions {
             throw MishapInvalidIota.of(raw, blame, "hexwright.portal_size",
                 String.format("%.0f", PortalWindow.MAX_SPAN));
         }
+        if (intersectsPhysicalWorld(env.getWorld(), window)) {
+            throw MishapInvalidIota.of(raw, blame, "hexwright.portal_blocked");
+        }
         return window;
+    }
+
+    private static boolean intersectsPhysicalWorld(ServerLevel level, PortalWindow window) {
+        int minY = Mth.floor(window.origin().y);
+        int maxY = Mth.floor(window.origin().y + window.height() - 1.0e-6);
+        for (BlockPos column : horizontalColumns(window)) {
+            for (int y = minY; y <= maxY; y++) {
+                BlockPos pos = new BlockPos(column.getX(), y, column.getZ());
+                BlockState state = level.getBlockState(pos);
+                if (!state.getCollisionShape(level, pos).isEmpty()) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static List<BlockPos> horizontalColumns(PortalWindow window) {
+        Vec3 start = window.origin();
+        Vec3 end = start.add(window.u());
+        int steps = Math.max(1, (int) Math.ceil(window.width() / 0.2));
+        Set<Long> seen = new HashSet<>();
+        List<BlockPos> columns = new ArrayList<>();
+        for (int i = 0; i <= steps; i++) {
+            double t = (double) i / steps;
+            int bx = Mth.floor(Mth.lerp(t, start.x, end.x));
+            int bz = Mth.floor(Mth.lerp(t, start.z, end.z));
+            if (seen.add((((long) bx) << 32) ^ (bz & 0xFFFFFFFFL))) {
+                columns.add(new BlockPos(bx, 0, bz));
+            }
+        }
+        return columns;
     }
 }
