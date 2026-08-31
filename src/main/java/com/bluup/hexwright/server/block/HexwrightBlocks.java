@@ -358,6 +358,19 @@ public final class HexwrightBlocks {
 
     public static BlockEntityType<PlacedBottleBlockEntity> PLACED_BOTTLE_BLOCK_ENTITY;
 
+    public static final com.bluup.hexwright.server.fluid.HexidTankBlock HEXID_TANK_BLOCK =
+        new com.bluup.hexwright.server.fluid.HexidTankBlock(
+            soft(Blocks.COPPER_BLOCK)
+                .noOcclusion()
+        );
+
+    public static final Item HEXID_TANK_ITEM = new BlockItem(
+        HEXID_TANK_BLOCK,
+        new Item.Properties()
+    );
+
+    public static BlockEntityType<com.bluup.hexwright.server.fluid.HexidTankBlockEntity> HEXID_TANK_BLOCK_ENTITY;
+
     public static void register() {
         Registry.register(BuiltInRegistries.BLOCK, Hexwright.id("staff_assembly"), STAFF_ASSEMBLY_BLOCK);
         Registry.register(BuiltInRegistries.ITEM, Hexwright.id("staff_assembly"), STAFF_ASSEMBLY_ITEM);
@@ -415,6 +428,8 @@ public final class HexwrightBlocks {
         Registry.register(BuiltInRegistries.BLOCK, Hexwright.id("vault_plinth"), VAULT_PLINTH_BLOCK);
         Registry.register(BuiltInRegistries.BLOCK, Hexwright.id("decadent_vault_exit"), DECADENT_VAULT_EXIT_BLOCK);
         Registry.register(BuiltInRegistries.BLOCK, Hexwright.id("placed_bottle"), PLACED_BOTTLE_BLOCK);
+        Registry.register(BuiltInRegistries.BLOCK, Hexwright.id("hexid_tank"), HEXID_TANK_BLOCK);
+        Registry.register(BuiltInRegistries.ITEM, Hexwright.id("hexid_tank"), HEXID_TANK_ITEM);
 
         ItemGroupEvents.modifyEntriesEvent(CreativeModeTabs.FUNCTIONAL_BLOCKS).register(entries -> {
             entries.accept(STAFF_ASSEMBLY_ITEM);
@@ -433,6 +448,7 @@ public final class HexwrightBlocks {
             entries.accept(HARMONIC_EMITTER_ITEM);
             entries.accept(HARMONIC_TRANSDUCER_ITEM);
             entries.accept(EXCHANGE_BRIDGE_ITEM);
+            entries.accept(HEXID_TANK_ITEM);
         });
 
         ItemGroupEvents.modifyEntriesEvent(CreativeModeTabs.NATURAL_BLOCKS).register(entries -> {
@@ -577,6 +593,13 @@ public final class HexwrightBlocks {
             BuiltInRegistries.BLOCK_ENTITY_TYPE,
             Hexwright.id("decadent_vault_exit"),
             FabricBlockEntityTypeBuilder.create(DecadentVaultExitBlockEntity::new, DECADENT_VAULT_EXIT_BLOCK).build()
+        );
+
+        HEXID_TANK_BLOCK_ENTITY = Registry.register(
+            BuiltInRegistries.BLOCK_ENTITY_TYPE,
+            Hexwright.id("hexid_tank"),
+            FabricBlockEntityTypeBuilder.create(
+                com.bluup.hexwright.server.fluid.HexidTankBlockEntity::new, HEXID_TANK_BLOCK).build()
         );
     }
 

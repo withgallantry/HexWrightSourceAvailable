@@ -10,6 +10,9 @@ import com.bluup.hexwright.server.block.HarmonicExchangeBlockEntity;
 import com.bluup.hexwright.server.block.HarmonicTransducerBlockEntity;
 import com.bluup.hexwright.server.block.HexwrightBlocks;
 import com.bluup.hexwright.server.block.ResonanceTowerBlockEntity;
+import com.bluup.hexwright.server.fluid.HexidTank;
+import com.bluup.hexwright.server.fluid.HexidTankBlockEntity;
+import com.bluup.hexwright.server.fluid.HexidTankColumn;
 import com.bluup.hexwright.server.network.EssenceNetwork;
 import com.bluup.hexwright.server.network.ResonantAttunement;
 import com.bluup.hexwright.server.network.ResonantKeyItem;
@@ -54,6 +57,8 @@ public final class HexwrightDebugLines {
             exchangeLines(lines, exchange);
         } else if (blockEntity instanceof ResonanceTowerBlockEntity tower) {
             towerLines(lines, tower, level, pos);
+        } else if (blockEntity instanceof HexidTankBlockEntity) {
+            tankLines(lines, level, pos);
         }
         return lines;
     }
@@ -117,6 +122,31 @@ public final class HexwrightDebugLines {
             (int) tower.radius()).withStyle(ChatFormatting.GRAY));
     }
 
+    private static void tankLines(List<Pair<ItemStack, Component>> lines, Level level, BlockPos pos) {
+        HexidTankBlockEntity column = HexidTankColumn.controller(level, pos);
+        if (column == null) {
+            return;
+        }
+        long amount = column.amountMb();
+        add(lines, HexwrightBlocks.HEXID_TANK_ITEM,
+            Component.translatable("gui.hexwright.spectacles.tank_volume",
+                    formatMb(amount), formatMb(column.capacityMb()))
+                .withStyle(amount <= 0 ? ChatFormatting.GRAY : ChatFormatting.AQUA));
+        if (amount <= 0) {
+            return;
+        }
+
+        add(lines, HexItems.AMETHYST_DUST,
+            Component.translatable("gui.hexwright.spectacles.media",
+                    formatDust(column.totalMedia()), formatDust(HexidTank.mediaCeiling(amount)))
+                .withStyle(column.isHexid() ? ChatFormatting.LIGHT_PURPLE : ChatFormatting.GRAY));
+        if (column.isHexid()) {
+            add(lines, null, Component.translatable("gui.hexwright.spectacles.saturation",
+                    String.format("%.2f", column.mediaPerMb() / 100.0))
+                .withStyle(ChatFormatting.LIGHT_PURPLE));
+        }
+    }
+
 
     private static Component networkLine(@Nullable String networkKey) {
         return Component.translatable("gui.hexwright.spectacles.network", networkName(networkKey))
@@ -166,6 +196,10 @@ public final class HexwrightDebugLines {
     private static String formatDust(long amount) {
         long tenths = amount * 10 / MediaConstants.DUST_UNIT;
         return tenths % 10 == 0 ? String.valueOf(tenths / 10) : (tenths / 10) + "." + (tenths % 10);
+    }
+
+    private static String formatMb(long millibuckets) {
+        return String.format("%,d", millibuckets);
     }
 
     private static void add(List<Pair<ItemStack, Component>> lines, @Nullable Item icon, Component text) {
