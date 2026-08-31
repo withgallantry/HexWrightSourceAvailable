@@ -11,8 +11,8 @@ public interface ArtifactItem {
         return Component.translatable("quality.hexwright.artifact");
     }
 
-    static Component name(Component base) {
-        return Component.translatable("item.hexwright.artifact.named", label(), base)
-            .withStyle(COLOUR);
+    static Component tooltipLine() {
+        return Component.translatable("tooltip.hexwright.artifact.quality", label().copy().withStyle(COLOUR))
+            .withStyle(ChatFormatting.GRAY);
     }
 }

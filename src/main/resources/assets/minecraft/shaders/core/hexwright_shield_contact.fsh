@@ -90,13 +90,20 @@ const float CONTACT_FADE = 0.13;
 const float INK_WIDTH_SWING = 0.35;
 // Floor on the band's width, in field cells.
 //
-// The field is sampled every FieldCell blocks and cannot describe a contour
-// any finer, so a band thinner than about a cell comes out broken or misses
-// the contour altogether. That is invisible at the default spacing and would
-// bite exactly once - when a caster with a large enough Ambit pushes the field
-// down to a coarser rung of ShieldContactField.CELL_SIZES and the glow
-// quietly disappears on the biggest shield in the game.
-const float WIDTH_FLOOR_CELLS = 0.8;
+// The field is sampled every FieldCell blocks, so a band far thinner than what
+// the samples between them can reconstruct comes out broken or misses the
+// contour altogether. That would bite when a caster with a large enough Ambit
+// pushes the field down to a coarser rung of ShieldContactField.CELL_SIZES and
+// the glow quietly disappears on the biggest shield in the game.
+//
+// It was 0.8, chosen when the field was a chamfer sweep seeded at cell centres
+// and so genuinely could not place a contour to better than about a cell. The
+// field is Euclidean now and carries the interface's half-cell offsets exactly,
+// and bilinear filtering reconstructs it exactly along a straight contour, so
+// what is left to clear is the reconstruction error near a corner - a fraction
+// of a cell. At the default 0.25-block spacing 0.8 was floor-clamping every
+// band the game ever draws, which quietly made GlowWidth do nothing at all.
+const float WIDTH_FLOOR_CELLS = 0.45;
 
 // Fresnel exponent and weight, from the Photon 2 reference shield. This is the
 // term that makes the surface read as a shield rather than as a mark painted

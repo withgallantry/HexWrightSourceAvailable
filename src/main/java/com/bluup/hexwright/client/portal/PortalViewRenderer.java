@@ -51,9 +51,22 @@ public final class PortalViewRenderer {
 
     private static final int MAX_VIEWS = 2;
 
+    private static final int MAX_NESTED_VIEWS = 1;
+
+    private static final int MAX_PASSES_PER_FRAME = 3;
+
+    private static final int DEPTH_CEILING = Math.max(1, Math.min(4,
+        Integer.getInteger("hexwright.portal.depth", 2)));
+
+    private static final double NESTED_VIEW_DISTANCE = 48.0;
+
+    private static final double NESTED_MIN_SOLID_ANGLE = 0.004;
+
     private static final double VIEW_DISTANCE = 96.0;
 
     private static final long TARGET_TTL_FRAMES = 600;
+
+    private static final int MAX_TARGETS = 6;
 
     private static final double MIN_SOLID_ANGLE = 0.0002;
 
@@ -70,13 +83,21 @@ public final class PortalViewRenderer {
     public record ViewKey(UUID pairId, int side) {
     }
 
+    public record PassKey(ViewKey pane, @Nullable PassKey parent) {
+
+        boolean mentionsDeadPair(Set<UUID> livePairs) {
+            return !livePairs.contains(pane.pairId())
+                || (parent != null && parent.mentionsDeadPair(livePairs));
+        }
+    }
+
     private static final class Target {
         TextureTarget target;
         long lastUsedFrame;
     }
 
-    private static final Map<ViewKey, Target> TARGETS = new HashMap<>();
-    private static final Set<ViewKey> RENDERED_THIS_FRAME = new HashSet<>();
+    private static final Map<PassKey, Target> TARGETS = new HashMap<>();
+    private static final Set<PassKey> RENDERED_THIS_FRAME = new HashSet<>();
 
 
     private static final boolean VIEWS_ENABLED =
@@ -173,8 +194,10 @@ public final class PortalViewRenderer {
     private static boolean freshFillThisFrame;
 
     private static long frame;
-    private static boolean renderingView;
-    private static @Nullable PortalTransform activeTransform;
+    private static int passDepth;
+    private static int passesThisFrame;
+    private static @Nullable PassKey activePassKey;
+    private static @Nullable PortalFold activeTransform;
     private static @Nullable PortalWindow activeClipWindow;
     private static @Nullable ViewKey activeDestinationPane;
     private static @Nullable PortalCone activeCone;
@@ -188,11 +211,15 @@ public final class PortalViewRenderer {
     private PortalViewRenderer() {
     }
 
-    public static boolean isRenderingView() {
-        return renderingView;
+    public static int maxDepth() {
+        return PortalOptions.portalsThroughPortals() ? DEPTH_CEILING : 1;
     }
 
-    public static @Nullable PortalTransform cameraTransform() {
+    public static boolean isRenderingView() {
+        return passDepth > 0;
+    }
+
+    public static @Nullable PortalFold cameraTransform() {
         return activeTransform;
     }
 
@@ -213,11 +240,11 @@ public final class PortalViewRenderer {
     private static volatile @Nullable BlockPos unfoldedCameraBlockPos;
 
     public static @Nullable ViewKey activeDestinationPane() {
-        return renderingView ? activeDestinationPane : null;
+        return passDepth > 0 ? activeDestinationPane : null;
     }
 
     public static @Nullable Vec3 activeDestinationCenter() {
-        return renderingView && activeClipWindow != null ? activeClipWindow.center() : null;
+        return passDepth > 0 && activeClipWindow != null ? activeClipWindow.center() : null;
     }
 
     public static @Nullable PortalCone activeCone() {
@@ -225,7 +252,7 @@ public final class PortalViewRenderer {
     }
 
     public static int viewTextureId(UUID pairId, int side) {
-        ViewKey key = new ViewKey(pairId, side);
+        PassKey key = new PassKey(new ViewKey(pairId, side), activePassKey);
         if (!RENDERED_THIS_FRAME.contains(key)) {
             return -1;
         }
@@ -234,18 +261,24 @@ public final class PortalViewRenderer {
     }
 
     public static void onRenderLevelStart(GameRenderer gameRenderer, float partialTick, long nanos) {
-        if (renderingView) {
+        int depth = passDepth;
+        if (depth >= maxDepth()) {
             return;
         }
-        frame++;
-        RENDERED_THIS_FRAME.clear();
-        chunkBuildBudget = CHUNK_BUILD_BUDGET_PER_FRAME;
+        if (depth == 0) {
+            frame++;
+            RENDERED_THIS_FRAME.clear();
+            passesThisFrame = 0;
+            chunkBuildBudget = CHUNK_BUILD_BUDGET_PER_FRAME;
+        }
 
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null || mc.player == null) {
             return;
         }
-        expireStaleTargets();
+        if (depth == 0) {
+            expireStaleTargets();
+        }
         if (!VIEWS_ENABLED) {
             return;
         }
@@ -258,42 +291,62 @@ public final class PortalViewRenderer {
         if (!resolveRenderChunkInfoCtor()) {
             return;
         }
+        if (passesThisFrame >= MAX_PASSES_PER_FRAME) {
+            return;
+        }
+        if (RemoteLevelManager.isRemotePassActive()) {
+            return;
+        }
 
-        List<SelectedView> views = selectViews(mc, partialTick);
+        List<SelectedView> views = selectViews(mc, partialTick, depth);
         if (views.isEmpty()) {
             return;
         }
 
-        com.lowdragmc.photon.client.postprocessing.BloomEffect.updateScreenSize();
+        if (depth == 0) {
+            com.lowdragmc.photon.client.postprocessing.BloomEffect.updateScreenSize();
+        }
 
-        RenderTarget main = mc.getMainRenderTarget();
+        RenderTarget parentTarget = mc.getMainRenderTarget();
+        PortalFold parentFold = activeTransform;
+        PortalWindow parentClipWindow = activeClipWindow;
+        ViewKey parentDestinationPane = activeDestinationPane;
+        PassKey parentPassKey = activePassKey;
+
         MinecraftPortalAccessor mcAccess = (MinecraftPortalAccessor) mc;
         GameRendererAccessor grAccess = (GameRendererAccessor) gameRenderer;
         boolean handWasRendered = grAccess.hexwright$getRenderHand();
 
         for (SelectedView view : views) {
-            Target holder = TARGETS.computeIfAbsent(view.key(), key -> {
+            if (passesThisFrame >= MAX_PASSES_PER_FRAME) {
+                break;
+            }
+            PassKey passKey = new PassKey(view.key(), parentPassKey);
+            Target holder = TARGETS.computeIfAbsent(passKey, key -> {
                 Target created = new Target();
-                created.target = new TextureTarget(main.width, main.height, true, Minecraft.ON_OSX);
+                created.target = new TextureTarget(parentTarget.width, parentTarget.height, true,
+                    Minecraft.ON_OSX);
                 created.target.setClearColor(0.0f, 0.0f, 0.0f, 1.0f);
                 return created;
             });
-            if (holder.target.width != main.width || holder.target.height != main.height) {
-                holder.target.resize(main.width, main.height, Minecraft.ON_OSX);
+            if (holder.target.width != parentTarget.width || holder.target.height != parentTarget.height) {
+                holder.target.resize(parentTarget.width, parentTarget.height, Minecraft.ON_OSX);
             }
             holder.lastUsedFrame = frame;
 
             if (view.remoteDimension() != null) {
                 Entity viewEntity = mc.getCameraEntity() == null ? mc.player : mc.getCameraEntity();
-                Vec3 foldedEye = view.transform().apply(viewEntity.getEyePosition(partialTick));
+                Vec3 foldedEye = view.fold().apply(viewEntity.getEyePosition(partialTick));
                 if (!RemoteLevelManager.beginPass(view.remoteDimension(), foldedEye, view.remoteAnchor())) {
                     continue;
                 }
             }
-            activeTransform = view.transform();
-            activeClipWindow = view.transform().toWindow();
+            activeTransform = view.fold();
+            activeClipWindow = view.fold().toWindow();
             activeDestinationPane = new ViewKey(view.key().pairId(), 1 - view.key().side());
-            renderingView = true;
+            activePassKey = passKey;
+            passDepth = depth + 1;
+            passesThisFrame++;
             grAccess.hexwright$setRenderHand(false);
             mcAccess.hexwright$setMainRenderTarget(holder.target);
             repointPhotonBloom(holder.target);
@@ -302,16 +355,17 @@ public final class PortalViewRenderer {
                 holder.target.clear(Minecraft.ON_OSX);
                 holder.target.bindWrite(true);
                 gameRenderer.renderLevel(partialTick, nanos, new PoseStack());
-                RENDERED_THIS_FRAME.add(view.key());
+                RENDERED_THIS_FRAME.add(passKey);
             } finally {
                 endPortalPass();
-                mcAccess.hexwright$setMainRenderTarget(main);
-                repointPhotonBloom(main);
+                mcAccess.hexwright$setMainRenderTarget(parentTarget);
+                repointPhotonBloom(parentTarget);
                 grAccess.hexwright$setRenderHand(handWasRendered);
-                renderingView = false;
-                activeTransform = null;
-                activeClipWindow = null;
-                activeDestinationPane = null;
+                passDepth = depth;
+                activeTransform = parentFold;
+                activeClipWindow = parentClipWindow;
+                activeDestinationPane = parentDestinationPane;
+                activePassKey = parentPassKey;
                 activeCone = null;
                 arrivalBox = null;
                 RemoteLevelManager.endPass();
@@ -319,11 +373,13 @@ public final class PortalViewRenderer {
         }
 
         markLightTextureDirty(gameRenderer);
-        main.bindWrite(true);
-        Entity cameraEntity = mc.getCameraEntity() == null ? mc.player : mc.getCameraEntity();
-        gameRenderer.getMainCamera().setup(mc.level, cameraEntity,
-            !mc.options.getCameraType().isFirstPerson(),
-            mc.options.getCameraType().isMirrored(), partialTick);
+        parentTarget.bindWrite(true);
+        if (depth == 0) {
+            Entity cameraEntity = mc.getCameraEntity() == null ? mc.player : mc.getCameraEntity();
+            gameRenderer.getMainCamera().setup(mc.level, cameraEntity,
+                !mc.options.getCameraType().isFirstPerson(),
+                mc.options.getCameraType().isMirrored(), partialTick);
+        }
     }
 
     private static void markLightTextureDirty(GameRenderer gameRenderer) {
@@ -331,7 +387,7 @@ public final class PortalViewRenderer {
             .hexwright$setUpdatePending(true);
     }
 
-    private record SelectedView(ViewKey key, PortalTransform transform, double distanceSq,
+    private record SelectedView(ViewKey key, PortalFold fold, double distanceSq,
                                 @Nullable net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> remoteDimension,
                                 Vec3 remoteAnchor) {
     }
@@ -343,14 +399,23 @@ public final class PortalViewRenderer {
         return Math.atan(Math.sqrt(tanX * tanX + tanY * tanY));
     }
 
-    private static List<SelectedView> selectViews(Minecraft mc, float partialTick) {
+    private static List<SelectedView> selectViews(Minecraft mc, float partialTick, int depth) {
         List<ClientPortalManager.Entry> entries = ClientPortalManager.entries();
         if (entries.isEmpty()) {
             return List.of();
         }
+        boolean nested = depth > 0;
+        PortalFold parentFold = activeTransform;
         Entity cameraEntity = mc.getCameraEntity() == null ? mc.player : mc.getCameraEntity();
         Vec3 eye = cameraEntity.getEyePosition(partialTick);
         Vec3 look = cameraEntity.getViewVector(partialTick);
+        if (nested && parentFold != null) {
+            eye = parentFold.apply(eye);
+            look = parentFold.applyDirection(look);
+        }
+        double viewDistance = nested ? NESTED_VIEW_DISTANCE : VIEW_DISTANCE;
+        double minSolidAngle = nested ? NESTED_MIN_SOLID_ANGLE : MIN_SOLID_ANGLE;
+        ViewKey excluded = nested ? activeDestinationPane : null;
         double offScreenAngle = halfDiagonalFov(mc) + OFF_SCREEN_MARGIN;
 
         var currentDimension = mc.level.dimension();
@@ -364,14 +429,17 @@ public final class PortalViewRenderer {
                 if (!pair.sideIn(side, currentDimension)) {
                     continue;
                 }
+                if (excluded != null && excluded.pairId().equals(pair.id()) && excluded.side() == side) {
+                    continue;
+                }
                 PortalWindow window = pair.window(side);
                 Vec3 center = window.center();
                 double distSq = center.distanceToSqr(eye);
-                if (distSq > VIEW_DISTANCE * VIEW_DISTANCE) {
+                if (distSq > viewDistance * viewDistance) {
                     continue;
                 }
                 double windowRadius = Math.max(window.width(), window.height()) * 0.5 + 1.0;
-                if (distSq > windowRadius * windowRadius) {
+                if (nested || distSq > windowRadius * windowRadius) {
                     Vec3 toWindow = center.subtract(eye).normalize();
                     double angleToCenter = Math.acos(Mth.clamp(toWindow.dot(look), -1.0, 1.0));
                     double paneRadius = Math.hypot(window.width(), window.height()) * 0.5;
@@ -380,28 +448,33 @@ public final class PortalViewRenderer {
                     }
                     double solidAngle = window.width() * window.height()
                         * Math.abs(toWindow.dot(window.normal())) / distSq;
-                    if (solidAngle < MIN_SOLID_ANGLE) {
+                    if (solidAngle < minSolidAngle) {
                         continue;
                     }
                 }
                 var destDimension = pair.dimensionOr(1 - side, currentDimension);
                 boolean remote = !destDimension.equals(currentDimension);
                 Vec3 destCenter = pair.window(1 - side).center();
-                if (remote && !RemoteLevelManager.isReady(destDimension, destCenter)) {
+                if (remote && (nested || !RemoteLevelManager.isReady(destDimension, destCenter))) {
                     continue;
                 }
+                PortalFold fold = parentFold == null || !nested
+                    ? PortalFold.of(pair.transformFrom(side))
+                    : parentFold.then(pair.transformFrom(side));
                 candidates.add(new SelectedView(
-                    new ViewKey(pair.id(), side), pair.transformFrom(side), distSq,
+                    new ViewKey(pair.id(), side), fold, distSq,
                     remote ? destDimension : null, destCenter));
             }
         }
         candidates.sort((a, b) -> Double.compare(a.distanceSq(), b.distanceSq()));
-        return candidates.size() > MAX_VIEWS ? candidates.subList(0, MAX_VIEWS) : candidates;
+        int limit = Math.min(nested ? MAX_NESTED_VIEWS : MAX_VIEWS,
+            MAX_PASSES_PER_FRAME - passesThisFrame);
+        return candidates.size() > limit ? candidates.subList(0, Math.max(limit, 0)) : candidates;
     }
 
 
     public static Matrix4f beginPortalPass(Matrix4f projection) {
-        if (!renderingView || activeClipWindow == null) {
+        if (passDepth == 0 || activeClipWindow == null) {
             return projection;
         }
         Camera camera = Minecraft.getInstance().gameRenderer.getMainCamera();
@@ -427,7 +500,7 @@ public final class PortalViewRenderer {
     }
 
     public static void ensureBloomPointsAtMain() {
-        if (renderingView) {
+        if (passDepth > 0) {
             return;
         }
         if (BloomEffectAccessor.hexwright$getInput() == null
@@ -459,7 +532,7 @@ public final class PortalViewRenderer {
     private static boolean bloomRepointWarned;
 
     public static void debugBloomAttachment() {
-        if (!DEBUG || !renderingView || bloomProbesLogged >= 3) {
+        if (!DEBUG || passDepth == 0 || bloomProbesLogged >= 3) {
             return;
         }
         RenderTarget bloomInput = BloomEffectAccessor.hexwright$getInput();
@@ -684,7 +757,7 @@ public final class PortalViewRenderer {
     }
 
     public static boolean isFreshCrossingCompileActive() {
-        return freshFillThisFrame && !renderingView;
+        return freshFillThisFrame && passDepth == 0;
     }
 
     private static boolean isVisibilityGraphCurrent() {
@@ -711,7 +784,7 @@ public final class PortalViewRenderer {
         if (renderChunkInfoCtor == null) {
             return;
         }
-        boolean portalPass = renderingView;
+        boolean portalPass = passDepth > 0;
         Vec3 camPos = camera.getPosition();
         PortalCone cone = activeCone;
         AABB prebuild = arrivalBox;
@@ -900,7 +973,7 @@ public final class PortalViewRenderer {
             live.add(entry.pair().id());
         }
         TARGETS.entrySet().removeIf(mapping -> {
-            if (!live.contains(mapping.getKey().pairId())) {
+            if (mapping.getKey().mentionsDeadPair(live)) {
                 mapping.getValue().target.destroyBuffers();
                 return true;
             }
@@ -924,5 +997,18 @@ public final class PortalViewRenderer {
             }
             return false;
         });
+        while (TARGETS.size() > MAX_TARGETS) {
+            Map.Entry<PassKey, Target> oldest = null;
+            for (Map.Entry<PassKey, Target> candidate : TARGETS.entrySet()) {
+                if (oldest == null || candidate.getValue().lastUsedFrame < oldest.getValue().lastUsedFrame) {
+                    oldest = candidate;
+                }
+            }
+            if (oldest == null) {
+                break;
+            }
+            oldest.getValue().target.destroyBuffers();
+            TARGETS.remove(oldest.getKey());
+        }
     }
 }

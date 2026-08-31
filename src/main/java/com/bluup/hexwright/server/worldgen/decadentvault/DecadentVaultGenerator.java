@@ -23,6 +23,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.AbstractChestBlock;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.DoorBlock;
 import net.minecraft.world.level.block.EnderChestBlock;
 import net.minecraft.world.level.block.HorizontalDirectionalBlock;
 import net.minecraft.world.level.block.Mirror;
@@ -86,6 +87,7 @@ final class DecadentVaultGenerator {
         fillSolid(level, origin);
         BlockPos innerOrigin = origin.offset(MARGIN, MARGIN, MARGIN);
         placeStructure(level, innerOrigin, random);
+        closeDoors(level, innerOrigin);
 
         Markers markers = scan(level, innerOrigin);
         BlockPos exit = resolveExit(level, markers.exits, portalDimension, portalPos);
@@ -114,6 +116,20 @@ final class DecadentVaultGenerator {
             .setMirror(Mirror.NONE)
             .setIgnoreEntities(false);
         structure.placeInWorld(level, innerOrigin, innerOrigin, settings, random, Block.UPDATE_CLIENTS);
+    }
+
+    private static void closeDoors(ServerLevel level, BlockPos innerOrigin) {
+        for (int x = 0; x < STRUCT_W; x++) {
+            for (int y = 0; y < STRUCT_H; y++) {
+                for (int z = 0; z < STRUCT_L; z++) {
+                    BlockPos pos = innerOrigin.offset(x, y, z);
+                    BlockState state = level.getBlockState(pos);
+                    if (state.getBlock() instanceof DoorBlock && state.getValue(DoorBlock.OPEN)) {
+                        set(level, pos, state.setValue(DoorBlock.OPEN, false));
+                    }
+                }
+            }
+        }
     }
 
     private static void fillSolid(ServerLevel level, BlockPos origin) {

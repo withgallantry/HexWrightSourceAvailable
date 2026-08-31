@@ -150,21 +150,22 @@ public class EternalWakizashiItem extends SwordItem
 
     @Override
     public Component getName(ItemStack stack) {
-        return ArtifactItem.name(super.getName(stack));
+        return WeaponTooltips.graded(stack, super.getName(stack), null);
     }
 
     @Override
     public void appendHoverText(ItemStack stack, @Nullable Level level, List<Component> tooltip,
                                 TooltipFlag flag) {
-        tooltip.add(Component.translatable("tooltip.hexwright.eternal_wakizashi.cast")
-            .withStyle(ChatFormatting.DARK_PURPLE));
-        tooltip.add(Component.translatable("tooltip.hexwright.eternal_wakizashi.recharge")
-            .withStyle(ChatFormatting.GRAY));
+        tooltip.add(ArtifactItem.tooltipLine());
+        WeaponTooltips.add(tooltip, Component.translatable("tooltip.hexwright.eternal_wakizashi.cast"),
+            ChatFormatting.DARK_PURPLE);
+        WeaponTooltips.add(tooltip, Component.translatable("tooltip.hexwright.eternal_wakizashi.recharge"),
+            ChatFormatting.GRAY);
 
         CompoundTag hex = readIotaTag(stack);
         if (hex == null || hex.isEmpty()) {
-            tooltip.add(Component.translatable("tooltip.hexwright.eternal_wakizashi.uninscribed")
-                .withStyle(ChatFormatting.DARK_GRAY));
+            WeaponTooltips.add(tooltip, Component.translatable("tooltip.hexwright.eternal_wakizashi.uninscribed"),
+                ChatFormatting.DARK_GRAY);
         }
 
         IotaHolderItem.appendHoverText(this, stack, tooltip, flag);

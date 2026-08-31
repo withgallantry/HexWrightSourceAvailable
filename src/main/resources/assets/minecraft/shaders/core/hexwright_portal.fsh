@@ -26,9 +26,19 @@
 // refraction of zero is the background itself, the warp has no edge to be
 // harsh - it simply stops mattering.
 //
-// With SceneReady 0 (no scene copy this frame - inside another portal's view
-// pass, where sampling would be recursive) the warp degrades to a translucent
-// violet swirl on a radial gradient rather than a hard-edged plate.
+// With SceneReady 0 (no scene copy this frame at all - the blit failed) the
+// warp degrades to a translucent violet swirl on a radial gradient rather than
+// a hard-edged plate. Nothing routine lands there any more: a pane inside
+// another pane's view pass copies that pass's target like any other, so it
+// warps the view it sits in instead of painting a violet plate over it.
+//
+// Muted is that case: a pane seen through another pane, which can never get a
+// view this frame (one level of recursion is all the renderer does). It keeps
+// the lens, at reduced strength, and drops the amethyst rim entirely - the rim
+// is what says "this is an opening", and on a pane with nothing to show it
+// reads as an empty purple picture frame hanging in someone else's window.
+// What's left is a faint bend in the air, which is all the hint that pane can
+// honestly give until you walk through and it gets a pass of its own.
 
 uniform sampler2D PortalSampler;
 uniform sampler2D SceneSampler;
@@ -39,6 +49,7 @@ uniform vec2 WindowSize;
 uniform float Progress;
 uniform float ViewReady;
 uniform float SceneReady;
+uniform float Muted;
 
 in vec2 localPos;
 
@@ -110,7 +121,9 @@ void main() {
     // before anything can discard.
     float blocksPerPixel = max(fwidth(p.x) + fwidth(p.y), 1e-5);
     float paneSpanPixels = clamp((WindowSize.x + WindowSize.y) / blocksPerPixel, 16.0, 8192.0);
-    float warpAmp = paneSpanPixels * WARP_SPAN;
+    // Full strength is tuned for the ~1s of opening; a muted pane wears it for
+    // as long as it's in shot, and full amplitude reads as a churning blob.
+    float warpAmp = paneSpanPixels * WARP_SPAN * mix(1.0, 0.45, Muted);
 
     vec2 c = p - WindowSize * 0.5;
     float diag = length(WindowSize * 0.5) + 0.001;
@@ -166,15 +179,16 @@ void main() {
     }
 
     // Amethyst rim riding the tear front while opening, gone once settled.
+    float rim = 1.0 - Muted;
     float opening = step(0.001, Progress) * (1.0 - step(0.999, Progress));
-    float tearRim = exp(-abs(front) * 12.0) * opening;
+    float tearRim = exp(-abs(front) * 12.0) * opening * rim;
 
     // The permanent border: distance to the nearest edge, glowing inward.
     // A soft breathing halo plus a bright core line right at the rim, both
     // held inside whatever the reveal has actually opened.
     float pulse = 0.78 + 0.22 * sin(animTime() * 1.6 + (p.x + p.y) * 1.1);
-    float halo = exp(-borderDist * 5.0) * pulse * presence;
-    float core = exp(-borderDist * 24.0) * pulse * presence;
+    float halo = exp(-borderDist * 5.0) * pulse * presence * rim;
+    float core = exp(-borderDist * 24.0) * pulse * presence * rim;
 
     vec3 color = scene
         + RIM_COLOR * (tearRim * 1.4 + halo * 0.45)

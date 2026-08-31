@@ -58,6 +58,7 @@ public final class HexwrightNetworking {
     public static final ResourceLocation STAFF_CORE_BEAM_C2S = Hexwright.id("staff_core_beam_c2s");
     public static final ResourceLocation STAFF_CORE_SPHERE_VISUAL_S2C = Hexwright.id("staff_core_sphere_visual_s2c");
     public static final ResourceLocation STAFF_TRAVELLER_WARP_S2C = Hexwright.id("staff_traveller_warp_s2c");
+    public static final ResourceLocation STAFF_TIP_FLASH_S2C = Hexwright.id("staff_tip_flash_s2c");
     public static final ResourceLocation PLAYER_ANIMATION_S2C = Hexwright.id("player_animation_s2c");
     public static final ResourceLocation PENTABOX_SELECT_C2S = Hexwright.id("pentabox_select_c2s");
     public static final ResourceLocation PENTABOX_OPEN_MENU_C2S = Hexwright.id("pentabox_open_menu_c2s");
@@ -740,6 +741,14 @@ public final class HexwrightNetworking {
             client.execute(() -> StaffTravellerWarpVisualClient.handleWarp(entityId, from, to));
         });
 
+        ClientPlayNetworking.registerGlobalReceiver(STAFF_TIP_FLASH_S2C, (client, handler, buf, responseSender) -> {
+            int entityId = buf.readVarInt();
+            float intensity = buf.readFloat();
+            CompoundTag pigmentTag = buf.readNbt();
+            client.execute(() -> com.bluup.hexwright.client.staff_assembly.StaffTipFlash
+                .handleFlash(entityId, intensity, pigmentTag));
+        });
+
         ClientPlayNetworking.registerGlobalReceiver(PLAYER_ANIMATION_S2C, (client, handler, buf, responseSender) -> {
             int entityId = buf.readVarInt();
             PlayerAnimationLayer layer = buf.readEnum(PlayerAnimationLayer.class);
@@ -1132,6 +1141,25 @@ public final class HexwrightNetworking {
         buf.writeBoolean(active);
         buf.writeNbt(pigmentTag);
         buf.writeDouble(halfExtent);
+        return buf;
+    }
+
+    public static void sendStaffTipFlash(ServerPlayer caster, float intensity, @Nullable CompoundTag pigmentTag) {
+        ServerPlayNetworking.send(caster, STAFF_TIP_FLASH_S2C, writeTipFlashBuf(caster.getId(), intensity, pigmentTag));
+
+        for (ServerPlayer tracking : PlayerLookup.tracking(caster)) {
+            if (tracking != caster) {
+                ServerPlayNetworking.send(tracking, STAFF_TIP_FLASH_S2C,
+                    writeTipFlashBuf(caster.getId(), intensity, pigmentTag));
+            }
+        }
+    }
+
+    private static FriendlyByteBuf writeTipFlashBuf(int entityId, float intensity, @Nullable CompoundTag pigmentTag) {
+        FriendlyByteBuf buf = PacketByteBufs.create();
+        buf.writeVarInt(entityId);
+        buf.writeFloat(intensity);
+        buf.writeNbt(pigmentTag);
         return buf;
     }
 

@@ -80,7 +80,8 @@ public final class WeaponSlashVisualClient {
         Iterator<Live> living = LIVE.iterator();
         while (living.hasNext()) {
             Live live = living.next();
-            if (live.level != level || ++live.age > live.life) {
+            if (live.level != level || live.player.isRemoved() || live.player.level() != level
+                || ++live.age > live.life) {
                 living.remove();
                 continue;
             }
@@ -89,18 +90,7 @@ public final class WeaponSlashVisualClient {
     }
 
     private static void fire(ClientLevel level, Armed armed) {
-        WeaponSlash slash = armed.slash;
-        float yaw = armed.player.getYRot();
-        float pitch = armed.player.getXRot();
-        double forwardX = -Mth.sin(yaw * Mth.DEG_TO_RAD);
-        double forwardZ = Mth.cos(yaw * Mth.DEG_TO_RAD);
-
-        Vec3 feet = armed.player.position();
-        LIVE.add(new Live(level,
-            feet.x + forwardX * slash.forward(),
-            feet.y + slash.height(),
-            feet.z + forwardZ * slash.forward(),
-            yaw, pitch, slash));
+        LIVE.add(new Live(level, armed.player, armed.slash));
     }
 
     private static void render(WorldRenderContext context) {
@@ -114,17 +104,29 @@ public final class WeaponSlashVisualClient {
 
         PoseStack pose = context.matrixStack();
         Vec3 camera = context.camera().getPosition();
+        float partialTick = context.tickDelta();
 
         for (Live live : LIVE) {
             if (live.level != level) {
                 continue;
             }
+            AbstractClientPlayer player = live.player;
+            float yaw = Mth.rotLerp(partialTick, player.yRotO, player.getYRot());
+            float pitch = Mth.lerp(partialTick, player.xRotO, player.getXRot());
+            double forwardX = -Mth.sin(yaw * Mth.DEG_TO_RAD) * live.forward;
+            double forwardZ = Mth.cos(yaw * Mth.DEG_TO_RAD) * live.forward;
+            double feetX = Mth.lerp(partialTick, player.xo, player.getX());
+            double feetY = Mth.lerp(partialTick, player.yo, player.getY());
+            double feetZ = Mth.lerp(partialTick, player.zo, player.getZ());
+
             pose.pushPose();
             try {
-                pose.translate(live.x - camera.x, live.y - camera.y, live.z - camera.z);
+                pose.translate(feetX + forwardX - camera.x,
+                    feetY + live.height - camera.y,
+                    feetZ + forwardZ - camera.z);
                 pose.translate(0.0f, FAN_HEIGHT * live.scale, 0.0f);
-                pose.mulPose(Axis.YP.rotationDegrees(180.0f - live.yaw));
-                pose.mulPose(Axis.XP.rotationDegrees(-live.pitch));
+                pose.mulPose(Axis.YP.rotationDegrees(180.0f - yaw));
+                pose.mulPose(Axis.XP.rotationDegrees(-pitch));
                 pose.translate(0.0f, -FAN_HEIGHT * live.scale, 0.0f);
                 pose.scale(live.scale, live.scale, live.scale);
                 live.renderer.render(pose, live.vfx, context.consumers(), null, null,
@@ -154,25 +156,20 @@ public final class WeaponSlashVisualClient {
 
     private static final class Live {
         private final ClientLevel level;
-        private final double x;
-        private final double y;
-        private final double z;
-        private final float yaw;
-        private final float pitch;
+        private final AbstractClientPlayer player;
+        private final float forward;
+        private final float height;
         private final float scale;
         private final int life;
         private final SlashVfx vfx;
         private final SlashVfxRenderer renderer;
         private int age;
 
-        private Live(ClientLevel level, double x, double y, double z, float yaw, float pitch,
-                     WeaponSlash slash) {
+        private Live(ClientLevel level, AbstractClientPlayer player, WeaponSlash slash) {
             this.level = level;
-            this.x = x;
-            this.y = y;
-            this.z = z;
-            this.yaw = yaw;
-            this.pitch = pitch;
+            this.player = player;
+            this.forward = slash.forward();
+            this.height = slash.height();
             this.scale = slash.scale();
             this.life = slash.lifeTicks();
             this.vfx = new SlashVfx(slash.clip());

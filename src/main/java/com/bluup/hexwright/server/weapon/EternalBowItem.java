@@ -27,12 +27,12 @@ public class EternalBowItem extends GreatBowItem implements ArtifactItem {
 
     @Override
     public Component getName(ItemStack stack) {
-        return ArtifactItem.name(Component.translatable("item.hexwright.eternal_bow"));
+        return WeaponTooltips.graded(stack, Component.translatable("item.hexwright.eternal_bow"), null);
     }
 
     @Override
     protected void appendExtraTooltip(ItemStack stack, List<Component> tooltip) {
-        tooltip.add(Component.translatable("tooltip.hexwright.eternal_bow.arrows")
-            .withStyle(ChatFormatting.GRAY));
+        WeaponTooltips.add(tooltip, Component.translatable("tooltip.hexwright.eternal_bow.arrows"),
+            ChatFormatting.GRAY);
     }
 }

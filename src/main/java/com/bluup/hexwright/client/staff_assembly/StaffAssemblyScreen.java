@@ -121,8 +121,7 @@ public final class StaffAssemblyScreen extends AbstractContainerScreen<StaffAsse
             || (!this.pendingModelDirty && !sameItemAndTags);
 
         if (shouldSyncFromStaff) {
-            String modelId = StaffAssemblyData.getPart(staff, StaffPartCategory.MODEL);
-            this.pendingModel = modelId != null ? StaffParts.find(StaffPartCategory.MODEL, modelId).orElse(null) : null;
+            this.pendingModel = StaffParts.model(staff).orElse(null);
             this.pendingModelSynced = true;
             this.pendingModelDirty = false;
         }

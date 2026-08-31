@@ -8,7 +8,6 @@ import at.petrak.hexcasting.api.casting.math.HexPattern;
 import at.petrak.hexcasting.api.mod.HexTags;
 import at.petrak.hexcasting.api.utils.HexUtils;
 import at.petrak.hexcasting.client.gui.GuiSpellcasting;
-import at.petrak.hexcasting.client.render.RenderLib;
 import at.petrak.hexcasting.xplat.IXplatAbstractions;
 import com.bluup.hexwright.mixin.GuiSpellcastingAccessor;
 import com.bluup.hexwright.server.armour.ArmourPowerToggle;
@@ -17,7 +16,6 @@ import com.bluup.hexwright.server.armour.ArmourTier;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.core.Registry;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.network.chat.Component;
@@ -69,18 +67,13 @@ public final class AugurStrokeGhostOverlay {
         float hexSize = spellGui.hexSize();
         var mat = graphics.pose().last().pose();
 
-        RenderSystem.setShader(GameRenderer::getPositionColorShader);
-        RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
-        RenderSystem.disableDepthTest();
-
         for (Hint hint : state.hints()) {
             Vec2 px = spellGui.coordToPx(hint.coord());
-            RenderLib.drawSpot(mat, px, hexSize * OUTER_FRAC, OUTER_R, OUTER_G, OUTER_B, OUTER_A);
-            RenderLib.drawSpot(mat, px, hexSize * INNER_FRAC, INNER_R, INNER_G, INNER_B, INNER_A);
+            PatternDrawBatch.drawSpot(mat, px, hexSize * OUTER_FRAC, OUTER_R, OUTER_G, OUTER_B, OUTER_A);
+            PatternDrawBatch.drawSpot(mat, px, hexSize * INNER_FRAC, INNER_R, INNER_G, INNER_B, INNER_A);
         }
+        PatternDrawBatch.flush();
 
-        RenderSystem.enableDepthTest();
         RenderSystem.disableBlend();
 
         if (state.banner() != null) {

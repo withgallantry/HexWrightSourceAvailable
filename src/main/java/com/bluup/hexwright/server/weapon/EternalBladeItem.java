@@ -1,8 +1,6 @@
 package com.bluup.hexwright.server.weapon;
 
 import com.bluup.hexwright.server.item.ArtifactItem;
-import net.minecraft.network.chat.Component;
-import net.minecraft.world.item.ItemStack;
 
 public class EternalBladeItem extends BattleAxeItem implements ArtifactItem {
 
@@ -22,10 +20,5 @@ public class EternalBladeItem extends BattleAxeItem implements ArtifactItem {
     @Override
     protected WeaponSlash cleaveSlash() {
         return EMBER_CLEAVE_SLASH;
-    }
-
-    @Override
-    public Component getName(ItemStack stack) {
-        return ArtifactItem.name(super.getName(stack));
     }
 }

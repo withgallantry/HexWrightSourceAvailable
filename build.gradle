@@ -146,6 +146,8 @@ dependencies {
 
     modImplementation "software.bernie.geckolib:geckolib-fabric-${project.minecraft_version}:${project.geckolib_version}"
 
+    modImplementation "com.terraformersmc:modmenu:${project.modmenu_version}"
+
     modLocalRuntime "dev.onyxstudios.cardinal-components-api:cardinal-components-base:${project.cardinal_components_version}"
     modLocalRuntime "dev.onyxstudios.cardinal-components-api:cardinal-components-entity:${project.cardinal_components_version}"
     modLocalRuntime "dev.onyxstudios.cardinal-components-api:cardinal-components-item:${project.cardinal_components_version}"

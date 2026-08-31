@@ -1,7 +1,7 @@
 package com.bluup.hexwright.mixin;
 
 import com.bluup.hexwright.client.portal.PortalViewRenderer;
-import com.bluup.hexwright.server.portal.PortalTransform;
+import com.bluup.hexwright.client.portal.PortalFold;
 import net.minecraft.client.Camera;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
@@ -18,7 +18,7 @@ public abstract class CameraPortalMixin {
     private void hexwright$foldThroughPortal(BlockGetter level, Entity entity, boolean detached,
                                              boolean mirrored, float partialTick, CallbackInfo ci) {
         Camera self = (Camera) (Object) this;
-        PortalTransform transform = PortalViewRenderer.cameraTransform();
+        PortalFold transform = PortalViewRenderer.cameraTransform();
         if (transform == null) {
             PortalViewRenderer.recordUnfoldedCamera(self);
             return;

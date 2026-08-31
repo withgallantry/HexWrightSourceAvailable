@@ -8,6 +8,7 @@ import com.google.gson.JsonParser;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.resources.Resource;
 import net.minecraft.server.packs.resources.ResourceManager;
+import org.jetbrains.annotations.Nullable;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -162,8 +163,15 @@ public record EmissiveModelScan(
         if (!object.has("name") || !object.get("name").isJsonPrimitive()) {
             return null;
         }
-        String name = object.get("name").getAsString().toLowerCase(Locale.ROOT)
-            .replaceAll("[^a-z]", "");
+        return glowTagOf(object.get("name").getAsString());
+    }
+
+    @Nullable
+    public static String glowTagOf(@Nullable String elementName) {
+        if (elementName == null) {
+            return null;
+        }
+        String name = elementName.toLowerCase(Locale.ROOT).replaceAll("[^a-z]", "");
         if (name.contains("noglow")) {
             return "noglow";
         }

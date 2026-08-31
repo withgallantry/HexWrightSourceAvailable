@@ -12,7 +12,6 @@ public final class VaultBuilds {
     private static final Map<String, VaultBuild> BUILDS = new LinkedHashMap<>();
 
     static {
-        register(new VaultCastleBuild());
         register(new VaultTowerBuild());
         register(new VaultKeepBuild());
         register(new VaultCottageBuild());

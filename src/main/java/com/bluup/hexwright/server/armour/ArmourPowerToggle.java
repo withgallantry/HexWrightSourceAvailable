@@ -70,18 +70,36 @@ public final class ArmourPowerToggle {
         EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET
     };
 
-    public static int wornPieces(@Nullable LivingEntity wearer, ArmourSet set, ArmourTier tier) {
+    public static final int SET_PIECES = ARMOUR_SLOTS.length;
+
+    public static int wornPieces(@Nullable LivingEntity wearer, ArmourSet set) {
         if (wearer == null) {
             return 0;
         }
         int count = 0;
         for (EquipmentSlot slot : ARMOUR_SLOTS) {
             if (wearer.getItemBySlot(slot).getItem() instanceof HexwrightArmourItem worn
-                && worn.set() == set && worn.tier() == tier) {
+                && worn.set() == set) {
                 count++;
             }
         }
         return count;
+    }
+
+    @Nullable
+    public static ArmourTier weakestWornTier(@Nullable LivingEntity wearer, ArmourSet set) {
+        if (wearer == null) {
+            return null;
+        }
+        ArmourTier weakest = null;
+        for (EquipmentSlot slot : ARMOUR_SLOTS) {
+            if (wearer.getItemBySlot(slot).getItem() instanceof HexwrightArmourItem worn
+                && worn.set() == set
+                && (weakest == null || worn.tier().ordinal() < weakest.ordinal())) {
+                weakest = worn.tier();
+            }
+        }
+        return weakest;
     }
 
     @Nullable
@@ -96,6 +114,6 @@ public final class ArmourPowerToggle {
             || !isEnabled(chest)) {
             return null;
         }
-        return wornPieces(wearer, set, piece.tier()) >= REQUIRED_PIECES ? piece.tier() : null;
+        return wornPieces(wearer, set) >= REQUIRED_PIECES ? weakestWornTier(wearer, set) : null;
     }
 }

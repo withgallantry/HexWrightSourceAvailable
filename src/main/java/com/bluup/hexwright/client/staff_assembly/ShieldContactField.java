@@ -28,8 +28,11 @@ final class ShieldContactField {
     private static final int ROWS = 2;
     static final int FACE_COUNT = COLS * ROWS;
 
-    private static final float SQRT2 = 1.41421356f;
     private static final float INF = 1.0e9f;
+
+    private static final float ORTHO_SEED = 0.5f;
+
+    private static final float DIAGONAL_SEED = 0.5f;
 
     private static final int[] FACE_AXIS = {0, 0, 1, 1, 2, 2};
     private static final int[] FACE_SIDE = {-1, 1, -1, 1, -1, 1};
@@ -50,6 +53,8 @@ final class ShieldContactField {
     private boolean[] fine;
     private boolean[] blocks;
     private float[] dist;
+    private float[] vecU;
+    private float[] vecV;
 
     private double originX;
     private double originY;
@@ -184,6 +189,8 @@ final class ShieldContactField {
         pixels = BufferUtils.createByteBuffer(atlasWidth * atlasHeight);
         fine = new boolean[samples * samples];
         dist = new float[samples * samples];
+        vecU = new float[samples * samples];
+        vecV = new float[samples * samples];
         age = Integer.MAX_VALUE;
     }
 
@@ -250,19 +257,41 @@ final class ShieldContactField {
     private void distanceTransform() {
         int n = samples;
         int count = n * n;
-        Arrays.fill(dist, 0, count, INF);
+        Arrays.fill(vecU, 0, count, INF);
+        Arrays.fill(vecV, 0, count, INF);
 
         for (int j = 0; j < n; j++) {
             for (int i = 0; i < n; i++) {
                 int k = j * n + i;
                 boolean occupied = fine[k];
+
+                if (i > 0 && fine[k - 1] != occupied) {
+                    seed(k, -ORTHO_SEED, 0.0f);
+                }
                 if (i + 1 < n && fine[k + 1] != occupied) {
-                    dist[k] = 0.5f;
-                    dist[k + 1] = 0.5f;
+                    seed(k, ORTHO_SEED, 0.0f);
+                }
+                if (j > 0 && fine[k - n] != occupied) {
+                    seed(k, 0.0f, -ORTHO_SEED);
                 }
                 if (j + 1 < n && fine[k + n] != occupied) {
-                    dist[k] = 0.5f;
-                    dist[k + n] = 0.5f;
+                    seed(k, 0.0f, ORTHO_SEED);
+                }
+                if (vecU[k] != INF) {
+                    continue;
+                }
+
+                if (i > 0 && j > 0 && fine[k - n - 1] != occupied) {
+                    seed(k, -DIAGONAL_SEED, -DIAGONAL_SEED);
+                }
+                if (i + 1 < n && j > 0 && fine[k - n + 1] != occupied) {
+                    seed(k, DIAGONAL_SEED, -DIAGONAL_SEED);
+                }
+                if (i > 0 && j + 1 < n && fine[k + n - 1] != occupied) {
+                    seed(k, -DIAGONAL_SEED, DIAGONAL_SEED);
+                }
+                if (i + 1 < n && j + 1 < n && fine[k + n + 1] != occupied) {
+                    seed(k, DIAGONAL_SEED, DIAGONAL_SEED);
                 }
             }
         }
@@ -270,46 +299,58 @@ final class ShieldContactField {
         for (int j = 0; j < n; j++) {
             for (int i = 0; i < n; i++) {
                 int k = j * n + i;
-                float d = dist[k];
                 if (i > 0) {
-                    d = Math.min(d, dist[k - 1] + 1.0f);
+                    relax(k, k - 1, -1.0f, 0.0f);
                 }
                 if (j > 0) {
-                    d = Math.min(d, dist[k - n] + 1.0f);
+                    relax(k, k - n, 0.0f, -1.0f);
                     if (i > 0) {
-                        d = Math.min(d, dist[k - n - 1] + SQRT2);
+                        relax(k, k - n - 1, -1.0f, -1.0f);
                     }
                     if (i + 1 < n) {
-                        d = Math.min(d, dist[k - n + 1] + SQRT2);
+                        relax(k, k - n + 1, 1.0f, -1.0f);
                     }
                 }
-                dist[k] = d;
             }
         }
 
         for (int j = n - 1; j >= 0; j--) {
             for (int i = n - 1; i >= 0; i--) {
                 int k = j * n + i;
-                float d = dist[k];
                 if (i + 1 < n) {
-                    d = Math.min(d, dist[k + 1] + 1.0f);
+                    relax(k, k + 1, 1.0f, 0.0f);
                 }
                 if (j + 1 < n) {
-                    d = Math.min(d, dist[k + n] + 1.0f);
+                    relax(k, k + n, 0.0f, 1.0f);
                     if (i + 1 < n) {
-                        d = Math.min(d, dist[k + n + 1] + SQRT2);
+                        relax(k, k + n + 1, 1.0f, 1.0f);
                     }
                     if (i > 0) {
-                        d = Math.min(d, dist[k + n - 1] + SQRT2);
+                        relax(k, k + n - 1, -1.0f, 1.0f);
                     }
                 }
-                dist[k] = d;
             }
         }
 
         for (int k = 0; k < count; k++) {
-            dist[k] *= cell;
+            float u = vecU[k];
+            float v = vecV[k];
+            dist[k] = u >= INF ? INF : (float) Math.sqrt(u * u + v * v) * cell;
         }
+    }
+
+    private void seed(int k, float u, float v) {
+        if (u * u + v * v < vecU[k] * vecU[k] + vecV[k] * vecV[k]) {
+            vecU[k] = u;
+            vecV[k] = v;
+        }
+    }
+
+    private void relax(int k, int m, float di, float dj) {
+        if (vecU[m] >= INF) {
+            return;
+        }
+        seed(k, vecU[m] + di, vecV[m] + dj);
     }
 
     private void writeTile(int face) {

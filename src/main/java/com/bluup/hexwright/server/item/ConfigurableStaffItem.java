@@ -49,8 +49,8 @@ public class ConfigurableStaffItem extends ItemHexwrightStaff {
         Component qualityPrefix = Component.translatable(
             (overallQuality != null ? overallQuality : EfficiencyRating.CRUDE).translationKey());
 
-        String modelId = StaffAssemblyData.getPart(stack, StaffPartCategory.MODEL);
-        Optional<StaffPart> model = modelId != null ? StaffParts.find(StaffPartCategory.MODEL, modelId) : Optional.empty();
+        String modelId = StaffParts.modelId(stack);
+        Optional<StaffPart> model = StaffParts.model(stack);
         Component baseName;
         if (model.isEmpty()) {
             baseName = Component.translatable("item.hexwright.configurable_staff.base");

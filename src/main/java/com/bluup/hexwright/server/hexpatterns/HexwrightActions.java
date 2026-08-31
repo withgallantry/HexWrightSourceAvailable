@@ -21,6 +21,7 @@ import at.petrak.hexcasting.xplat.IXplatAbstractions;
 import com.bluup.hexwright.Hexwright;
 import com.bluup.hexwright.common.staff_assembly.calc.IngredientCategory;
 import com.bluup.hexwright.server.block.CoalescerBlockEntity;
+import com.bluup.hexwright.server.coalescence.CoalescenceDenials;
 import com.bluup.hexwright.server.crucible.EssencePouchData;
 import com.bluup.hexwright.server.item.EndlessPouchItem;
 import com.bluup.hexwright.server.network.EssenceNetwork;
@@ -159,6 +160,9 @@ public final class HexwrightActions {
             Item item = typeIota.getItem();
             if (item == Items.AIR) {
                 throw MishapInvalidIota.ofType(raw, 0, "hexwright.coalescer_seed");
+            }
+            if (CoalescenceDenials.isDenied(item)) {
+                throw MishapInvalidIota.ofType(raw, 0, "hexwright.coalescable_seed");
             }
 
             return new Result(new RenderedSpell() {

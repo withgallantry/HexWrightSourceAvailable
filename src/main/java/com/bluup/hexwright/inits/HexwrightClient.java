@@ -127,6 +127,9 @@ public final class HexwrightClient implements ClientModInitializer {
         com.bluup.hexwright.client.staff_assembly.ShieldContactShaders.register();
         StaffCoreBoltVisualClient.register();
         StaffTravellerWarpVisualClient.register();
+        com.bluup.hexwright.client.staff_assembly.StaffTipAnchors.register();
+        com.bluup.hexwright.client.staff_assembly.StaffTipFlash.register();
+        com.bluup.hexwright.client.staff_assembly.StaffTipCommands.register();
         WardingBoxVisualClient.register();
         com.bluup.hexwright.client.weapon.GroundSlamWaveClient.register();
         com.bluup.hexwright.client.weapon.WeaponSlashVisualClient.register();
@@ -142,7 +145,9 @@ public final class HexwrightClient implements ClientModInitializer {
         com.bluup.hexwright.client.block.PlacedBottleRenderer.register();
         com.bluup.hexwright.client.render.emissive.EmissiveItemModels.register();
         com.bluup.hexwright.client.render.emissive.EmissiveBloom.register();
+        com.bluup.hexwright.client.spellcasting.SpellcastingGridCommands.register();
         com.bluup.hexwright.client.photon.PhotonSceneTextures.register();
+        com.bluup.hexwright.client.portal.PortalOptions.load();
         com.bluup.hexwright.client.portal.PortalShaders.register();
         com.bluup.hexwright.client.portal.PortalPlaneRenderer.register();
         com.bluup.hexwright.client.portal.ClientPortalManager.register();
@@ -169,6 +174,7 @@ public final class HexwrightClient implements ClientModInitializer {
         BlockRenderLayerMap.INSTANCE.putBlock(HexwrightBlocks.HARMONIC_EXCHANGE_BLOCK, RenderType.cutout());
         BlockRenderLayerMap.INSTANCE.putBlock(HexwrightBlocks.HARMONIC_EMITTER_BLOCK, RenderType.translucent());
         BlockRenderLayerMap.INSTANCE.putBlock(HexwrightBlocks.WARDING_BOX_BLOCK, RenderType.cutout());
+        BlockRenderLayerMap.INSTANCE.putBlock(HexwrightBlocks.COALESCER_BLOCK, RenderType.translucent());
         BlockRenderLayerMap.INSTANCE.putBlock(HexwrightBlocks.EXCHANGE_BRIDGE_BLOCK, RenderType.translucent());
         BlockRenderLayerMap.INSTANCE.putBlock(HexwrightBlocks.LEYWELL_BLOCK, RenderType.cutout());
 
@@ -312,10 +318,7 @@ public final class HexwrightClient implements ClientModInitializer {
         ItemProperties.register(HexwrightItems.CONFIGURABLE_STAFF, Hexwright.id("model"),
             (stack, level, entity, seed) -> {
                 List<StaffPart> models = StaffParts.options(StaffPartCategory.MODEL);
-                String modelId = StaffAssemblyData.getPart(stack, StaffPartCategory.MODEL);
-                if (modelId == null) {
-                    return 0.0f;
-                }
+                String modelId = StaffParts.modelId(stack);
 
                 int index = -1;
                 for (int i = 0; i < models.size(); i++) {

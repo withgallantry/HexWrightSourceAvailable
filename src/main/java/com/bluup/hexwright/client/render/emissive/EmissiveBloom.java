@@ -14,6 +14,7 @@ import com.mojang.blaze3d.vertex.BufferUploader;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.Tesselator;
+import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
@@ -24,6 +25,8 @@ import net.minecraft.client.renderer.ShaderInstance;
 import net.minecraft.client.resources.model.BakedModel;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL30;
+
+import java.util.function.Consumer;
 
 public final class EmissiveBloom {
     private static final int DEBUG_SKIP_COMPOSITE = 1;
@@ -94,6 +97,11 @@ public final class EmissiveBloom {
 
     static void captureGlow(PoseStack.Pose pose, BakedModel glow, RenderType layer,
                             int overlay, float red, float green, float blue) {
+        capture(layer, consumer ->
+            EmissiveItemModels.emitGlowQuads(consumer, pose, glow, overlay, red, green, blue));
+    }
+
+    public static void capture(RenderType layer, Consumer<VertexConsumer> emitter) {
         if (!capturing || PortalViewRenderer.isRenderingView()) {
             return;
         }
@@ -102,8 +110,7 @@ public final class EmissiveBloom {
         BlendMode previousBlendMode = BlendModeAccessor.hexwright$getLastApplied();
         EmissiveBloomTargets.glow().bindWrite(false);
 
-        EmissiveItemModels.emitGlowQuads(GLOW_BUFFER.getBuffer(layer), pose, glow, overlay,
-            red, green, blue);
+        emitter.accept(GLOW_BUFFER.getBuffer(layer));
         GLOW_BUFFER.endBatch();
 
         GlStateManager._glBindFramebuffer(GL30.GL_FRAMEBUFFER, previous);

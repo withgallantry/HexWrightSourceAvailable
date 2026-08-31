@@ -67,6 +67,7 @@ public class BattleHammerItem extends BerserkWeaponItem {
         this.quality = quality;
     }
 
+    @Override
     @Nullable
     public PocketCasterData.Quality quality() {
         return this.quality;
@@ -74,12 +75,10 @@ public class BattleHammerItem extends BerserkWeaponItem {
 
     @Override
     public Component getName(ItemStack stack) {
-        if (this.quality == null) {
-            return super.getName(stack);
-        }
-        return Component.translatable("item.hexwright.battle_hammer.named",
-                Component.translatable(this.quality.translationKey()))
-            .withStyle(this.quality.color());
+        Component name = this.quality == null
+            ? super.getName(stack)
+            : Component.translatable("item.hexwright.battle_hammer");
+        return WeaponTooltips.graded(stack, name, this.quality);
     }
 
     @Override

@@ -96,15 +96,17 @@ public class ShortSwordItem extends SwordItem implements AnimatedWeapon {
 
     @Override
     public Component getName(ItemStack stack) {
-        return Component.translatable("item.hexwright.duelist_short_sword.named",
-                Component.translatable(this.quality.translationKey()))
-            .withStyle(this.quality.color());
+        return WeaponTooltips.graded(stack,
+            Component.translatable("item.hexwright.duelist_short_sword"), this.quality);
     }
 
     @Override
     public void appendHoverText(ItemStack stack, @Nullable Level level, List<Component> tooltip,
                                 TooltipFlag flag) {
-        tooltip.add(Component.translatable("tooltip.hexwright.duelist_short_sword.combo",
-            COMBO_CLIPS.length).withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable("tooltip.hexwright.duelist_short_sword.quality",
+                Component.translatable(this.quality.translationKey()).withStyle(this.quality.color()))
+            .withStyle(ChatFormatting.GRAY));
+        WeaponTooltips.add(tooltip, Component.translatable("tooltip.hexwright.duelist_short_sword.combo",
+            COMBO_CLIPS.length), ChatFormatting.GRAY);
     }
 }

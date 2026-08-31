@@ -65,6 +65,7 @@ object HexwrightServer : ModInitializer {
         com.bluup.hexwright.server.worldgen.AreaWard.register()
         com.bluup.hexwright.server.worldgen.ruinedportal.RuinedPortalManager.register()
         com.bluup.hexwright.server.worldgen.decadentvault.DecadentVaultWard.register()
+        com.bluup.hexwright.server.staff_assembly.StaffCastFlare.register()
         com.bluup.hexwright.server.weapon.SlamWindUp.register()
         com.bluup.hexwright.server.weapon.SoulHarvest.register()
         com.bluup.hexwright.server.vehicle.VehicleDebugCommand.register()

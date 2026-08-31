@@ -6,6 +6,7 @@ import at.petrak.hexcasting.api.casting.eval.vm.SpellContinuation;
 import com.bluup.hexwright.server.block.ResonantFieldRangeComponent;
 import com.bluup.hexwright.server.pocketcaster.PocketCasterCastEnv;
 import com.bluup.hexwright.server.staff_assembly.StaffCastAnimationTrigger;
+import com.bluup.hexwright.server.staff_assembly.StaffCastFlare;
 import com.bluup.hexwright.server.staff_assembly.StaffPowerCastEnv;
 import com.bluup.hexwright.server.talisman.TalismanCastEnv;
 import com.bluup.hexwright.server.talisman.TalismanCasting;
@@ -64,12 +65,14 @@ public abstract class StaffCastEnvMixin {
         if (data == null
             || !data.getStack().isEmpty()
             || data.getParenCount() != 0
+            || data.getEscapeNext()
             || result.getContinuation() != SpellContinuation.Done.INSTANCE) {
             return;
         }
         ServerPlayer caster = ((StaffCastEnv) (Object) this).getCaster();
         if (caster != null) {
             StaffCastAnimationTrigger.onSuccessfulCast(caster);
+            StaffCastFlare.onHexResolved(caster);
         }
     }
 }

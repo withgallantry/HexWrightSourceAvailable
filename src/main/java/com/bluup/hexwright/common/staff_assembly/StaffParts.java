@@ -16,6 +16,8 @@ import java.util.Set;
 public final class StaffParts {
     public static final String NONE_ID = "none";
 
+    public static final String DEFAULT_MODEL_ID = "simple_staff";
+
     private static final Set<String> BOOK_TAGS = Set.of(StaffPart.TAG_BOOK, StaffPart.TAG_NAME_OMITS_STAFF);
 
     private static final List<StaffPart> MODEL = List.of(
@@ -156,13 +158,18 @@ public final class StaffParts {
     }
 
     public static boolean isBookModel(ItemStack stack) {
-        String modelId = StaffAssemblyData.getPart(stack, StaffPartCategory.MODEL);
-        if (modelId == null) {
-            return false;
-        }
-        return find(StaffPartCategory.MODEL, modelId)
+        return model(stack)
             .map(part -> part.hasTag(StaffPart.TAG_BOOK))
             .orElse(false);
+    }
+
+    public static String modelId(ItemStack stack) {
+        String modelId = StaffAssemblyData.getPart(stack, StaffPartCategory.MODEL);
+        return modelId != null ? modelId : DEFAULT_MODEL_ID;
+    }
+
+    public static Optional<StaffPart> model(ItemStack stack) {
+        return find(StaffPartCategory.MODEL, modelId(stack));
     }
 
     public static boolean isUnlocked(StaffPart part, EfficiencyRating currentQuality) {

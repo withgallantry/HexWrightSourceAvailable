@@ -14,6 +14,7 @@ import com.bluup.hexwright.server.vault.VaultKeyItem
 import com.bluup.hexwright.server.vehicle.BroomVariant
 import com.bluup.hexwright.server.vehicle.CarpetVariant
 import com.bluup.hexwright.server.wardingbox.WardingBoxData
+import net.minecraft.world.item.Item
 import net.minecraft.world.item.ItemStack
 
 object WorktableRecipes {
@@ -490,6 +491,16 @@ object WorktableRecipes {
             graded = false
         ) { ItemStack(HexwrightItems.SEALED_SATCHEL) }
     )
+
+    fun allOutputItems(): Set<Item> {
+        val items = LinkedHashSet<Item>()
+        for (recipe in RECIPES) {
+            for (quality in PocketCasterData.Quality.values()) {
+                items.add(recipe.assemble(quality).item)
+            }
+        }
+        return items
+    }
 
     fun defaultRecipe(): Int =
         RECIPES.indices.firstOrNull { !RecipeTablets.requiresTablet(RECIPES[it].nameKey) } ?: 0

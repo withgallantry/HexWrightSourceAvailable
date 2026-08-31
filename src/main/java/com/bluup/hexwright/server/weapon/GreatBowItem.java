@@ -5,6 +5,7 @@ import at.petrak.hexcasting.api.casting.iota.IotaType;
 import at.petrak.hexcasting.api.item.IotaHolderItem;
 import at.petrak.hexcasting.api.utils.NBTHelper;
 import com.bluup.hexwright.server.armour.VenatorPowers;
+import com.bluup.hexwright.server.item.ArtifactItem;
 import com.bluup.hexwright.server.pocketcaster.PocketCasterData;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.particles.ParticleTypes;
@@ -228,9 +229,8 @@ public class GreatBowItem extends BowItem implements IotaHolderItem {
 
     @Override
     public Component getName(ItemStack stack) {
-        return Component.translatable("item.hexwright.archer_great_bow.named",
-                Component.translatable(this.quality.translationKey()))
-            .withStyle(this.quality.color());
+        return WeaponTooltips.graded(stack,
+            Component.translatable("item.hexwright.archer_great_bow"), this.quality);
     }
 
     protected void appendExtraTooltip(ItemStack stack, List<Component> tooltip) {
@@ -239,16 +239,23 @@ public class GreatBowItem extends BowItem implements IotaHolderItem {
     @Override
     public void appendHoverText(ItemStack stack, @Nullable Level level, List<Component> tooltip,
                                 TooltipFlag flag) {
+        if (this instanceof ArtifactItem) {
+            tooltip.add(ArtifactItem.tooltipLine());
+        } else {
+            tooltip.add(Component.translatable("tooltip.hexwright.archer_great_bow.quality",
+                    Component.translatable(this.quality.translationKey()).withStyle(this.quality.color()))
+                .withStyle(ChatFormatting.GRAY));
+        }
         int cooldown = hexCooldownTicks();
-        tooltip.add(Component.translatable("tooltip.hexwright.archer_great_bow.cast")
-            .withStyle(ChatFormatting.DARK_PURPLE));
-        tooltip.add(Component.translatable("tooltip.hexwright.archer_great_bow.recharge",
-            String.format("%.1f", cooldown / 20.0F)).withStyle(ChatFormatting.GRAY));
+        WeaponTooltips.add(tooltip, Component.translatable("tooltip.hexwright.archer_great_bow.cast"),
+            ChatFormatting.DARK_PURPLE);
+        WeaponTooltips.add(tooltip, Component.translatable("tooltip.hexwright.archer_great_bow.recharge",
+            String.format("%.1f", cooldown / 20.0F)), ChatFormatting.GRAY);
 
         CompoundTag hex = readIotaTag(stack);
         if (hex == null || hex.isEmpty()) {
-            tooltip.add(Component.translatable("tooltip.hexwright.archer_great_bow.uninscribed")
-                .withStyle(ChatFormatting.DARK_GRAY));
+            WeaponTooltips.add(tooltip, Component.translatable("tooltip.hexwright.archer_great_bow.uninscribed"),
+                ChatFormatting.DARK_GRAY);
         }
 
         appendExtraTooltip(stack, tooltip);

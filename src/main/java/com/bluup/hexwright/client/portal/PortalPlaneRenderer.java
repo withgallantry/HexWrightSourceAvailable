@@ -79,7 +79,7 @@ public final class PortalPlaneRenderer {
                 if (progress <= 0.0f) {
                     continue;
                 }
-                int textureId = inPortalPass ? -1 : PortalViewRenderer.viewTextureId(entry.pair().id(), side);
+                int textureId = PortalViewRenderer.viewTextureId(entry.pair().id(), side);
                 boolean settled = progress >= SETTLED_PROGRESS && textureId >= 0;
                 if (settled == settledPhase) {
                     panes.add(new Pane(entry, side, distSq, progress, textureId));
@@ -92,7 +92,7 @@ public final class PortalPlaneRenderer {
         panes.sort((a, b) -> Double.compare(b.distSq(), a.distSq()));
 
         int sceneTextureId = -1;
-        if (!settledPhase && !inPortalPass && SceneSnapshot.capture(SceneSnapshot.SLOT_PORTAL_PANE)) {
+        if (!settledPhase && SceneSnapshot.capture(SceneSnapshot.SLOT_PORTAL_PANE)) {
             sceneTextureId = SceneSnapshot.colorTextureId();
         }
 
@@ -121,6 +121,7 @@ public final class PortalPlaneRenderer {
             shader.safeGetUniform("Progress").set(progress);
             shader.safeGetUniform("ViewReady").set(textureId >= 0 ? 1.0f : 0.0f);
             shader.safeGetUniform("SceneReady").set(sceneTextureId >= 0 ? 1.0f : 0.0f);
+            shader.safeGetUniform("Muted").set(inPortalPass && textureId < 0 ? 1.0f : 0.0f);
             shader.setSampler("PortalSampler", Math.max(textureId, 0));
             shader.setSampler("SceneSampler", Math.max(sceneTextureId, 0));
             RenderSystem.setShader(() -> shader);

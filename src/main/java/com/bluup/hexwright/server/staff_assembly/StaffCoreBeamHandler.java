@@ -33,6 +33,9 @@ public final class StaffCoreBeamHandler {
     private static final double BOLT_SPEED = 2.2;
     private static final int SPHERE_TINKLE_INTERVAL_TICKS = 12;
 
+    private static final float AREA_ACTIVATE_PITCH = 1.0f;
+    private static final float AREA_DEACTIVATE_PITCH = 0.7f;
+
     private static final String AREA_CLIP = "staff_area_channel";
     private static final String PROJECTILE_CLIP = "staff_projectile_release";
 
@@ -64,6 +67,7 @@ public final class StaffCoreBeamHandler {
 
         String powerId = coreData.get().powerId();
         if (BEAM_POWER_ID.equals(powerId)) {
+            stopAreaChannel(player);
             HexwrightNetworking.sendStaffCoreSphereVisual(player, false, null, 0.0);
             boolean fireHeld = active && !leftClickBusy;
             boolean wasActive = BEAM_WAS_ACTIVE.getOrDefault(player.getUUID(), false);
@@ -74,7 +78,7 @@ public final class StaffCoreBeamHandler {
             return;
         }
 
-        clearPlayer(player);
+        BEAM_WAS_ACTIVE.remove(player.getUUID());
 
         if (StaffPowers.AREA_CAST_POWER_ID.equals(powerId)) {
             boolean channelHeld = active && crosshairFree;
@@ -82,10 +86,14 @@ public final class StaffCoreBeamHandler {
             AREA_WAS_ACTIVE.put(player.getUUID(), channelHeld);
 
             if (!channelHeld || !drainAreaHoldCost(player, held)) {
+                if (channelHeld && !wasAreaActive) {
+                    playNoMediaMishap(player, "message.hexwright.staff.area_no_media");
+                }
                 AREA_DRAIN_PROGRESS.remove(player.getUUID());
                 HexwrightNetworking.sendStaffCoreSphereVisual(player, false, null, 0.0);
                 if (wasAreaActive) {
                     HexwrightNetworking.sendPlayerAnimation(player, PlayerAnimationLayer.LOOP, null);
+                    playAreaChannelSting(player, AREA_DEACTIVATE_PITCH);
                 }
                 return;
             }
@@ -94,23 +102,39 @@ public final class StaffCoreBeamHandler {
             HexwrightNetworking.sendStaffCoreSphereVisual(player, true, pigment, halfExtent);
             if (!wasAreaActive) {
                 HexwrightNetworking.sendPlayerAnimation(player, PlayerAnimationLayer.LOOP, AREA_CLIP);
-                player.serverLevel().playSound(null, player.getX(), player.getY(), player.getZ(),
-                    HexwrightSoundEvents.areaCastActivate(), SoundSource.PLAYERS, 0.7f, 1.0f);
+                playAreaChannelSting(player, AREA_ACTIVATE_PITCH);
             }
             StaffPowers.executeTick(player, held);
             playSphereAmbientTinkle(player);
             return;
         }
 
+        stopAreaChannel(player);
         HexwrightNetworking.sendStaffCoreSphereVisual(player, false, null, 0.0);
     }
 
     public static void clearPlayer(ServerPlayer player) {
         BEAM_WAS_ACTIVE.remove(player.getUUID());
+        stopAreaChannel(player, false);
+    }
+
+    private static void stopAreaChannel(ServerPlayer player) {
+        stopAreaChannel(player, true);
+    }
+
+    private static void stopAreaChannel(ServerPlayer player, boolean playSting) {
         AREA_DRAIN_PROGRESS.remove(player.getUUID());
         if (Boolean.TRUE.equals(AREA_WAS_ACTIVE.remove(player.getUUID()))) {
             HexwrightNetworking.sendPlayerAnimation(player, PlayerAnimationLayer.LOOP, null);
+            if (playSting) {
+                playAreaChannelSting(player, AREA_DEACTIVATE_PITCH);
+            }
         }
+    }
+
+    private static void playAreaChannelSting(ServerPlayer player, float pitch) {
+        player.serverLevel().playSound(null, player.getX(), player.getY(), player.getZ(),
+            HexwrightSoundEvents.areaCastActivate(), SoundSource.PLAYERS, 0.7f, pitch);
     }
 
     private static boolean drainAreaHoldCost(ServerPlayer player, ItemStack staff) {
@@ -177,10 +201,14 @@ public final class StaffCoreBeamHandler {
     }
 
     private static void playNoMediaMishap(ServerPlayer player) {
+        playNoMediaMishap(player, "message.hexwright.staff.echo_no_media");
+    }
+
+    private static void playNoMediaMishap(ServerPlayer player, String messageKey) {
         var level = player.serverLevel();
         level.playSound(null, player.getX(), player.getY(), player.getZ(), HexEvalSounds.MISHAP.sound(), SoundSource.PLAYERS, 1.0f, 1.0f);
         level.sendParticles(ParticleTypes.SMOKE, player.getX(), player.getEyeY(), player.getZ(), 10, 0.2, 0.2, 0.2, 0.02);
-        player.displayClientMessage(Component.translatable("message.hexwright.staff.echo_no_media").withStyle(ChatFormatting.RED), true);
+        player.displayClientMessage(Component.translatable(messageKey).withStyle(ChatFormatting.RED), true);
     }
 
     private static Vec3 computeStaffTip(ServerPlayer player, Vec3 direction) {

@@ -69,10 +69,14 @@ class CoalescerBlock(properties: Properties) : Block(properties), EntityBlock {
         state: BlockState,
         type: BlockEntityType<T>
     ): BlockEntityTicker<T>? {
-        if (level.isClientSide || type != HexwrightBlocks.COALESCER_BLOCK_ENTITY) {
+        if (type != HexwrightBlocks.COALESCER_BLOCK_ENTITY) {
             return null
         }
-        val ticker = BlockEntityTicker<CoalescerBlockEntity> { _, _, _, be -> be.serverTick() }
+        val ticker = if (level.isClientSide) {
+            BlockEntityTicker<CoalescerBlockEntity> { _, _, _, be -> be.clientTick() }
+        } else {
+            BlockEntityTicker<CoalescerBlockEntity> { _, _, _, be -> be.serverTick() }
+        }
         @Suppress("UNCHECKED_CAST")
         return ticker as BlockEntityTicker<T>
     }
@@ -100,6 +104,10 @@ class CoalescerBlock(properties: Properties) : Block(properties), EntityBlock {
             val be = level.getBlockEntity(pos) as? CoalescerBlockEntity
             if (be != null) {
                 Containers.dropContents(level, pos, be)
+                val pending = be.takePendingCraft()
+                if (!pending.isEmpty) {
+                    Containers.dropItemStack(level, pos.x + 0.5, pos.y + 0.5, pos.z + 0.5, pending)
+                }
             }
         }
         super.onRemove(state, level, pos, newState, isMoving)

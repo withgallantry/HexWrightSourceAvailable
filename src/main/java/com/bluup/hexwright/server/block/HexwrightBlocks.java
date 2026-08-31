@@ -101,6 +101,7 @@ public final class HexwrightBlocks {
     public static final CoalescerBlock COALESCER_BLOCK = new CoalescerBlock(
         soft(Blocks.SMOKER)
             .luminance(state -> 0)
+            .nonOpaque()
     );
 
     public static final Item COALESCER_ITEM = new BlockItem(

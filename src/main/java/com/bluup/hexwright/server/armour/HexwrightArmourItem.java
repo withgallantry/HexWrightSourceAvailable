@@ -66,51 +66,50 @@ public class HexwrightArmourItem extends ArmorItem implements GeoItem, IotaHolde
             Component.translatable(tier.displayQuality().translationKey()).withStyle(tier.displayQuality().color()))
             .withStyle(ChatFormatting.GRAY));
         tooltip.add(Component.translatable("tooltip.hexwright.armour.set",
-            Component.translatable("armour_set.hexwright." + set.id())).withStyle(ChatFormatting.GRAY));
-        if (set == ArmourSet.AUGUR && getType() == Type.CHESTPLATE) {
-            tooltip.add(Component.translatable("tooltip.hexwright.armour.augur_chestplate.power")
-                .withStyle(ChatFormatting.DARK_PURPLE));
+            ArmourPowerToggle.wornPieces(tooltipWearer(level), set), ArmourPowerToggle.SET_PIECES)
+            .withStyle(ChatFormatting.GRAY));
+        if (ArmourPowerToggle.hasPower(set)) {
+            tooltip.add(Component.empty());
+            appendPowerTooltip(tooltip);
+            if (getType() == Type.CHESTPLATE) {
+                tooltip.add(Component.empty());
+                appendSigilTooltip(stack, tooltip, flag);
+            }
         }
-        if (set == ArmourSet.HEXWARDEN && getType() == Type.CHESTPLATE) {
-            tooltip.add(Component.translatable("tooltip.hexwright.armour.hexwarden_chestplate.power")
-                .withStyle(ChatFormatting.DARK_PURPLE));
-            tooltip.add(Component.translatable("tooltip.hexwright.armour.hexwarden_chestplate.protection",
+    }
+
+    private void appendPowerTooltip(List<Component> tooltip) {
+        tooltip.add(Component.translatable("tooltip.hexwright.armour.set_power",
+            ArmourPowerToggle.REQUIRED_PIECES,
+            Component.translatable("tooltip.hexwright.armour." + set.id() + ".power"))
+            .withStyle(ChatFormatting.DARK_PURPLE));
+        switch (set) {
+            case AUGUR -> {
+            }
+            case HEXWARDEN -> tooltip.add(Component.translatable("tooltip.hexwright.armour.hexwarden.protection",
                 Math.round(HexwardenMishapEnv.protection(tier) * 100)).withStyle(ChatFormatting.GRAY));
-        }
-        if (set == ArmourSet.VEILWALKER && getType() == Type.CHESTPLATE) {
-            tooltip.add(Component.translatable("tooltip.hexwright.armour.veilwalker_chestplate.power")
-                .withStyle(ChatFormatting.DARK_PURPLE));
-            tooltip.add(Component.translatable("tooltip.hexwright.armour.veilwalker_chestplate.slots",
+            case VEILWALKER -> tooltip.add(Component.translatable("tooltip.hexwright.armour.veilwalker.slots",
                 TalismanSlots.bonusFor(tier), TalismanSlots.BASE_SLOTS + TalismanSlots.bonusFor(tier))
                 .withStyle(ChatFormatting.GRAY));
-        }
-        if (set == ArmourSet.CANTOR && getType() == Type.CHESTPLATE) {
-            tooltip.add(Component.translatable("tooltip.hexwright.armour.cantor_chestplate.power")
-                .withStyle(ChatFormatting.DARK_PURPLE));
-            tooltip.add(Component.translatable("tooltip.hexwright.armour.cantor_chestplate.minds",
+            case CANTOR -> tooltip.add(Component.translatable("tooltip.hexwright.armour.cantor.minds",
                 CantorActions.mindCount(tier)).withStyle(ChatFormatting.GRAY));
-        }
-        if (set == ArmourSet.VENATOR && getType() == Type.CHESTPLATE) {
-            tooltip.add(Component.translatable("tooltip.hexwright.armour.venator_chestplate.power")
-                .withStyle(ChatFormatting.DARK_PURPLE));
-            tooltip.add(Component.translatable("tooltip.hexwright.armour.venator_chestplate.recharge",
-                Math.round(VenatorPowers.cooldownReduction(tier) * 100)).withStyle(ChatFormatting.GRAY));
-            tooltip.add(Component.translatable("tooltip.hexwright.armour.venator_chestplate.arrows",
-                Math.round(VenatorPowers.arrowRefundChance(tier) * 100)).withStyle(ChatFormatting.GRAY));
-        }
-        if (set == ArmourSet.DOMITOR && getType() == Type.CHESTPLATE) {
-            tooltip.add(Component.translatable("tooltip.hexwright.armour.domitor_chestplate.power")
-                .withStyle(ChatFormatting.DARK_PURPLE));
-            tooltip.add(Component.translatable("tooltip.hexwright.armour.domitor_chestplate.ward",
+            case VENATOR -> {
+                tooltip.add(Component.translatable("tooltip.hexwright.armour.venator.recharge",
+                    Math.round(VenatorPowers.cooldownReduction(tier) * 100)).withStyle(ChatFormatting.GRAY));
+                tooltip.add(Component.translatable("tooltip.hexwright.armour.venator.arrows",
+                    Math.round(VenatorPowers.arrowRefundChance(tier) * 100)).withStyle(ChatFormatting.GRAY));
+            }
+            case DOMITOR -> tooltip.add(Component.translatable("tooltip.hexwright.armour.domitor.ward",
                 Math.round(DomitorPowers.wardFraction(tier) * 100)).withStyle(ChatFormatting.GRAY));
         }
-        if (getType() == Type.CHESTPLATE && ArmourPowerToggle.hasPower(set)) {
-            tooltip.add(Component.translatable("tooltip.hexwright.armour.set_requirement",
-                ArmourPowerToggle.REQUIRED_PIECES,
-                Component.translatable(tier.displayQuality().translationKey()).withStyle(tier.displayQuality().color()))
-                .withStyle(ChatFormatting.GRAY));
-            appendSigilTooltip(stack, tooltip, flag);
+    }
+
+    @Nullable
+    private static LivingEntity tooltipWearer(@Nullable Level level) {
+        if (level == null || !level.isClientSide) {
+            return null;
         }
+        return net.minecraft.client.Minecraft.getInstance().player;
     }
 
     private void appendSigilTooltip(ItemStack stack, List<Component> tooltip, TooltipFlag flag) {

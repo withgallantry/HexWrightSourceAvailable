@@ -6,6 +6,8 @@ import at.petrak.hexcasting.api.item.IotaHolderItem;
 import at.petrak.hexcasting.api.utils.NBTHelper;
 import com.bluup.hexwright.common.animation.PlayerAnimationLayer;
 import com.bluup.hexwright.inits.HexwrightNetworking;
+import com.bluup.hexwright.server.item.ArtifactItem;
+import com.bluup.hexwright.server.pocketcaster.PocketCasterData;
 import net.minecraft.ChatFormatting;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
@@ -142,6 +144,11 @@ public abstract class BerserkWeaponItem extends SwordItem implements AnimatedWea
         return false;
     }
 
+    @Nullable
+    public PocketCasterData.Quality quality() {
+        return null;
+    }
+
     protected Component castTooltip() {
         return Component.translatable("tooltip.hexwright.berserk_weapon.cast");
     }
@@ -192,23 +199,38 @@ public abstract class BerserkWeaponItem extends SwordItem implements AnimatedWea
     @Override
     public void appendHoverText(ItemStack stack, @Nullable Level level, List<Component> tooltip,
                                 TooltipFlag flag) {
-        tooltip.add(swingTooltip().copy().withStyle(ChatFormatting.GRAY));
+        appendQualityTooltip(tooltip);
+        WeaponTooltips.add(tooltip, swingTooltip(), ChatFormatting.GRAY);
         Component extra = swingTooltipExtra();
         if (extra != null) {
-            tooltip.add(extra.copy().withStyle(ChatFormatting.GRAY));
+            WeaponTooltips.add(tooltip, extra, ChatFormatting.GRAY);
         }
-        tooltip.add(Component.translatable("tooltip.hexwright.berserk_weapon.recharge",
-            String.format("%.1f", this.cooldownTicks / 20.0F)).withStyle(ChatFormatting.GRAY));
+        WeaponTooltips.add(tooltip, Component.translatable("tooltip.hexwright.berserk_weapon.recharge",
+            String.format("%.1f", this.cooldownTicks / 20.0F)), ChatFormatting.GRAY);
 
         if (!castsOnCaught()) {
             return;
         }
-        tooltip.add(castTooltip().copy().withStyle(ChatFormatting.DARK_PURPLE));
+        WeaponTooltips.add(tooltip, castTooltip(), ChatFormatting.DARK_PURPLE);
         CompoundTag hex = readIotaTag(stack);
         if (hex == null || hex.isEmpty()) {
-            tooltip.add(Component.translatable("tooltip.hexwright.berserk_weapon.uninscribed")
-                .withStyle(ChatFormatting.DARK_GRAY));
+            WeaponTooltips.add(tooltip, Component.translatable("tooltip.hexwright.berserk_weapon.uninscribed"),
+                ChatFormatting.DARK_GRAY);
         }
         IotaHolderItem.appendHoverText(this, stack, tooltip, flag);
+    }
+
+    protected final void appendQualityTooltip(List<Component> tooltip) {
+        if (this instanceof ArtifactItem) {
+            tooltip.add(ArtifactItem.tooltipLine());
+            return;
+        }
+        PocketCasterData.Quality quality = quality();
+        if (quality == null) {
+            return;
+        }
+        tooltip.add(Component.translatable("tooltip.hexwright.berserk_weapon.quality",
+                Component.translatable(quality.translationKey()).withStyle(quality.color()))
+            .withStyle(ChatFormatting.GRAY));
     }
 }

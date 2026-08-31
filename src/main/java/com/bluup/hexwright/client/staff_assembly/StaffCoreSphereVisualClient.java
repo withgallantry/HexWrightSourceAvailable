@@ -42,13 +42,14 @@ import java.util.Map;
 public final class StaffCoreSphereVisualClient {
     private static final ResourceLocation SHIELD_WHITE = new ResourceLocation("hexwright", "textures/effects/shield_white.png");
     private static final RenderType SHIELD_TYPE = RenderType.entityTranslucent(SHIELD_WHITE);
+    private static final RenderType BAND_TYPE = RenderType.entityTranslucentCull(SHIELD_WHITE);
     private static final int GRID_X = 28;
     private static final int GRID_Y = 28;
     private static final float OPEN_CLOSE_TICKS = 18.0f;
     private static final float REVEAL_SOFTNESS = 0.14f;
     private static final float NOISE_SCALE = 0.20f;
     private static final float NOISE_TIME_SCALE = 0.18f;
-    private static final float FACE_ALPHA = 0.36f;
+    private static final float FACE_ALPHA = 0.24f;
     private static final float SOFT_PULSE_TIME_SCALE = 0.45f;
     private static final float SOFT_PULSE_ALPHA_AMPLITUDE = 0.32f;
     private static final float SOFT_PULSE_BRIGHTNESS_AMPLITUDE = 0.60f;
@@ -56,7 +57,7 @@ public final class StaffCoreSphereVisualClient {
     private static final float OUTLINE_THICKNESS = 0.060f;
     private static final float EDGE_OFFSET = 0.015f;
 
-    private static final float CONTACT_GLOW_WIDTH = 0.12f;
+    private static final float CONTACT_GLOW_WIDTH = 0.085f;
     private static final float NEAR_PLANE = 0.05f;
     private static final double INK_WRAP = 4096.0;
 
@@ -65,6 +66,8 @@ public final class StaffCoreSphereVisualClient {
     private static final float DEBUG_FACE = intProperty("hexwright.shield.face", -1);
 
     private static final boolean DRAW_FACES = intProperty("hexwright.shield.faces", 1) != 0;
+
+    private static final boolean DRAW_BANDS = intProperty("hexwright.shield.bands", 1) != 0;
 
     private static final boolean DRAW_GLOW = intProperty("hexwright.shield.glow", 1) != 0;
 
@@ -204,6 +207,16 @@ public final class StaffCoreSphereVisualClient {
         poseStack.pushPose();
         poseStack.translate(-camera.x, -camera.y, -camera.z);
         try {
+            if (DRAW_BANDS) {
+                VertexConsumer bandVc = consumers.getBuffer(BAND_TYPE);
+                for (LiveCube cube : live) {
+                    renderCubeBands(bandVc, poseStack, cube);
+                }
+                if (consumers instanceof MultiBufferSource.BufferSource bufferSource) {
+                    bufferSource.endBatch(BAND_TYPE);
+                }
+            }
+
             if (DRAW_FACES) {
                 VertexConsumer vc = consumers.getBuffer(SHIELD_TYPE);
                 for (LiveCube cube : live) {
@@ -223,6 +236,25 @@ public final class StaffCoreSphereVisualClient {
     public static void captureSolidDepth() {
     }
 
+    private static void renderCubeBands(VertexConsumer vc, PoseStack poseStack, LiveCube cube) {
+        Vec3 center = cube.center();
+        float halfExtent = cube.halfExtent();
+        PoseStack.Pose pose = poseStack.last();
+        drawPerimeterEdgeBands(
+            vc,
+            pose.pose(),
+            pose.normal(),
+            (float) center.x - halfExtent,
+            (float) center.x + halfExtent,
+            (float) center.y - halfExtent,
+            (float) center.y + halfExtent,
+            (float) center.z - halfExtent,
+            (float) center.z + halfExtent,
+            cube.easedProgress(),
+            lighten(cube.baseColor(), EDGE_LIGHTEN)
+        );
+    }
+
     private static void renderCube(VertexConsumer vc, PoseStack poseStack, LiveCube cube, float time) {
         Vec3 center = cube.center();
         float halfExtent = cube.halfExtent();
@@ -239,7 +271,6 @@ public final class StaffCoreSphereVisualClient {
         float easedProgress = cube.easedProgress();
         float pulse = cube.pulse();
         int baseColor = cube.baseColor();
-        int edgeColor = lighten(baseColor, EDGE_LIGHTEN);
 
         drawProceduralFace(vc, mat, normal, maxX, minY, minZ, maxX, maxY, minZ, maxX, maxY, maxZ, maxX, minY, maxZ, easedProgress, time, baseColor, FACE_ALPHA, pulse, 1.0f, 0.0f, 0.0f, 0.0f);
         drawProceduralFace(vc, mat, normal, minX, minY, maxZ, minX, maxY, maxZ, minX, maxY, minZ, minX, minY, minZ, easedProgress, time, baseColor, FACE_ALPHA, pulse, -1.0f, 0.0f, 0.0f, 0.0f);
@@ -247,9 +278,6 @@ public final class StaffCoreSphereVisualClient {
         drawProceduralFace(vc, mat, normal, minX, minY, maxZ, minX, minY, minZ, maxX, minY, minZ, maxX, minY, maxZ, easedProgress, time, baseColor, FACE_ALPHA, pulse, 0.0f, -1.0f, 0.0f, 0.0f);
         drawProceduralFace(vc, mat, normal, minX, minY, maxZ, minX, maxY, maxZ, maxX, maxY, maxZ, maxX, minY, maxZ, easedProgress, time, baseColor, FACE_ALPHA, pulse, 0.0f, 0.0f, 1.0f, 0.0f);
         drawProceduralFace(vc, mat, normal, maxX, minY, minZ, maxX, maxY, minZ, minX, maxY, minZ, minX, minY, minZ, easedProgress, time, baseColor, FACE_ALPHA, pulse, 0.0f, 0.0f, -1.0f, 0.0f);
-
-
-        drawPerimeterEdgeBands(vc, mat, normal, minX, maxX, minY, maxY, minZ, maxZ, easedProgress, edgeColor);
     }
 
     private static void drawContactGlow(

@@ -1,9 +1,11 @@
 package com.bluup.hexwright.server.block
 
 import com.bluup.hexwright.Hexwright
+import com.bluup.hexwright.client.block.CoalescerFormVisualClient
 import com.bluup.hexwright.server.menu.MenuWidgets
 import com.bluup.hexwright.server.menu.UiTemplates
 import com.bluup.hexwright.common.staff_assembly.calc.IngredientCategory
+import com.bluup.hexwright.server.coalescence.CoalescenceDenials
 import com.bluup.hexwright.server.coalescence.CoalescenceRecipes
 import com.bluup.hexwright.server.crucible.EssencePouchData
 import com.bluup.hexwright.server.item.EndlessPouchItem
@@ -15,9 +17,11 @@ import com.lowdragmc.lowdraglib.gui.texture.GuiTextureGroup
 import com.lowdragmc.lowdraglib.gui.texture.IGuiTexture
 import com.lowdragmc.lowdraglib.gui.texture.ResourceTexture
 import com.lowdragmc.lowdraglib.gui.texture.TextTexture
+import com.lowdragmc.lowdraglib.gui.util.DrawerHelper
 import com.lowdragmc.lowdraglib.gui.widget.ButtonWidget
 import com.lowdragmc.lowdraglib.gui.widget.ImageWidget
 import com.lowdragmc.lowdraglib.gui.widget.LabelWidget
+import com.lowdragmc.lowdraglib.gui.widget.ProgressWidget
 import com.lowdragmc.lowdraglib.gui.widget.SlotWidget
 import com.lowdragmc.lowdraglib.gui.widget.TextBoxWidget
 import com.lowdragmc.lowdraglib.gui.widget.TextFieldWidget
@@ -54,6 +58,7 @@ import net.minecraft.world.item.Items
 import net.minecraft.world.level.block.entity.BlockEntity
 import net.minecraft.world.level.block.state.BlockState
 import java.util.EnumMap
+import java.util.function.DoubleSupplier
 
 class CoalescerBlockEntity(
     pos: BlockPos,
@@ -72,6 +77,8 @@ class CoalescerBlockEntity(
         private const val FAKE_SEED_TINT = 0x5000BFFF.toInt()
 
         const val AUTO_WORK_INTERVAL = 40L
+
+        const val CRAFT_TICKS = 30
 
 
         private const val AMOUNT_MAX_DIGITS = 3
@@ -136,6 +143,12 @@ class CoalescerBlockEntity(
 
     private var noticeKey = ""
 
+    private var craftTicks = 0
+
+    private var craftResult: ItemStack = ItemStack.EMPTY
+
+    private var fxCooldown = 0
+
 
     override fun getContainerSize(): Int = CONTAINER_SIZE
     override fun isEmpty(): Boolean = items.all { it.isEmpty }
@@ -181,11 +194,33 @@ class CoalescerBlockEntity(
 
     fun serverTick() {
         val level = this.level as? ServerLevel ?: return
+
+        if (craftTicks > 0) {
+            craftTicks--
+            if (craftTicks == 0) {
+                finishCraft(level)
+            }
+        }
+
         if (level.gameTime % AUTO_WORK_INTERVAL != 0L) return
         if (!level.hasNeighborSignal(worldPosition)) return
         if (attemptCoalesce() == null) {
             level.playSound(null, worldPosition, SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.BLOCKS, 0.35f, 0.8f)
             setChanged()
+        }
+    }
+
+    fun clientTick() {
+        val level = this.level ?: return
+        if (fxCooldown > 0) {
+            fxCooldown--
+        }
+        if (craftTicks == CRAFT_TICKS && fxCooldown == 0) {
+            fxCooldown = CRAFT_TICKS
+            CoalescerFormVisualClient.play(level, worldPosition)
+        }
+        if (craftTicks > 1) {
+            craftTicks--
         }
     }
 
@@ -196,6 +231,8 @@ class CoalescerBlockEntity(
         requestedAmount = if (tag.contains("Amount")) tag.getInt("Amount") else 1
         seedPrice = readPrice(tag.getCompound("SeedPrice"))
         noticeKey = tag.getString("Notice")
+        craftTicks = tag.getInt("CraftTicks")
+        craftResult = if (tag.contains("CraftResult")) ItemStack.of(tag.getCompound("CraftResult")) else ItemStack.EMPTY
     }
 
     override fun saveAdditional(tag: CompoundTag) {
@@ -204,6 +241,10 @@ class CoalescerBlockEntity(
         tag.putInt("Amount", amount())
         tag.put("SeedPrice", writePrice(seedPrice))
         tag.putString("Notice", noticeKey)
+        tag.putInt("CraftTicks", craftTicks)
+        if (!craftResult.isEmpty) {
+            tag.put("CraftResult", craftResult.save(CompoundTag()))
+        }
     }
 
     private fun writePrice(price: Map<IngredientCategory, Double>): CompoundTag {
@@ -295,8 +336,11 @@ class CoalescerBlockEntity(
         }
 
     private fun attemptCoalesce(requestedBatch: Int = amount()): String? {
+        if (craftTicks > 0) return "gui.hexwright.coalescer.notice.busy"
+
         val seed = items[SEED_SLOT]
         if (seed.isEmpty) return "gui.hexwright.coalescer.notice.no_seed"
+        if (CoalescenceDenials.isDenied(seed.item)) return "gui.hexwright.coalescer.notice.denied"
 
         seedPrice = CoalescenceRecipes.priceFor(seed.item) ?: emptyMap()
 
@@ -317,8 +361,47 @@ class CoalescerBlockEntity(
             EssencePouchData.consume(pouch, aspect, need)
         }
         level?.let { EssenceNetwork.pulseFlow(it, worldPosition, items[POUCH_SLOT], false) }
-        insertOutput(result)
+        beginCraft(result)
         return null
+    }
+
+    private fun beginCraft(result: ItemStack) {
+        craftResult = result
+        craftTicks = CRAFT_TICKS
+        setChanged()
+    }
+
+    private fun finishCraft(level: ServerLevel) {
+        val result = craftResult
+        craftResult = ItemStack.EMPTY
+        if (!result.isEmpty) {
+            if (canFitOutput(result)) {
+                insertOutput(result)
+            } else {
+                Containers.dropItemStack(
+                    level,
+                    worldPosition.x + 0.5, worldPosition.y + 1.0, worldPosition.z + 0.5,
+                    result
+                )
+            }
+            level.playSound(null, worldPosition, SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.BLOCKS, 0.5f, 1.3f)
+        }
+        setChanged()
+    }
+
+    fun takePendingCraft(): ItemStack {
+        val pending = craftResult
+        craftResult = ItemStack.EMPTY
+        craftTicks = 0
+        return pending
+    }
+
+    fun isCrafting(): Boolean = craftTicks > 0
+
+    fun craftFraction(partialTicks: Float = 0f): Float {
+        if (craftTicks <= 0) return 0f
+        val remaining = (craftTicks - partialTicks).coerceAtLeast(0f)
+        return ((CRAFT_TICKS - remaining) / (CRAFT_TICKS - 1f)).coerceIn(0f, 1f)
     }
 
     fun onCoalesceClicked(player: ServerPlayer) {
@@ -352,6 +435,7 @@ class CoalescerBlockEntity(
     fun seedFromType(item: Item): Boolean {
         val level = this.level as? ServerLevel ?: return false
         if (item == Items.AIR) return false
+        if (CoalescenceDenials.isDenied(item)) return false
         val current = items[SEED_SLOT]
         if (!current.isEmpty && current.item == item) return true
 
@@ -408,9 +492,14 @@ class CoalescerBlockEntity(
 
     fun summaryLines(): List<String> {
         val lines = ArrayList<String>()
+        if (craftTicks > 0 && !craftResult.isEmpty) {
+            lines.add(line("gui.hexwright.coalescer.summary.working", craftResult.count, craftResult.hoverName.string))
+        }
         val seed = items[SEED_SLOT]
         if (seed.isEmpty) {
             lines.add(line("gui.hexwright.coalescer.summary.no_seed"))
+        } else if (CoalescenceDenials.isDenied(seed.item)) {
+            lines.add(line("gui.hexwright.coalescer.summary.denied", seed.hoverName.string))
         } else if (seedPrice.isEmpty()) {
             lines.add(line("gui.hexwright.coalescer.summary.unpriced", seed.hoverName.string))
         } else {
@@ -446,7 +535,7 @@ class CoalescerBlockEntity(
 
         replaceWithSourceSlot(widgetsById)
         replaceWithSeedSlot(widgetsById)
-        bindSlotInPlace(widgetsById, "result", OUTPUT_SLOT, canPut = false)
+        val resultSlot = bindSlotInPlace(widgetsById, "result", OUTPUT_SLOT, canPut = false)
         MenuWidgets.bindPlayerInventory(widgetsById, entityPlayer)
 
         bindAmountField(widgetsById)
@@ -462,6 +551,13 @@ class CoalescerBlockEntity(
             Hexwright.LOGGER.warn("coalescer.ui is missing the cost panel 'channels_info'")
         }
         root.addWidget(SummarySyncWidget(summary, costPanel, actionGroup, actionButton))
+
+        val progress = MenuWidgets.firstById(widgetsById, "craft_progress") as? ProgressWidget
+        progress?.progressSupplier = DoubleSupplier { craftFraction().toDouble() }
+
+        if (resultSlot != null) {
+            root.addWidget(CraftGhostWidget(resultSlot))
+        }
     }
 
     private fun bindSlotInPlace(
@@ -613,7 +709,7 @@ class CoalescerBlockEntity(
     ) : Widget(0, 0, 0, 0) {
         private var lastLines: List<String> = emptyList()
         private var lastCostFingerprint = ""
-        private var lastAfford: Boolean? = null
+        private var lastEnabled: Boolean? = null
         private val costRows = mutableListOf<Widget>()
 
         private var actionBaseBackground: IGuiTexture? = null
@@ -663,14 +759,20 @@ class CoalescerBlockEntity(
 
         private fun updateActionButton() {
             val button = actionButton ?: return
-            val afford = !insufficientEssence()
-            if (afford == lastAfford) return
-            lastAfford = afford
-            button.setActive(afford)
-            if (!afford) {
-                button.setHoverTooltips(
-                    listOf(Component.translatable("gui.hexwright.coalescer.make.tooltip.insufficient").withStyle(ChatFormatting.RED))
-                )
+            val busy = isCrafting()
+            val enabled = !busy && !insufficientEssence()
+            if (enabled == lastEnabled) return
+            lastEnabled = enabled
+            button.setActive(enabled)
+            if (enabled) {
+                button.setHoverTooltips(listOf<Component>())
+            } else {
+                val reason = if (busy) {
+                    "gui.hexwright.coalescer.make.tooltip.busy"
+                } else {
+                    "gui.hexwright.coalescer.make.tooltip.insufficient"
+                }
+                button.setHoverTooltips(listOf(Component.translatable(reason).withStyle(ChatFormatting.RED)))
             }
 
             val group = actionGroup ?: return
@@ -678,7 +780,23 @@ class CoalescerBlockEntity(
                 actionBaseBackground = group.backgroundTexture
             }
             val base = actionBaseBackground ?: return
-            group.setBackground(if (afford) base else GuiTextureGroup(base, ColorRectTexture(BUTTON_DISABLED_TINT)))
+            group.setBackground(if (enabled) base else GuiTextureGroup(base, ColorRectTexture(BUTTON_DISABLED_TINT)))
+        }
+    }
+
+    private inner class CraftGhostWidget(private val slot: SlotWidget) : Widget(0, 0, 0, 0) {
+
+        override fun drawInBackground(graphics: GuiGraphics, mouseX: Int, mouseY: Int, partialTicks: Float) {
+            super.drawInBackground(graphics, mouseX, mouseY, partialTicks)
+            val ghost = craftResult
+            if (ghost.isEmpty || craftTicks <= 0) return
+
+            val fraction = craftFraction(partialTicks)
+            val eased = fraction * fraction * (3f - 2f * fraction)
+            val level = (eased * 255f).toInt().coerceIn(0, 255)
+            val tint = (level shl 24) or (level shl 16) or (level shl 8) or level
+            val pos = slot.position
+            DrawerHelper.drawItemStack(graphics, ghost, pos.x + 1, pos.y + 1, tint, "")
         }
     }
 

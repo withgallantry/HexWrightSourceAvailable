@@ -1,6 +1,7 @@
 package com.bluup.hexwright.mixin;
 
 import com.bluup.hexwright.client.render.emissive.EmissiveItemModels;
+import com.bluup.hexwright.client.staff_assembly.StaffTipFlash;
 import com.llamalad7.mixinextras.sugar.Local;
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.renderer.MultiBufferSource;
@@ -31,5 +32,6 @@ public abstract class ItemRendererEmissiveMixin {
                                                  BakedModel model, CallbackInfo ci,
                                                  @Local RenderType itemLayer) {
         EmissiveItemModels.renderGlow(model, poseStack, bufferSource, overlay, itemLayer);
+        StaffTipFlash.onStaffRendered(stack, displayContext, poseStack, bufferSource, itemLayer);
     }
 }
