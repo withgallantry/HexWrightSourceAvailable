@@ -58,7 +58,7 @@ public class HexidPipeBlock extends Block {
     private static final VoxelShape HUB = box(7, 0, 7, 9, 2, 9);
     private static final Map<Direction, VoxelShape> ARMS = new EnumMap<>(Direction.class);
     private static final VoxelShape RISER = Shapes.or(
-        box(7, 2, 7, 9, 16, 9), box(6.75, 8, 6.75, 9.25, 10, 9.25));
+        box(7, 2, 7, 9, 14, 9), box(6.75, 14, 6.75, 9.25, 16, 9.25));
     private static final VoxelShape LID_COLLAR = box(6.75, 0, 6.75, 9.25, 2.25, 9.25);
     private static final VoxelShape LID_BASE = box(6.75, 0, 6.75, 9.25, 2.5, 9.25);
 
