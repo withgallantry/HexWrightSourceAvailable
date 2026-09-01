@@ -124,11 +124,17 @@ class CoalescerBlockEntity(
 
         private const val GOOD_COLOR = 0xFF9BD87A.toInt()
         private const val MISS_COLOR = 0xFFE07A6B.toInt()
-        private const val COST_ROW_START_Y = 30
+        private const val COST_ROW_GAP = 2
+        private const val COST_ROW_BOTTOM_PAD = 1
         private const val COST_ROW_HEIGHT = 9
+        private const val COST_ROW_MIN_HEIGHT = 7
+
+        private const val SUMMARY_MAX_HEIGHT = 30
         private const val COST_ICON_X = 2
         private const val COST_ICON_SIZE = 8
         private const val COST_LABEL_X = 12
+
+        private const val SUMMARY_NAME_CHARS = 18
 
         private const val BUTTON_DISABLED_TINT = 0x80000000.toInt()
 
@@ -307,6 +313,12 @@ class CoalescerBlockEntity(
 
     data class CostEntry(val aspect: IngredientCategory, val need: Double, val have: Double) {
         val enough: Boolean get() = have >= need
+    }
+
+    fun displayedCostEntries(): List<CostEntry> {
+        val seed = items[SEED_SLOT]
+        if (!seed.isEmpty && CoalescenceDenials.isDenied(seed.item)) return emptyList()
+        return costEntries()
     }
 
     fun costEntries(): List<CostEntry> {
@@ -493,24 +505,28 @@ class CoalescerBlockEntity(
     fun summaryLines(): List<String> {
         val lines = ArrayList<String>()
         if (craftTicks > 0 && !craftResult.isEmpty) {
-            lines.add(line("gui.hexwright.coalescer.summary.working", craftResult.count, craftResult.hoverName.string))
+            lines.add(line("gui.hexwright.coalescer.summary.working", craftResult.count, shortName(craftResult)))
         }
         val seed = items[SEED_SLOT]
+        var redundantNotice = ""
         if (seed.isEmpty) {
             lines.add(line("gui.hexwright.coalescer.summary.no_seed"))
+            redundantNotice = "gui.hexwright.coalescer.notice.no_seed"
         } else if (CoalescenceDenials.isDenied(seed.item)) {
-            lines.add(line("gui.hexwright.coalescer.summary.denied", seed.hoverName.string))
+            lines.add(line("gui.hexwright.coalescer.summary.denied", shortName(seed)))
+            redundantNotice = "gui.hexwright.coalescer.notice.denied"
         } else if (seedPrice.isEmpty()) {
-            lines.add(line("gui.hexwright.coalescer.summary.unpriced", seed.hoverName.string))
+            lines.add(line("gui.hexwright.coalescer.summary.unpriced", shortName(seed)))
+            redundantNotice = "gui.hexwright.coalescer.notice.unpriced"
         } else {
             val batch = amount()
-            lines.add(line("gui.hexwright.coalescer.summary.head", batch, seed.hoverName.string))
+            lines.add(line("gui.hexwright.coalescer.summary.head", batch, shortName(seed)))
             if (noticeKey.isEmpty() && pouchStack().item !is EndlessPouchItem) {
                 lines.add(line(noPouchNoticeKey()))
             }
         }
         val staleInsufficient = noticeKey == NOTICE_INSUFFICIENT && !insufficientEssence()
-        if (noticeKey.isNotEmpty() && !staleInsufficient) {
+        if (noticeKey.isNotEmpty() && !staleInsufficient && noticeKey != redundantNotice) {
             lines.add(line(noticeKey))
         }
         return lines
@@ -518,6 +534,11 @@ class CoalescerBlockEntity(
 
     private fun line(key: String, vararg args: Any): String =
         Component.translatable(key, *args).string.replace("%", "%%")
+
+    private fun shortName(stack: ItemStack): String {
+        val name = stack.hoverName.string
+        return if (name.length <= SUMMARY_NAME_CHARS) name else name.take(SUMMARY_NAME_CHARS - 1) + "…"
+    }
 
 
     override fun createUI(entityPlayer: Player): ModularUI {
@@ -545,6 +566,8 @@ class CoalescerBlockEntity(
         val summary = MenuWidgets.firstById(widgetsById, "summary") as? TextBoxWidget
         if (summary == null) {
             Hexwright.LOGGER.warn("coalescer.ui is missing the summary text box 'summary'")
+        } else {
+            setBoundedContent(summary, summaryLines())
         }
         val costPanel = MenuWidgets.firstById(widgetsById, "channels_info") as? WidgetGroup
         if (costPanel == null) {
@@ -701,6 +724,15 @@ class CoalescerBlockEntity(
         }
     }
 
+    private fun setBoundedContent(box: TextBoxWidget, lines: List<String>) {
+        var shown = lines
+        box.setContent(shown)
+        while (shown.size > 1 && box.size.height > SUMMARY_MAX_HEIGHT) {
+            shown = shown.drop(1)
+            box.setContent(shown)
+        }
+    }
+
     private inner class SummarySyncWidget(
         private val summary: TextBoxWidget?,
         private val costPanel: WidgetGroup?,
@@ -724,23 +756,36 @@ class CoalescerBlockEntity(
         private fun updateSummary() {
             val box = summary ?: return
             val lines = summaryLines()
-            if (lines != lastLines) {
-                lastLines = lines
-                box.setContent(lines)
-            }
+            if (lines == lastLines) return
+            lastLines = lines
+            setBoundedContent(box, lines)
         }
 
         private fun updateCostRows() {
             val panel = costPanel ?: return
-            val entries = costEntries()
-            val fingerprint = entries.joinToString("|") { "${it.aspect.name}:${it.have}:${it.need}" }
+            val entries = displayedCostEntries()
+            val fingerprint = (summary?.size?.height ?: 0).toString() + "@" +
+                entries.joinToString("|") { "${it.aspect.name}:${it.have}:${it.need}" }
             if (fingerprint == lastCostFingerprint) return
             lastCostFingerprint = fingerprint
 
             costRows.forEach { panel.removeWidget(it) }
             costRows.clear()
 
-            var y = COST_ROW_START_Y
+            val box = summary
+            val top = if (box == null) {
+                COST_ROW_GAP
+            } else {
+                box.selfPosition.y + box.size.height + COST_ROW_GAP
+            }
+            val room = panel.size.height - top - COST_ROW_BOTTOM_PAD
+            val pitch = if (entries.isEmpty() || entries.size * COST_ROW_HEIGHT <= room) {
+                COST_ROW_HEIGHT
+            } else {
+                (room / entries.size).coerceIn(COST_ROW_MIN_HEIGHT, COST_ROW_HEIGHT)
+            }
+
+            var y = top
             for (entry in entries) {
                 val icon = ImageWidget(COST_ICON_X, y, COST_ICON_SIZE, COST_ICON_SIZE, ResourceTexture(aspectIcon(entry.aspect)))
                 panel.addWidget(icon)
@@ -753,7 +798,7 @@ class CoalescerBlockEntity(
                 panel.addWidget(label)
                 costRows.add(label)
 
-                y += COST_ROW_HEIGHT
+                y += pitch
             }
         }
 
@@ -900,7 +945,7 @@ class CoalescerBlockEntity(
                 graphics.drawString(font, text.replace("%%", "%"), pos.x + 4, lineY, TEXT_COLOR, false)
                 lineY += font.lineHeight + 1
             }
-            for (entry in costEntries()) {
+            for (entry in displayedCostEntries()) {
                 val text = "${EndlessPouchItem.aspectName(entry.aspect).string}: " +
                     "${EndlessPouchItem.formatAmount(entry.have)} / ${EndlessPouchItem.formatAmount(entry.need)}"
                 graphics.drawString(font, text, pos.x + 4, lineY, if (entry.enough) GOOD_COLOR else MISS_COLOR, false)

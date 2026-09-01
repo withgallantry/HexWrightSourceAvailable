@@ -30,6 +30,8 @@ public final class RemnantExtraction {
         BOSS_REMNANTS.put(Hexwright.id("wither_storm"), RemnantType.RIFT);
         BOSS_REMNANTS.put(new ResourceLocation("minecraft", "wither"), RemnantType.BLIGHT);
         BOSS_REMNANTS.put(new ResourceLocation("minecraft", "ender_dragon"), RemnantType.ASCENDANT);
+        BOSS_REMNANTS.put(new ResourceLocation("minecraft", "warden"), RemnantType.TREMOR);
+        BOSS_REMNANTS.put(new ResourceLocation("minecraft", "elder_guardian"), RemnantType.INTERDICT);
     }
 
     private RemnantExtraction() {

@@ -3,6 +3,7 @@ package com.bluup.hexwright.server.armour;
 import at.petrak.hexcasting.api.casting.iota.Iota;
 import at.petrak.hexcasting.api.casting.iota.PatternIota;
 import at.petrak.hexcasting.api.item.IotaHolderItem;
+import com.bluup.hexwright.client.armour.ClientArmourWearer;
 import com.bluup.hexwright.server.hexpatterns.CantorActions;
 import com.bluup.hexwright.server.talisman.TalismanSlots;
 import net.minecraft.ChatFormatting;
@@ -109,7 +110,7 @@ public class HexwrightArmourItem extends ArmorItem implements GeoItem, IotaHolde
         if (level == null || !level.isClientSide) {
             return null;
         }
-        return net.minecraft.client.Minecraft.getInstance().player;
+        return ClientArmourWearer.localPlayer();
     }
 
     private void appendSigilTooltip(ItemStack stack, List<Component> tooltip, TooltipFlag flag) {

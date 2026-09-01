@@ -78,6 +78,7 @@ public class HexidTankBlock extends Block implements EntityBlock {
                             ItemStack stack) {
         super.setPlacedBy(level, pos, state, placer, stack);
         HexidTankColumn.normalise(level, pos);
+        HexidPipeNetwork.spread(level, pos);
     }
 
     @Override

@@ -170,13 +170,14 @@ public final class HexwrightClient implements ClientModInitializer {
 
         BlockRenderLayerMap.INSTANCE.putBlock(HexwrightBlocks.WORKTABLE_BLOCK, RenderType.cutout());
         BlockRenderLayerMap.INSTANCE.putBlock(HexwrightBlocks.HEXID_TANK_BLOCK, RenderType.cutout());
+        BlockRenderLayerMap.INSTANCE.putBlock(HexwrightBlocks.HEXID_PIPE_BLOCK, RenderType.cutout());
         BlockRenderLayerMap.INSTANCE.putBlock(HexwrightBlocks.STAFF_ASSEMBLY_BLOCK, RenderType.cutout());
         BlockRenderLayerMap.INSTANCE.putBlock(HexwrightBlocks.RESONANCE_TOWER_BLOCK, RenderType.cutout());
         BlockRenderLayerMap.INSTANCE.putBlock(HexwrightBlocks.MANIFOLD_VAULT_BLOCK, RenderType.cutout());
         BlockRenderLayerMap.INSTANCE.putBlock(HexwrightBlocks.HARMONIC_EXCHANGE_BLOCK, RenderType.cutout());
         BlockRenderLayerMap.INSTANCE.putBlock(HexwrightBlocks.HARMONIC_EMITTER_BLOCK, RenderType.translucent());
         BlockRenderLayerMap.INSTANCE.putBlock(HexwrightBlocks.WARDING_BOX_BLOCK, RenderType.cutout());
-        BlockRenderLayerMap.INSTANCE.putBlock(HexwrightBlocks.COALESCER_BLOCK, RenderType.translucent());
+        BlockRenderLayerMap.INSTANCE.putBlock(HexwrightBlocks.COALESCER_BLOCK, RenderType.cutout());
         BlockRenderLayerMap.INSTANCE.putBlock(HexwrightBlocks.EXCHANGE_BRIDGE_BLOCK, RenderType.translucent());
         BlockRenderLayerMap.INSTANCE.putBlock(HexwrightBlocks.LEYWELL_BLOCK, RenderType.cutout());
 
@@ -379,7 +380,7 @@ public final class HexwrightClient implements ClientModInitializer {
             if (contents == null) {
                 return 0xFFFFFFFF;
             }
-            return contents.type().dye().getFireworkColor();
+            return contents.type().tint();
         }, HexwrightItems.HEX_ENGRAVED_BOTTLE);
 
         ItemProperties.register(HexwrightItems.HEX_ENGRAVED_BOTTLE, Hexwright.id("bottle"),

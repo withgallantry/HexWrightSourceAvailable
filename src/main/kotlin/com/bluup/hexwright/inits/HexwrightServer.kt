@@ -81,6 +81,7 @@ object HexwrightServer : ModInitializer {
         HexwrightItems.register()
         com.bluup.hexwright.server.armour.HexwrightArmour.register()
         HexwrightBlocks.register()
+        com.bluup.hexwright.server.fluid.HexidTankStorage.register()
         CauldronInteraction.WATER[HexwrightItems.SEALED_SATCHEL] = CauldronInteraction.DYED_ITEM
         com.bluup.hexwright.server.worldgen.HexwrightWorldgen.register()
         com.bluup.hexwright.server.progression.TabletLoot.register()

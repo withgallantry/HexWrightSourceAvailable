@@ -11,11 +11,13 @@ import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.ai.attributes.Attribute;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.entity.monster.Enemy;
 import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
 
@@ -34,6 +36,12 @@ public final class RemnantBuffs {
     private static final double RIFT_PULL = 0.35;
 
     private static final float SHARDSKIN_RETALIATION = 4.0f;
+
+    private static final double TREMOR_RADIUS = 24.0;
+
+    private static final double INTERDICT_RADIUS = 12.0;
+
+    private static final int SWEEP_EFFECT_TICKS = 30;
 
     private static final int ON_HIT_DURATION_TICKS = 100;
 
@@ -129,6 +137,15 @@ public final class RemnantBuffs {
             if (active.has(RemnantType.ASCENDANT, now)) {
                 setFlight(player, true);
             }
+            if (active.has(RemnantType.RIME, now)) {
+                player.setTicksFrozen(0);
+            }
+            if (active.has(RemnantType.TREMOR, now)) {
+                senseLife(player);
+            }
+            if (active.has(RemnantType.INTERDICT, now)) {
+                interdict(player);
+            }
         }
 
         if (dirty) {
@@ -207,6 +224,34 @@ public final class RemnantBuffs {
         if (!items.isEmpty()) {
             level.sendParticles(ParticleTypes.PORTAL, player.getX(), player.getY(1.0), player.getZ(),
                 4, 0.4, 0.6, 0.4, 0.1);
+        }
+    }
+
+
+    private static void senseLife(ServerPlayer player) {
+        ServerLevel level = player.serverLevel();
+        for (LivingEntity nearby : level.getEntitiesOfClass(LivingEntity.class,
+            player.getBoundingBox().inflate(TREMOR_RADIUS))) {
+            if (nearby == player) {
+                continue;
+            }
+            nearby.addEffect(new MobEffectInstance(MobEffects.GLOWING, SWEEP_EFFECT_TICKS, 0,
+                true, false, false));
+        }
+    }
+
+
+    private static void interdict(ServerPlayer player) {
+        ServerLevel level = player.serverLevel();
+        for (Mob mob : level.getEntitiesOfClass(Mob.class,
+            player.getBoundingBox().inflate(INTERDICT_RADIUS))) {
+            if (!(mob instanceof Enemy)) {
+                continue;
+            }
+            mob.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, SWEEP_EFFECT_TICKS, 1,
+                true, false, false));
+            mob.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, SWEEP_EFFECT_TICKS, 0,
+                true, false, false));
         }
     }
 

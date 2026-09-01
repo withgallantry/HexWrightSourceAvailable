@@ -25,6 +25,14 @@ public enum TankPart implements StringRepresentable {
         return this == SOLO || this == BOTTOM;
     }
 
+    public boolean footed() {
+        return this == SOLO || this == BOTTOM;
+    }
+
+    public boolean lidded() {
+        return this == SOLO || this == TOP;
+    }
+
     @Override
     public String getSerializedName() {
         return name;
