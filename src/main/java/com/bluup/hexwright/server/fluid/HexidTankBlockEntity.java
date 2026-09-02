@@ -2,7 +2,10 @@ package com.bluup.hexwright.server.fluid;
 
 import at.petrak.hexcasting.api.addldata.ADMediaHolder;
 import at.petrak.hexcasting.xplat.IXplatAbstractions;
+import com.bluup.hexwright.common.remnant.Remnant;
+import com.bluup.hexwright.common.remnant.RemnantType;
 import com.bluup.hexwright.server.block.HexwrightBlocks;
+import com.bluup.hexwright.server.remnant.RemnantIota;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.protocol.Packet;
@@ -15,17 +18,20 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
+import org.jetbrains.annotations.Nullable;
 
 public class HexidTankBlockEntity extends BlockEntity {
 
     private static final String TAG_AMOUNT = "AmountMb";
     private static final String TAG_MEDIA_PER_MB = "MediaPerMb";
     private static final String TAG_REMAINDER = "MediaRemainder";
+    private static final String TAG_REMNANTS = "Remnants";
     private static final String TAG_LEGACY_MEDIA = "Media";
 
     private long amountMb;
     private int mediaPerMb;
     private long remainder;
+    private TankRemnants remnants = TankRemnants.EMPTY;
 
     public HexidTankBlockEntity(BlockPos pos, BlockState state) {
         super(HexwrightBlocks.HEXID_TANK_BLOCK_ENTITY, pos, state);
@@ -49,6 +55,76 @@ public class HexidTankBlockEntity extends BlockEntity {
 
     public boolean isHexid() {
         return amountMb > 0 && totalMedia() > 0;
+    }
+
+    public boolean holdsFluid() {
+        return amountMb > 0 || totalMedia() > 0;
+    }
+
+
+    public TankRemnants remnants() {
+        return remnants;
+    }
+
+    public boolean isRemnantStore() {
+        return !remnants.isEmpty();
+    }
+
+    public double remnantCapacity() {
+        return HexidTank.dramCapacity(columnHeight());
+    }
+
+    public double remnantHeadroom() {
+        return Math.max(0.0, remnantCapacity() - remnants.total());
+    }
+
+    public boolean canAcceptRemnants() {
+        return isRemnantStore() || !holdsFluid();
+    }
+
+    public double addRemnant(@Nullable Remnant remnant) {
+        if (remnant == null || remnant.isEmpty() || !canAcceptRemnants()) {
+            return 0.0;
+        }
+        double room = remnantHeadroom();
+        double poured = Math.min(room, remnant.drams());
+        if (poured < TankRemnants.MIN_DRAMS) {
+            return 0.0;
+        }
+        storeRemnants(remnants.plus(remnant.withDrams(poured)));
+        return poured;
+    }
+
+    public double addRemnant(RemnantIota iota) {
+        return addRemnant(iota.getRemnant());
+    }
+
+    public double drawRemnant(RemnantType type, double drams) {
+        double held = remnants.drams(type);
+        double taken = Math.min(held, Math.max(0.0, drams));
+        if (taken < TankRemnants.MIN_DRAMS) {
+            return 0.0;
+        }
+        storeRemnants(remnants.minus(type, taken));
+        return taken;
+    }
+
+    public void storeRemnants(TankRemnants next) {
+        if (!next.isEmpty() && holdsFluid()) {
+            return;
+        }
+        if (remnants.equals(next)) {
+            return;
+        }
+        remnants = next;
+        setChanged();
+        sync();
+        HexidPipeNetwork.spread(level, getBlockPos());
+    }
+
+    public void clear() {
+        storeRemnants(TankRemnants.EMPTY);
+        store(0, 0);
     }
 
     public int columnHeight() {
@@ -114,6 +190,9 @@ public class HexidTankBlockEntity extends BlockEntity {
     public void store(long amountMb, long totalMedia) {
         long amount = Math.max(0, amountMb);
         long media = Math.max(0, totalMedia);
+        if (isRemnantStore() && (amount > 0 || media > 0)) {
+            return;
+        }
         int density = amount <= 0 ? 0 : HexidTank.clampMediaPerMb(media / amount);
         long left = media - HexidTank.totalMedia(amount, density);
 
@@ -141,13 +220,21 @@ public class HexidTankBlockEntity extends BlockEntity {
     @Override
     public void load(CompoundTag tag) {
         super.load(tag);
+        remnants = TankRemnants.load(tag.get(TAG_REMNANTS));
         amountMb = Math.max(0, tag.getLong(TAG_AMOUNT));
         if (tag.contains(TAG_LEGACY_MEDIA)) {
-            store(amountMb, tag.getLong(TAG_LEGACY_MEDIA));
-            return;
+            long media = Math.max(0, tag.getLong(TAG_LEGACY_MEDIA));
+            mediaPerMb = amountMb <= 0 ? 0 : HexidTank.clampMediaPerMb(media / amountMb);
+            remainder = media - HexidTank.totalMedia(amountMb, mediaPerMb);
+        } else {
+            mediaPerMb = HexidTank.clampMediaPerMb(tag.getInt(TAG_MEDIA_PER_MB));
+            remainder = Math.max(0, tag.getLong(TAG_REMAINDER));
         }
-        mediaPerMb = HexidTank.clampMediaPerMb(tag.getInt(TAG_MEDIA_PER_MB));
-        remainder = Math.max(0, tag.getLong(TAG_REMAINDER));
+        if (isRemnantStore() && holdsFluid()) {
+            amountMb = 0;
+            mediaPerMb = 0;
+            remainder = 0;
+        }
     }
 
     @Override
@@ -161,6 +248,9 @@ public class HexidTankBlockEntity extends BlockEntity {
         }
         if (remainder > 0) {
             tag.putLong(TAG_REMAINDER, remainder);
+        }
+        if (isRemnantStore()) {
+            tag.put(TAG_REMNANTS, remnants.save());
         }
     }
 

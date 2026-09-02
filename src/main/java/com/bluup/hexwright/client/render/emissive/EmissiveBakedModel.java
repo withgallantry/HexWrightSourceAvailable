@@ -1,5 +1,6 @@
 package com.bluup.hexwright.client.render.emissive;
 
+import com.mojang.math.Transformation;
 import net.fabricmc.fabric.api.client.model.loading.v1.FabricBakedModelManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.block.model.BakedQuad;
@@ -21,6 +22,7 @@ public final class EmissiveBakedModel implements BakedModel {
     private final @Nullable ResourceLocation glowModelId;
     private final GlowParams params;
     private boolean thresholded;
+    private @Nullable Transformation modelRotation;
 
     private @Nullable BakedModel glow;
 
@@ -44,6 +46,14 @@ public final class EmissiveBakedModel implements BakedModel {
         this.delegate = delegate;
         this.glowModelId = glowModelId;
         this.params = params;
+    }
+
+    public @Nullable Transformation modelRotation() {
+        return modelRotation;
+    }
+
+    void modelRotation(@Nullable Transformation rotation) {
+        this.modelRotation = rotation;
     }
 
     public boolean hasTwin() {

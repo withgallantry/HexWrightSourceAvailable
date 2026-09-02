@@ -10,9 +10,11 @@ import com.bluup.hexwright.server.block.HarmonicExchangeBlockEntity;
 import com.bluup.hexwright.server.block.HarmonicTransducerBlockEntity;
 import com.bluup.hexwright.server.block.HexwrightBlocks;
 import com.bluup.hexwright.server.block.ResonanceTowerBlockEntity;
+import com.bluup.hexwright.common.remnant.Remnant;
 import com.bluup.hexwright.server.fluid.HexidTank;
 import com.bluup.hexwright.server.fluid.HexidTankBlockEntity;
 import com.bluup.hexwright.server.fluid.HexidTankColumn;
+import com.bluup.hexwright.server.fluid.TankRemnants;
 import com.bluup.hexwright.server.network.EssenceNetwork;
 import com.bluup.hexwright.server.network.ResonantAttunement;
 import com.bluup.hexwright.server.network.ResonantKeyItem;
@@ -127,6 +129,10 @@ public final class HexwrightDebugLines {
         if (column == null) {
             return;
         }
+        if (column.isRemnantStore()) {
+            remnantLines(lines, column);
+            return;
+        }
         long amount = column.amountMb();
         add(lines, HexwrightBlocks.HEXID_TANK_ITEM,
             Component.translatable("gui.hexwright.spectacles.tank_volume",
@@ -144,6 +150,20 @@ public final class HexwrightDebugLines {
             add(lines, null, Component.translatable("gui.hexwright.spectacles.saturation",
                     String.format("%.2f", column.mediaPerMb() / 100.0))
                 .withStyle(ChatFormatting.LIGHT_PURPLE));
+        }
+    }
+
+    private static void remnantLines(List<Pair<ItemStack, Component>> lines,
+                                     HexidTankBlockEntity column) {
+        TankRemnants held = column.remnants();
+        add(lines, HexwrightBlocks.HEXID_TANK_ITEM,
+            Component.translatable("gui.hexwright.spectacles.tank_remnants",
+                    (int) Math.round(held.total()), (int) Math.round(column.remnantCapacity()))
+                .withStyle(ChatFormatting.LIGHT_PURPLE));
+        for (Remnant remnant : held.contents()) {
+            add(lines, null, Component.translatable("gui.hexwright.spectacles.tank_remnant",
+                    remnant.type().label(), remnant.wholeDrams())
+                .withStyle(ChatFormatting.GRAY));
         }
     }
 

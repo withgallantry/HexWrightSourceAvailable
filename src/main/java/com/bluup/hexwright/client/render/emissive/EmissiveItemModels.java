@@ -3,6 +3,7 @@ package com.bluup.hexwright.client.render.emissive;
 import com.bluup.hexwright.Hexwright;
 import com.google.gson.JsonObject;
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.math.Transformation;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.fabricmc.fabric.api.client.model.loading.v1.ModelLoadingPlugin;
 import net.fabricmc.fabric.api.client.model.loading.v1.PreparableModelLoadingPlugin;
@@ -16,6 +17,7 @@ import net.minecraft.client.resources.model.ModelResourceLocation;
 import net.minecraft.core.Direction;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.RandomSource;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 import java.util.Map;
@@ -57,20 +59,37 @@ public final class EmissiveItemModels {
         });
 
         context.modifyModelAfterBake().register((model, baked) -> {
-            ResourceLocation fileId = modelFileId(baked.id());
-            ResourceLocation glow = scan.glowByBaseId().get(fileId);
-            if (glow != null) {
-                return new EmissiveBakedModel(model, glow);
+            if (model == null) {
+                return null;
             }
-            GlowParams params = scan.brightnessSources().get(fileId);
-            if (params == null) {
+            ResourceLocation fileId = modelFileId(baked.id());
+            EmissiveBakedModel wrapped = wrap(model, fileId, scan);
+            if (wrapped == null) {
                 return model;
             }
-            PartTwin twin = scan.partTwinByBase().get(fileId);
-            return twin == null
-                ? new EmissiveBakedModel(model, params)
-                : new EmissiveBakedModel(model, twin, params);
+            Transformation rotation = baked.settings().getRotation();
+            if (!rotation.equals(Transformation.identity())) {
+                wrapped.modelRotation(rotation);
+            }
+            return wrapped;
         });
+    }
+
+    @Nullable
+    private static EmissiveBakedModel wrap(BakedModel model, ResourceLocation fileId,
+                                           EmissiveModelScan scan) {
+        ResourceLocation glow = scan.glowByBaseId().get(fileId);
+        if (glow != null) {
+            return new EmissiveBakedModel(model, glow);
+        }
+        GlowParams params = scan.brightnessSources().get(fileId);
+        if (params == null) {
+            return null;
+        }
+        PartTwin twin = scan.partTwinByBase().get(fileId);
+        return twin == null
+            ? new EmissiveBakedModel(model, params)
+            : new EmissiveBakedModel(model, twin, params);
     }
 
     private static BlockModel twinOf(ResourceLocation base, Map<String, String> textures) {

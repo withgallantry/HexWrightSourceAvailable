@@ -212,7 +212,11 @@ public final class PortalViewRenderer {
     }
 
     public static int maxDepth() {
-        return PortalOptions.portalsThroughPortals() ? DEPTH_CEILING : 1;
+        return switch (PortalOptions.views()) {
+            case SHIMMER -> 0;
+            case PANES -> 1;
+            case FULL -> DEPTH_CEILING;
+        };
     }
 
     public static boolean isRenderingView() {
@@ -262,22 +266,20 @@ public final class PortalViewRenderer {
 
     public static void onRenderLevelStart(GameRenderer gameRenderer, float partialTick, long nanos) {
         int depth = passDepth;
-        if (depth >= maxDepth()) {
-            return;
-        }
         if (depth == 0) {
             frame++;
             RENDERED_THIS_FRAME.clear();
             passesThisFrame = 0;
             chunkBuildBudget = CHUNK_BUILD_BUDGET_PER_FRAME;
+            expireStaleTargets();
+        }
+        if (depth >= maxDepth()) {
+            return;
         }
 
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null || mc.player == null) {
             return;
-        }
-        if (depth == 0) {
-            expireStaleTargets();
         }
         if (!VIEWS_ENABLED) {
             return;

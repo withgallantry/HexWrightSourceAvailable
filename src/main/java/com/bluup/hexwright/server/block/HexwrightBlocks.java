@@ -444,6 +444,8 @@ public final class HexwrightBlocks {
         Registry.register(BuiltInRegistries.BLOCK, Hexwright.id("hexid_pipe"), HEXID_PIPE_BLOCK);
         Registry.register(BuiltInRegistries.ITEM, Hexwright.id("hexid_pipe"), HEXID_PIPE_ITEM);
 
+        VaultDecorBlocks.register();
+
         ItemGroupEvents.modifyEntriesEvent(CreativeModeTabs.FUNCTIONAL_BLOCKS).register(entries -> {
             entries.accept(STAFF_ASSEMBLY_ITEM);
             entries.accept(CRUCIBLE_ITEM);

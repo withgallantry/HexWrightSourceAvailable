@@ -144,7 +144,9 @@ public final class HexwrightClient implements ClientModInitializer {
         com.bluup.hexwright.client.block.VaultPlinthRenderer.register();
         com.bluup.hexwright.client.block.PlacedBottleRenderer.register();
         com.bluup.hexwright.client.block.HexidTankRenderer.register();
+        com.bluup.hexwright.client.block.HexidPipePreview.register();
         com.bluup.hexwright.client.render.emissive.EmissiveItemModels.register();
+        com.bluup.hexwright.client.render.emissive.BlockGlow.register();
         com.bluup.hexwright.client.render.emissive.EmissiveBloom.register();
         com.bluup.hexwright.client.spellcasting.SpellcastingGridCommands.register();
         com.bluup.hexwright.client.photon.PhotonSceneTextures.register();
@@ -180,6 +182,17 @@ public final class HexwrightClient implements ClientModInitializer {
         BlockRenderLayerMap.INSTANCE.putBlock(HexwrightBlocks.COALESCER_BLOCK, RenderType.cutout());
         BlockRenderLayerMap.INSTANCE.putBlock(HexwrightBlocks.EXCHANGE_BRIDGE_BLOCK, RenderType.translucent());
         BlockRenderLayerMap.INSTANCE.putBlock(HexwrightBlocks.LEYWELL_BLOCK, RenderType.cutout());
+        BlockRenderLayerMap.INSTANCE.putBlock(
+            com.bluup.hexwright.server.block.VaultDecorBlocks.NETHER_LABORATORY_DOOR, RenderType.cutout());
+        BlockRenderLayerMap.INSTANCE.putFluids(RenderType.translucent(),
+            com.bluup.hexwright.server.fluid.HexidFluids.HEXID,
+            com.bluup.hexwright.server.fluid.HexidFluids.FLOWING_HEXID);
+        net.fabricmc.fabric.api.client.render.fluid.v1.FluidRenderHandlerRegistry.INSTANCE.register(
+            com.bluup.hexwright.server.fluid.HexidFluids.HEXID,
+            com.bluup.hexwright.server.fluid.HexidFluids.FLOWING_HEXID,
+            net.fabricmc.fabric.api.client.render.fluid.v1.SimpleFluidRenderHandler.coloredWater(
+                com.bluup.hexwright.server.fluid.HexidFluids.TINT));
+
 
         EntityRendererRegistry.register(HexwrightEntities.STAFF_CORE_BOLT, NoopRenderer::new);
         EntityRendererRegistry.register(HexwrightEntities.HEX_ARROW,

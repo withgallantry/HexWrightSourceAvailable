@@ -15,6 +15,12 @@ public final class EmissiveBloomConfig {
 
     public float glowKnee = 0.12f;
 
+    public boolean blockGlow = true;
+
+    public int blockGlowDistance = 48;
+
+    public float blockGlowStrength = 1.0f;
+
     public float blurRadius = 1.4f;
 
     public boolean disableWhenShaderPackActive = true;

@@ -117,7 +117,8 @@ public final class HexidPipeNetwork {
     private static List<HexidTankBlockEntity> resolve(Level level, List<BlockPos> columns) {
         List<HexidTankBlockEntity> tanks = new ArrayList<>(columns.size());
         for (BlockPos pos : columns) {
-            if (level.getBlockEntity(pos) instanceof HexidTankBlockEntity tank) {
+            if (level.getBlockEntity(pos) instanceof HexidTankBlockEntity tank
+                && !tank.isRemnantStore()) {
                 tanks.add(tank);
             }
         }

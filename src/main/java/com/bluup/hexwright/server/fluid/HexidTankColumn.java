@@ -61,20 +61,28 @@ public final class HexidTankColumn {
 
         long amount = 0;
         long media = 0;
+        TankRemnants remnants = TankRemnants.EMPTY;
         HexidTankBlockEntity owner = null;
         BlockPos.MutableBlockPos cursor = bottom.mutable();
         for (int i = 0; i < height; i++, cursor.move(0, 1, 0)) {
             if (level.getBlockEntity(cursor) instanceof HexidTankBlockEntity tank) {
                 amount += tank.amountMb();
                 media += tank.totalMedia();
+                remnants = remnants.plusAll(tank.remnants());
                 if (owner == null) {
                     owner = tank;
                 } else {
-                    tank.store(0, 0);
+                    tank.clear();
                 }
             }
         }
         if (owner == null) {
+            return;
+        }
+
+        if (!remnants.isEmpty()) {
+            owner.clear();
+            owner.storeRemnants(remnants.cappedTo(HexidTank.dramCapacity(height)));
             return;
         }
 
@@ -93,6 +101,12 @@ public final class HexidTankColumn {
         if (!(level.getBlockEntity(ownerPos) instanceof HexidTankBlockEntity owner)) {
             return;
         }
+
+        if (owner.isRemnantStore()) {
+            splitRemnants(level, pos, owner, lowerHeight, upperHeight);
+            return;
+        }
+
         long amount = owner.amountMb();
         long total = owner.totalMedia();
         if (amount <= 0 && total <= 0) {
@@ -122,6 +136,38 @@ public final class HexidTankColumn {
             && level.getBlockEntity(pos.above()) instanceof HexidTankBlockEntity upper) {
             upper.store(toUpper, upperMedia);
         }
+    }
+
+    private static void splitRemnants(Level level, BlockPos pos, HexidTankBlockEntity owner,
+                                      int lowerHeight, int upperHeight) {
+        TankRemnants held = owner.remnants();
+        double total = held.total();
+        if (total <= 0.0) {
+            return;
+        }
+        double toLower = Math.min(total, HexidTank.dramCapacity(lowerHeight));
+        double toUpper = Math.min(total - toLower, HexidTank.dramCapacity(upperHeight));
+
+        TankRemnants upperShare = held.portion(toUpper / total);
+        owner.storeRemnants(lowerHeight > 0 ? held.portion(toLower / total) : TankRemnants.EMPTY);
+        if (upperHeight > 0
+            && level.getBlockEntity(pos.above()) instanceof HexidTankBlockEntity upper) {
+            upper.storeRemnants(upperShare);
+        }
+    }
+
+    public static boolean joinWouldClash(Level level, BlockPos pos) {
+        int lowerRun = below(level, pos);
+        int upperRun = above(level, pos);
+        if (lowerRun <= 0 || upperRun <= 0) {
+            return false;
+        }
+        if (!(level.getBlockEntity(pos.below(lowerRun)) instanceof HexidTankBlockEntity lower)
+            || !(level.getBlockEntity(pos.above()) instanceof HexidTankBlockEntity upper)) {
+            return false;
+        }
+        return (lower.isRemnantStore() && upper.holdsFluid())
+            || (lower.holdsFluid() && upper.isRemnantStore());
     }
 
     private HexidTankColumn() {

@@ -12,23 +12,32 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.material.Fluids;
 
 @SuppressWarnings("UnstableApiUsage")
-public class HexidTankStorage extends SnapshotParticipant<Long> implements SingleSlotStorage<FluidVariant> {
+public class HexidTankStorage extends SnapshotParticipant<HexidTankStorage.Staged>
+    implements SingleSlotStorage<FluidVariant> {
 
     public static final long DROPLETS_PER_MB = FluidConstants.BUCKET / HexidTank.BUCKET_MB;
 
     private static final FluidVariant WATER = FluidVariant.of(Fluids.WATER);
+    private static final FluidVariant HEXID = FluidVariant.of(HexidFluids.HEXID);
+
+    protected record Staged(long amountMb, long totalMedia) {
+    }
 
     private final HexidTankBlockEntity tank;
 
     private long amountMb;
-    private long committedMb;
     private long totalMedia;
+    private long committedMb;
+    private long committedMedia;
+    private boolean remnants;
 
     private HexidTankStorage(HexidTankBlockEntity tank) {
         this.tank = tank;
         this.amountMb = tank.amountMb();
-        this.committedMb = this.amountMb;
         this.totalMedia = tank.totalMedia();
+        this.committedMb = this.amountMb;
+        this.committedMedia = this.totalMedia;
+        this.remnants = tank.isRemnantStore();
     }
 
     public static void register() {
@@ -43,15 +52,22 @@ public class HexidTankStorage extends SnapshotParticipant<Long> implements Singl
     }
 
     private void refresh() {
-        if (committedMb != tank.amountMb() || totalMedia != tank.totalMedia()) {
+        if (committedMb != tank.amountMb() || committedMedia != tank.totalMedia()
+            || remnants != tank.isRemnantStore()) {
             amountMb = tank.amountMb();
-            committedMb = amountMb;
             totalMedia = tank.totalMedia();
+            committedMb = amountMb;
+            committedMedia = totalMedia;
+            remnants = tank.isRemnantStore();
         }
     }
 
     private boolean isWater() {
-        return amountMb > 0 && totalMedia <= 0;
+        return !remnants && amountMb > 0 && totalMedia <= 0;
+    }
+
+    private boolean isWorldHexid() {
+        return !remnants && amountMb > 0 && totalMedia == HexidFluids.mediaIn(amountMb);
     }
 
     private static boolean isPlainWater(FluidVariant resource) {
@@ -62,27 +78,32 @@ public class HexidTankStorage extends SnapshotParticipant<Long> implements Singl
     @Override
     public long insert(FluidVariant resource, long maxAmount, TransactionContext transaction) {
         StoragePreconditions.notBlankNotNegative(resource, maxAmount);
-        if (!isPlainWater(resource)) {
+        boolean hexid = HexidFluids.isHexid(resource);
+        if (!hexid && !isPlainWater(resource)) {
             return 0;
         }
         refresh();
+        if (remnants) {
+            return 0;
+        }
         long acceptMb = Math.min(tank.capacityMb() - amountMb, maxAmount / DROPLETS_PER_MB);
         if (acceptMb <= 0) {
             return 0;
         }
         updateSnapshots(transaction);
         amountMb += acceptMb;
+        if (hexid) {
+            totalMedia += HexidFluids.mediaIn(acceptMb);
+        }
         return acceptMb * DROPLETS_PER_MB;
     }
 
     @Override
     public long extract(FluidVariant resource, long maxAmount, TransactionContext transaction) {
         StoragePreconditions.notBlankNotNegative(resource, maxAmount);
-        if (!isPlainWater(resource)) {
-            return 0;
-        }
         refresh();
-        if (!isWater()) {
+        boolean hexid = HexidFluids.isHexid(resource);
+        if (hexid ? !isWorldHexid() : !(isPlainWater(resource) && isWater())) {
             return 0;
         }
         long giveMb = Math.min(amountMb, maxAmount / DROPLETS_PER_MB);
@@ -91,54 +112,70 @@ public class HexidTankStorage extends SnapshotParticipant<Long> implements Singl
         }
         updateSnapshots(transaction);
         amountMb -= giveMb;
+        if (hexid) {
+            totalMedia -= HexidFluids.mediaIn(giveMb);
+        }
         return giveMb * DROPLETS_PER_MB;
     }
 
     @Override
     public boolean supportsExtraction() {
         refresh();
-        return isWater();
+        return isWater() || isWorldHexid();
+    }
+
+    @Override
+    public boolean supportsInsertion() {
+        refresh();
+        return !remnants;
     }
 
 
     @Override
     public FluidVariant getResource() {
         refresh();
-        return isWater() ? WATER : FluidVariant.blank();
+        if (isWater()) {
+            return WATER;
+        }
+        return isWorldHexid() ? HEXID : FluidVariant.blank();
     }
 
     @Override
     public boolean isResourceBlank() {
         refresh();
-        return !isWater();
+        return !isWater() && !isWorldHexid();
     }
 
     @Override
     public long getAmount() {
         refresh();
-        return isWater() ? amountMb * DROPLETS_PER_MB : 0;
+        return isWater() || isWorldHexid() ? amountMb * DROPLETS_PER_MB : 0;
     }
 
     @Override
     public long getCapacity() {
-        return tank.capacityMb() * DROPLETS_PER_MB;
+        refresh();
+        return remnants ? 0 : tank.capacityMb() * DROPLETS_PER_MB;
     }
 
 
     @Override
-    protected Long createSnapshot() {
-        return amountMb;
+    protected Staged createSnapshot() {
+        return new Staged(amountMb, totalMedia);
     }
 
     @Override
-    protected void readSnapshot(Long snapshot) {
-        amountMb = snapshot;
+    protected void readSnapshot(Staged snapshot) {
+        amountMb = snapshot.amountMb();
+        totalMedia = snapshot.totalMedia();
     }
 
     @Override
     protected void onFinalCommit() {
         tank.store(amountMb, totalMedia);
         committedMb = tank.amountMb();
-        totalMedia = tank.totalMedia();
+        committedMedia = tank.totalMedia();
+        amountMb = committedMb;
+        totalMedia = committedMedia;
     }
 }

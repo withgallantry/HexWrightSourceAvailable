@@ -2,6 +2,10 @@ package com.bluup.hexwright.server.fluid;
 
 import at.petrak.hexcasting.api.addldata.ADMediaHolder;
 import at.petrak.hexcasting.xplat.IXplatAbstractions;
+import com.bluup.hexwright.common.remnant.Remnant;
+import com.bluup.hexwright.common.remnant.RemnantType;
+import com.bluup.hexwright.server.item.HexwrightItems;
+import com.bluup.hexwright.server.remnant.BottleData;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -59,6 +63,9 @@ public class HexidTankBlock extends Block implements EntityBlock {
         if (below + 1 + above > HexidTank.MAX_HEIGHT) {
             return null;
         }
+        if (HexidTankColumn.joinWouldClash(level, pos)) {
+            return null;
+        }
         return defaultBlockState().setValue(PART, TankPart.of(below > 0, above > 0));
     }
 
@@ -95,9 +102,11 @@ public class HexidTankBlock extends Block implements EntityBlock {
                                  InteractionHand hand, BlockHitResult hit) {
         ItemStack held = player.getItemInHand(hand);
         boolean water = held.is(Items.WATER_BUCKET);
+        boolean hexid = held.is(HexidFluids.HEXID_BUCKET);
         boolean bucket = held.is(Items.BUCKET);
-        ADMediaHolder holder = water || bucket ? null : mediaIn(held);
-        if (!held.isEmpty() && !water && !bucket && holder == null) {
+        boolean bottle = held.is(HexwrightItems.HEX_ENGRAVED_BOTTLE);
+        ADMediaHolder holder = water || hexid || bucket || bottle ? null : mediaIn(held);
+        if (!held.isEmpty() && !water && !hexid && !bucket && !bottle && holder == null) {
             return InteractionResult.PASS;
         }
         if (level.isClientSide) {
@@ -109,9 +118,13 @@ public class HexidTankBlock extends Block implements EntityBlock {
             return InteractionResult.PASS;
         }
         if (water) {
-            pourIn(level, pos, player, hand, held, tank);
+            pourIn(level, pos, player, hand, held, tank, 0);
+        } else if (hexid) {
+            pourIn(level, pos, player, hand, held, tank, HexidFluids.MEDIA_PER_BUCKET);
         } else if (bucket) {
             drawOff(level, pos, player, hand, held, tank);
+        } else if (bottle) {
+            useBottle(level, pos, player, hand, held, tank);
         } else if (holder != null) {
             dissolve(level, pos, player, hand, held, holder, tank);
         } else {
@@ -130,12 +143,16 @@ public class HexidTankBlock extends Block implements EntityBlock {
     }
 
     private static void pourIn(Level level, BlockPos pos, Player player, InteractionHand hand,
-                               ItemStack held, HexidTankBlockEntity tank) {
+                               ItemStack held, HexidTankBlockEntity tank, long media) {
+        if (tank.isRemnantStore()) {
+            say(player, "hexwright.hexid_tank.holds_remnants");
+            return;
+        }
         if (tank.capacityMb() - tank.amountMb() < HexidTank.BUCKET_MB) {
             say(player, "hexwright.hexid_tank.full");
             return;
         }
-        tank.store(tank.amountMb() + HexidTank.BUCKET_MB, tank.totalMedia());
+        tank.store(tank.amountMb() + HexidTank.BUCKET_MB, tank.totalMedia() + media);
         player.setItemInHand(hand,
             ItemUtils.createFilledResult(held, player, new ItemStack(Items.BUCKET)));
         level.playSound(null, pos, SoundEvents.BUCKET_EMPTY, SoundSource.BLOCKS, 1.0f, 1.0f);
@@ -145,17 +162,24 @@ public class HexidTankBlock extends Block implements EntityBlock {
 
     private static void drawOff(Level level, BlockPos pos, Player player, InteractionHand hand,
                                 ItemStack held, HexidTankBlockEntity tank) {
-        if (tank.isHexid()) {
-            say(player, "hexwright.hexid_tank.not_water");
+        if (tank.isRemnantStore()) {
+            say(player, "hexwright.hexid_tank.holds_remnants");
+            return;
+        }
+        boolean hexid = tank.isHexid();
+        if (hexid && tank.mediaPerMb() != HexidFluids.MEDIA_PER_MB) {
+            say(player, "hexwright.hexid_tank.not_water",
+                String.format("%.0f", HexidFluids.SATURATION * 100.0));
             return;
         }
         if (tank.amountMb() < HexidTank.BUCKET_MB) {
             say(player, "hexwright.hexid_tank.too_shallow");
             return;
         }
-        tank.store(tank.amountMb() - HexidTank.BUCKET_MB, 0);
-        player.setItemInHand(hand,
-            ItemUtils.createFilledResult(held, player, new ItemStack(Items.WATER_BUCKET)));
+        long drawn = hexid ? HexidFluids.MEDIA_PER_BUCKET : 0;
+        tank.store(tank.amountMb() - HexidTank.BUCKET_MB, tank.totalMedia() - drawn);
+        player.setItemInHand(hand, ItemUtils.createFilledResult(held, player,
+            new ItemStack(hexid ? HexidFluids.HEXID_BUCKET : Items.WATER_BUCKET)));
         level.playSound(null, pos, SoundEvents.BUCKET_FILL, SoundSource.BLOCKS, 1.0f, 1.0f);
         level.gameEvent(player, GameEvent.FLUID_PICKUP, pos);
         report(player, tank);
@@ -163,6 +187,10 @@ public class HexidTankBlock extends Block implements EntityBlock {
 
     private static void dissolve(Level level, BlockPos pos, Player player, InteractionHand hand,
                                  ItemStack held, ADMediaHolder holder, HexidTankBlockEntity tank) {
+        if (tank.isRemnantStore()) {
+            say(player, "hexwright.hexid_tank.holds_remnants");
+            return;
+        }
         if (tank.amountMb() <= 0) {
             say(player, "hexwright.hexid_tank.needs_water");
             return;
@@ -196,10 +224,71 @@ public class HexidTankBlock extends Block implements EntityBlock {
     }
 
 
+    private static void useBottle(Level level, BlockPos pos, Player player, InteractionHand hand,
+                                  ItemStack held, HexidTankBlockEntity tank) {
+        ItemStack one = held.copy();
+        one.setCount(1);
+        Remnant contents = BottleData.getContents(one);
+        boolean changed = contents == null
+            ? drawIntoBottle(level, pos, player, one, tank)
+            : pourFromBottle(level, pos, player, one, contents, tank);
+        if (changed) {
+            player.setItemInHand(hand, ItemUtils.createFilledResult(held, player, one));
+        }
+    }
+
+    private static boolean pourFromBottle(Level level, BlockPos pos, Player player, ItemStack bottle,
+                                          Remnant contents, HexidTankBlockEntity tank) {
+        if (!tank.canAcceptRemnants()) {
+            say(player, "hexwright.hexid_tank.not_empty");
+            return false;
+        }
+        double poured = tank.addRemnant(contents);
+        if (poured <= 0.0) {
+            say(player, "hexwright.hexid_tank.remnants_full");
+            return false;
+        }
+        double left = contents.drams() - poured;
+        BottleData.empty(bottle);
+        if (left >= TankRemnants.MIN_DRAMS) {
+            BottleData.pour(bottle, contents.withDrams(left));
+        }
+        level.playSound(null, pos, SoundEvents.BOTTLE_EMPTY, SoundSource.BLOCKS, 0.8f, 1.1f);
+        say(player, "hexwright.hexid_tank.poured", (int) Math.round(poured), contents.type().label());
+        return true;
+    }
+
+    private static boolean drawIntoBottle(Level level, BlockPos pos, Player player, ItemStack bottle,
+                                          HexidTankBlockEntity tank) {
+        RemnantType type = tank.remnants().largest();
+        if (type == null) {
+            say(player, "hexwright.hexid_tank.no_remnants");
+            return false;
+        }
+        double taken = tank.drawRemnant(type, Math.min(BottleData.capacity(bottle),
+            tank.remnants().drams(type)));
+        if (taken <= 0.0) {
+            say(player, "hexwright.hexid_tank.no_remnants");
+            return false;
+        }
+        double poured = BottleData.pour(bottle, new Remnant(type, taken));
+        if (poured < taken) {
+            tank.addRemnant(new Remnant(type, taken - poured));
+        }
+        level.playSound(null, pos, SoundEvents.BOTTLE_FILL, SoundSource.BLOCKS, 0.8f, 1.1f);
+        say(player, "hexwright.hexid_tank.drawn", (int) Math.round(poured), type.label());
+        return true;
+    }
+
+
     private static void report(Player player, HexidTankBlockEntity tank) {
         long amount = tank.amountMb();
         long capacity = tank.capacityMb();
-        if (amount <= 0) {
+        if (tank.isRemnantStore()) {
+            say(player, "hexwright.hexid_tank.status.remnants",
+                count(Math.round(tank.remnants().total())),
+                count(Math.round(tank.remnantCapacity())));
+        } else if (amount <= 0) {
             say(player, "hexwright.hexid_tank.status.empty", count(capacity));
         } else if (!tank.isHexid()) {
             say(player, "hexwright.hexid_tank.status.water", count(amount), count(capacity));

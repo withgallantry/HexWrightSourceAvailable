@@ -35,6 +35,10 @@ public final class EmissiveBloomConfigManager {
     private static final int DEBUG_MODE_MAX = 3;
     private static final float BLUR_RADIUS_MIN = 0.0f;
     private static final float BLUR_RADIUS_MAX = 8.0f;
+    private static final int BLOCK_GLOW_DISTANCE_MIN = 0;
+    private static final int BLOCK_GLOW_DISTANCE_MAX = 128;
+    private static final float BLOCK_GLOW_STRENGTH_MIN = 0.0f;
+    private static final float BLOCK_GLOW_STRENGTH_MAX = 1.0f;
 
     private static final EmissiveBloomConfig CONFIG = new EmissiveBloomConfig();
 
@@ -98,6 +102,9 @@ public final class EmissiveBloomConfigManager {
         CONFIG.glowKnee = clampGlowKnee(loaded.glowKnee);
         CONFIG.glowSaturation = clampGlowSaturation(loaded.glowSaturation);
         CONFIG.blurRadius = clampBlurRadius(loaded.blurRadius);
+        CONFIG.blockGlow = loaded.blockGlow;
+        CONFIG.blockGlowDistance = clampBlockGlowDistance(loaded.blockGlowDistance);
+        CONFIG.blockGlowStrength = clampBlockGlowStrength(loaded.blockGlowStrength);
         CONFIG.disableWhenShaderPackActive = loaded.disableWhenShaderPackActive;
         CONFIG.debugMode = clampDebugMode(loaded.debugMode);
     }
@@ -129,6 +136,14 @@ public final class EmissiveBloomConfigManager {
 
     static float clampBlurRadius(float value) {
         return Mth.clamp(value, BLUR_RADIUS_MIN, BLUR_RADIUS_MAX);
+    }
+
+    static int clampBlockGlowDistance(int value) {
+        return Mth.clamp(value, BLOCK_GLOW_DISTANCE_MIN, BLOCK_GLOW_DISTANCE_MAX);
+    }
+
+    static float clampBlockGlowStrength(float value) {
+        return Mth.clamp(value, BLOCK_GLOW_STRENGTH_MIN, BLOCK_GLOW_STRENGTH_MAX);
     }
 
     static int clampDebugMode(int value) {

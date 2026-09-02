@@ -15,12 +15,15 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public record EmissiveModelScan(
     Map<ResourceLocation, ResourceLocation> baseByGlowId,
@@ -35,6 +38,8 @@ public record EmissiveModelScan(
     public static final String EMPTY_MASK = "hexwright:item/empty_glowmask";
 
     private static final int MAX_PARENT_DEPTH = 8;
+
+    private static final Pattern PARENT = Pattern.compile("\"parent\"\\s*:\\s*\"([^\"]+)\"");
 
     private static final String SOURCES_PATH = "emissive/item_sources.json";
 
@@ -75,42 +80,91 @@ public record EmissiveModelScan(
         Map<ResourceLocation, ResourceLocation> glowByBaseId = new HashMap<>();
         Map<ResourceLocation, Map<String, String>> texturesByGlowId = new HashMap<>();
 
-        Map<ResourceLocation, Resource> itemModels =
-            resources.listResources("models/item", path -> path.getPath().endsWith(".json"));
-        for (Map.Entry<ResourceLocation, Resource> entry : itemModels.entrySet()) {
+        Map<ResourceLocation, Resource> models = new LinkedHashMap<>(
+            resources.listResources("models/item", path -> path.getPath().endsWith(".json")));
+        models.putAll(resources.listResources("models/block", path -> path.getPath().endsWith(".json")));
+
+        Map<ResourceLocation, String> inherited = new LinkedHashMap<>();
+        Map<ResourceLocation, ResourceLocation> inheritedParent = new HashMap<>();
+
+        for (Map.Entry<ResourceLocation, Resource> entry : models.entrySet()) {
             String text = read(entry.getValue());
-            if (text == null || !mentionsAny(text, needles)) {
+            if (text == null) {
                 continue;
             }
-
             ResourceLocation modelId = modelIdOf(entry.getKey());
             if (modelId == null || modelId.getPath().endsWith(GLOWMASK_SUFFIX)) {
                 continue;
             }
-
-            Map<String, String> masked = maskTextures(resolveTextures(resources, modelId, text), masks);
-            if (masked == null) {
+            if (mentionsAny(text, needles)) {
+                accept(resources, modelId, text, masks, baseByGlowId, glowByBaseId, texturesByGlowId);
                 continue;
             }
+            ResourceLocation parent = parentOf(text);
+            if (parent != null) {
+                inherited.put(modelId, text);
+                inheritedParent.put(modelId, parent);
+            }
+        }
 
-            ResourceLocation glowId =
-                new ResourceLocation(modelId.getNamespace(), modelId.getPath() + GLOWMASK_SUFFIX);
-            baseByGlowId.put(glowId, modelId);
-            glowByBaseId.put(modelId, glowId);
-            texturesByGlowId.put(glowId, Map.copyOf(masked));
+        for (int depth = 0; depth < MAX_PARENT_DEPTH; depth++) {
+            boolean grew = false;
+            for (Iterator<Map.Entry<ResourceLocation, String>> it = inherited.entrySet().iterator();
+                 it.hasNext(); ) {
+                Map.Entry<ResourceLocation, String> entry = it.next();
+                if (!glowByBaseId.containsKey(inheritedParent.get(entry.getKey()))) {
+                    continue;
+                }
+                it.remove();
+                grew |= accept(resources, entry.getKey(), entry.getValue(), masks,
+                    baseByGlowId, glowByBaseId, texturesByGlowId);
+            }
+            if (!grew) {
+                break;
+            }
         }
 
         brightnessSources.keySet().removeAll(glowByBaseId.keySet());
 
         if (!baseByGlowId.isEmpty() || !brightnessSources.isEmpty()) {
             Hexwright.LOGGER.info(
-                "Emissive item models: {} carry a glowmask, {} glow by brightness, {} name their glowing parts",
+                "Emissive models: {} carry a glowmask, {} glow by brightness, {} name their glowing parts",
                 baseByGlowId.size(), brightnessSources.size(), partTwinByBase.size());
         }
         partTwinByBase.keySet().retainAll(brightnessSources.keySet());
         return new EmissiveModelScan(Map.copyOf(baseByGlowId), Map.copyOf(glowByBaseId),
             Map.copyOf(texturesByGlowId), Map.copyOf(brightnessSources),
             Map.copyOf(partTwinByBase), Map.copyOf(partTwinJson));
+    }
+
+    private static boolean accept(ResourceManager resources, ResourceLocation modelId, String text,
+                                  Map<ResourceLocation, ResourceLocation> masks,
+                                  Map<ResourceLocation, ResourceLocation> baseByGlowId,
+                                  Map<ResourceLocation, ResourceLocation> glowByBaseId,
+                                  Map<ResourceLocation, Map<String, String>> texturesByGlowId) {
+        Map<String, String> masked = maskTextures(resolveTextures(resources, modelId, text), masks);
+        if (masked == null) {
+            return false;
+        }
+        ResourceLocation glowId =
+            new ResourceLocation(modelId.getNamespace(), modelId.getPath() + GLOWMASK_SUFFIX);
+        baseByGlowId.put(glowId, modelId);
+        glowByBaseId.put(modelId, glowId);
+        texturesByGlowId.put(glowId, Map.copyOf(masked));
+        return true;
+    }
+
+    @Nullable
+    private static ResourceLocation parentOf(String text) {
+        Matcher matcher = PARENT.matcher(text);
+        if (!matcher.find()) {
+            return null;
+        }
+        try {
+            return new ResourceLocation(matcher.group(1));
+        } catch (RuntimeException e) {
+            return null;
+        }
     }
 
     private static void partTwinFor(ResourceManager resources, ResourceLocation modelId,

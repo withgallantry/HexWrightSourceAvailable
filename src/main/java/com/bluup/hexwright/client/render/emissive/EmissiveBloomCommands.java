@@ -45,6 +45,17 @@ final class EmissiveBloomCommands {
                     (config, value) -> config.blurRadius = value))
                 .then(setting("scale", EmissiveBloomConfigManager::clampFramebufferScale,
                     (config, value) -> config.framebufferScale = value))
+                .then(ClientCommandManager.literal("blocks")
+                    .then(ClientCommandManager.literal("on")
+                        .executes(ctx -> setBlockGlow(ctx.getSource(), true)))
+                    .then(ClientCommandManager.literal("off")
+                        .executes(ctx -> setBlockGlow(ctx.getSource(), false)))
+                    .then(ClientCommandManager.literal("strength")
+                        .then(ClientCommandManager.argument("value", FloatArgumentType.floatArg())
+                            .executes(EmissiveBloomCommands::setBlockGlowStrength)))
+                    .then(ClientCommandManager.literal("distance")
+                        .then(ClientCommandManager.argument("blocks", IntegerArgumentType.integer(0, 128))
+                            .executes(EmissiveBloomCommands::setBlockGlowDistance))))
                 .then(ClientCommandManager.literal("debug")
                     .then(ClientCommandManager.argument("mode", IntegerArgumentType.integer(0, 3))
                         .executes(EmissiveBloomCommands::setDebugMode)))));
@@ -60,6 +71,31 @@ final class EmissiveBloomCommands {
                     feedback(ctx.getSource(), "Bloom " + name + " = " + value);
                     return SINGLE_SUCCESS;
                 }));
+    }
+
+    private static int setBlockGlow(FabricClientCommandSource source, boolean enabled) {
+        EmissiveBloomConfigManager.get().blockGlow = enabled;
+        EmissiveBloomConfigManager.save();
+        feedback(source, "Block glow " + (enabled ? "enabled." : "disabled."));
+        return SINGLE_SUCCESS;
+    }
+
+    private static int setBlockGlowStrength(CommandContext<FabricClientCommandSource> ctx) {
+        float value = EmissiveBloomConfigManager.clampBlockGlowStrength(
+            FloatArgumentType.getFloat(ctx, "value"));
+        EmissiveBloomConfigManager.get().blockGlowStrength = value;
+        EmissiveBloomConfigManager.save();
+        feedback(ctx.getSource(), "Block glow strength = " + value);
+        return SINGLE_SUCCESS;
+    }
+
+    private static int setBlockGlowDistance(CommandContext<FabricClientCommandSource> ctx) {
+        int value = EmissiveBloomConfigManager.clampBlockGlowDistance(
+            IntegerArgumentType.getInteger(ctx, "blocks"));
+        EmissiveBloomConfigManager.get().blockGlowDistance = value;
+        EmissiveBloomConfigManager.save();
+        feedback(ctx.getSource(), "Block glow distance = " + value + " blocks");
+        return SINGLE_SUCCESS;
     }
 
     private static int setDebugMode(CommandContext<FabricClientCommandSource> ctx) {
@@ -91,6 +127,8 @@ final class EmissiveBloomCommands {
             + " | core " + config.coreStrength
             + " | radius " + config.blurRadius
             + " | scale " + config.framebufferScale
+            + " | blocks " + (config.blockGlow ? "on" : "off")
+            + " at " + config.blockGlowStrength + "/" + config.blockGlowDistance + "m"
             + " | shaders " + (EmissiveBloomShaders.shadersReady() ? "loaded" : "NOT LOADED")
             + (config.debugMode == 0 ? "" : " | DEBUG " + config.debugMode + ": " + DEBUG_MODE_NAMES[config.debugMode]));
         return SINGLE_SUCCESS;
