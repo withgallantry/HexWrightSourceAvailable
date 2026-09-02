@@ -1,6 +1,10 @@
 package com.bluup.hexwright.server.worldgen.decadentvault;
 
+import at.petrak.hexcasting.api.misc.MediaConstants;
+import at.petrak.hexcasting.common.items.magic.ItemMediaHolder;
 import at.petrak.hexcasting.common.lib.HexItems;
+import at.petrak.hexcasting.common.loot.AddHexToAncientCypherFunc;
+import at.petrak.hexcasting.common.loot.AddPerWorldPatternToScrollFunc;
 import com.bluup.hexwright.common.staff_assembly.calc.IngredientCategory;
 import com.bluup.hexwright.server.crucible.EssencePouchData;
 import com.bluup.hexwright.server.item.HexwrightItems;
@@ -10,6 +14,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.Container;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Blocks;
@@ -26,30 +31,53 @@ final class DecadentVaultHoard {
 
     private static final int FOCI = 6;
 
+    private static final int GREAT_SPELLS = 2;
+
+    private static final int CYPHERS = 2;
+
+    private static final int PHIALS = 2;
+
+    private static final int PHIAL_CRYSTALS_MIN = 3;
+    private static final int PHIAL_CRYSTALS_SPREAD = 3;
+
     private static final int ESSENCE_MIN = 80;
     private static final int ESSENCE_SPREAD = 140;
 
     private static final int ASPECTS_MIN = 4;
     private static final int ASPECTS_SPREAD = 3;
 
+    private static final List<Item> SEEDS = List.of(
+        Items.WHEAT_SEEDS,
+        Items.BEETROOT_SEEDS,
+        Items.MELON_SEEDS,
+        Items.PUMPKIN_SEEDS,
+        Items.CARROT,
+        Items.POTATO);
+
+    private static final int SEED_KINDS_MIN = 3;
+    private static final int SEED_KINDS_SPREAD = 3;
+
     private DecadentVaultHoard() {
     }
 
-    static void stock(ServerLevel level, List<BlockPos> chests, RandomSource random) {
-        List<ItemStack> guaranteed = guaranteed(random);
+    static void stock(ServerLevel level, List<BlockPos> chests, List<BlockPos> barrels,
+                      RandomSource random) {
+        List<ItemStack> guaranteed = guaranteed(level, random);
         Collections.shuffle(guaranteed, new java.util.Random(random.nextLong()));
+        List<BlockPos> order = new ArrayList<>(chests);
+        Collections.shuffle(order, new java.util.Random(random.nextLong()));
 
-        for (int i = 0; i < chests.size(); i++) {
-            if (!(level.getBlockEntity(chests.get(i)) instanceof Container container)) {
+        for (int i = 0; i < order.size(); i++) {
+            if (!(level.getBlockEntity(order.get(i)) instanceof Container container)) {
                 continue;
             }
             List<ItemStack> contents = new ArrayList<>();
-            for (int j = i; j < guaranteed.size(); j += chests.size()) {
+            for (int j = i; j < guaranteed.size(); j += order.size()) {
                 contents.add(guaranteed.get(j));
             }
-            int treasureCount = 1 + random.nextInt(2);
-            for (int j = 0; j < treasureCount; j++) {
-                contents.add(treasure(random));
+            int supplyCount = 1 + random.nextInt(2);
+            for (int j = 0; j < supplyCount; j++) {
+                contents.add(supplies(random));
             }
             int foodCount = 1 + random.nextInt(2);
             for (int j = 0; j < foodCount; j++) {
@@ -57,9 +85,29 @@ final class DecadentVaultHoard {
             }
             scatter(container, contents, random);
         }
+
+        stockBarrels(level, barrels, random);
     }
 
-    private static List<ItemStack> guaranteed(RandomSource random) {
+    private static void stockBarrels(ServerLevel level, List<BlockPos> barrels,
+                                     RandomSource random) {
+        for (BlockPos pos : barrels) {
+            if (!(level.getBlockEntity(pos) instanceof Container barrel)) {
+                continue;
+            }
+            List<Item> seeds = new ArrayList<>(SEEDS);
+            Collections.shuffle(seeds, new java.util.Random(random.nextLong()));
+            List<ItemStack> contents = new ArrayList<>();
+            int kinds = Math.min(seeds.size(), SEED_KINDS_MIN + random.nextInt(SEED_KINDS_SPREAD));
+            for (int i = 0; i < kinds; i++) {
+                contents.add(new ItemStack(seeds.get(i), 8 + random.nextInt(17)));
+            }
+            contents.add(new ItemStack(Items.BUCKET, 1 + random.nextInt(3)));
+            scatter(barrel, contents, random);
+        }
+    }
+
+    private static List<ItemStack> guaranteed(ServerLevel level, RandomSource random) {
         List<ItemStack> stacks = new ArrayList<>();
         for (String recipe : recipes(random)) {
             stacks.add(StoneTabletItem.of(recipe));
@@ -70,7 +118,31 @@ final class DecadentVaultHoard {
         for (int i = 0; i < FOCI; i++) {
             stacks.add(new ItemStack(HexItems.FOCUS));
         }
+        for (int i = 0; i < GREAT_SPELLS; i++) {
+            stacks.add(greatSpellScroll(level, random));
+        }
+        for (int i = 0; i < CYPHERS; i++) {
+            stacks.add(AddHexToAncientCypherFunc.doStatic(
+                new ItemStack(HexItems.ANCIENT_CYPHER), random));
+        }
+        for (int i = 0; i < PHIALS; i++) {
+            stacks.add(phial(random));
+        }
+        stacks.add(new ItemStack(HexItems.SCRYING_LENS));
+        stacks.add(new ItemStack(HexItems.ABACUS));
+        stacks.add(new ItemStack(HexItems.JEWELER_HAMMER));
         return stacks;
+    }
+
+    private static ItemStack greatSpellScroll(ServerLevel level, RandomSource random) {
+        return AddPerWorldPatternToScrollFunc.doStatic(
+            new ItemStack(HexItems.SCROLL_LARGE), random, level.getServer().overworld());
+    }
+
+    private static ItemStack phial(RandomSource random) {
+        long media = MediaConstants.CRYSTAL_UNIT
+            * (PHIAL_CRYSTALS_MIN + random.nextInt(PHIAL_CRYSTALS_SPREAD));
+        return ItemMediaHolder.withMedia(new ItemStack(HexItems.BATTERY), media, media);
     }
 
     private static List<String> recipes(RandomSource random) {
@@ -88,6 +160,35 @@ final class DecadentVaultHoard {
             EssencePouchData.add(stack, aspects.get(i), ESSENCE_MIN + random.nextInt(ESSENCE_SPREAD));
         }
         return stack;
+    }
+
+    private static ItemStack supplies(RandomSource random) {
+        int roll = random.nextInt(24);
+        if (roll < 5) {
+            return new ItemStack(HexItems.AMETHYST_DUST, 6 + random.nextInt(13));
+        }
+        if (roll < 7) {
+            return new ItemStack(Items.AMETHYST_SHARD, 3 + random.nextInt(6));
+        }
+        if (roll < 8) {
+            return new ItemStack(HexItems.CHARGED_AMETHYST, 1 + random.nextInt(3));
+        }
+        if (roll < 13) {
+            return new ItemStack(HexItems.SLATE, 6 + random.nextInt(11));
+        }
+        if (roll < 17) {
+            return new ItemStack(HexItems.SCROLL_SMOL, 4 + random.nextInt(7));
+        }
+        if (roll < 18) {
+            return new ItemStack(HexItems.SCROLL_MEDIUM, 2 + random.nextInt(3));
+        }
+        if (roll < 19) {
+            return new ItemStack(HexItems.FOCUS, 1 + random.nextInt(2));
+        }
+        if (roll < 20) {
+            return new ItemStack(HexItems.SPELLBOOK);
+        }
+        return treasure(random);
     }
 
     private static ItemStack treasure(RandomSource random) {

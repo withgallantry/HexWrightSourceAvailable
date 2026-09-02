@@ -11,7 +11,6 @@ import com.bluup.hexwright.server.pocketcaster.PocketCasterData;
 import com.bluup.hexwright.server.remnant.BottleData;
 import com.bluup.hexwright.server.vault.VaultKeyItem;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
@@ -21,11 +20,11 @@ import net.minecraft.world.entity.decoration.ArmorStand;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.AbstractChestBlock;
+import net.minecraft.world.level.block.BarrelBlock;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.DoorBlock;
 import net.minecraft.world.level.block.EnderChestBlock;
-import net.minecraft.world.level.block.HorizontalDirectionalBlock;
 import net.minecraft.world.level.block.Mirror;
 import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.block.ShulkerBoxBlock;
@@ -54,21 +53,6 @@ final class DecadentVaultGenerator {
 
     private static final float UNIQUE_DROP_CHANCE = 0.3f;
 
-    private static final int MAX_WORKSTATIONS = 3;
-
-    private static final Block[] WORKSTATIONS = {
-        HexwrightBlocks.WORKTABLE_BLOCK,
-        HexwrightBlocks.CRUCIBLE_BLOCK,
-        HexwrightBlocks.STAFF_ASSEMBLY_BLOCK,
-        HexwrightBlocks.COALESCER_BLOCK,
-        HexwrightBlocks.RESONANCE_TOWER_BLOCK,
-        HexwrightBlocks.EXCHANGE_BRIDGE_BLOCK,
-        HexwrightBlocks.HARMONIC_EMITTER_BLOCK,
-        HexwrightBlocks.HARMONIC_TRANSDUCER_BLOCK,
-        HexwrightBlocks.ESSENCE_GAUGE_BLOCK,
-        HexwrightBlocks.RELIQUARY_BLOCK,
-    };
-
     private DecadentVaultGenerator() {
     }
 
@@ -91,10 +75,9 @@ final class DecadentVaultGenerator {
 
         Markers markers = scan(level, innerOrigin);
         BlockPos exit = resolveExit(level, markers.exits, portalDimension, portalPos);
-        resolveWorkstations(level, markers.workstations, random);
         resolveBottles(level, markers.bottles, random);
         resolveDisplays(level, innerOrigin, random);
-        DecadentVaultHoard.stock(level, markers.containers, random);
+        DecadentVaultHoard.stock(level, markers.containers, markers.barrels, random);
 
         if (exit == null) {
             Hexwright.LOGGER.error("Decadent Vault template {} has no exit marker", STRUCTURE);
@@ -144,8 +127,8 @@ final class DecadentVaultGenerator {
     }
 
 
-    private record Markers(List<BlockPos> containers, List<BlockPos> exits,
-                           List<BlockPos> workstations, List<BlockPos> bottles) {
+    private record Markers(List<BlockPos> containers, List<BlockPos> barrels,
+                           List<BlockPos> exits, List<BlockPos> bottles) {
     }
 
     private static Markers scan(ServerLevel level, BlockPos innerOrigin) {
@@ -161,28 +144,17 @@ final class DecadentVaultGenerator {
                     }
                     if (block instanceof AbstractChestBlock || block instanceof ShulkerBoxBlock) {
                         markers.containers().add(pos.immutable());
+                    } else if (block instanceof BarrelBlock) {
+                        markers.barrels().add(pos.immutable());
                     } else if (block == Blocks.YELLOW_WOOL || block == Blocks.YELLOW_CARPET) {
                         markers.exits().add(pos.immutable());
                     } else if (block == HexwrightBlocks.PLACED_BOTTLE_BLOCK) {
                         markers.bottles().add(pos.immutable());
-                    } else if (isWorkstationMarker(block)) {
-                        markers.workstations().add(pos.immutable());
                     }
                 }
             }
         }
         return markers;
-    }
-
-    private static boolean isWorkstationMarker(Block block) {
-        if (block == HexwrightBlocks.REFINED_BINDSTONE_BLOCK
-            || block == HexwrightBlocks.VAULT_PLINTH_BLOCK
-            || block == HexwrightBlocks.PLACED_BOTTLE_BLOCK
-            || block == HexwrightBlocks.DECADENT_VAULT_EXIT_BLOCK
-            || block == HexwrightBlocks.RESONANT_ANCHOR_BLOCK) {
-            return false;
-        }
-        return BuiltInRegistries.BLOCK.getKey(block).getNamespace().equals(Hexwright.MOD_ID);
     }
 
 
@@ -200,28 +172,6 @@ final class DecadentVaultGenerator {
             set(level, marked.get(i), Blocks.AIR.defaultBlockState());
         }
         return exit;
-    }
-
-    private static void resolveWorkstations(ServerLevel level, List<BlockPos> marked,
-                                            RandomSource random) {
-        List<BlockPos> spots = new ArrayList<>(marked);
-        Collections.shuffle(spots, new java.util.Random(random.nextLong()));
-        int keep = Math.min(MAX_WORKSTATIONS, spots.size());
-        for (int i = 0; i < spots.size(); i++) {
-            BlockPos pos = spots.get(i);
-            if (i >= keep) {
-                set(level, pos, Blocks.AIR.defaultBlockState());
-                continue;
-            }
-            BlockState marker = level.getBlockState(pos);
-            BlockState bench = WORKSTATIONS[random.nextInt(WORKSTATIONS.length)].defaultBlockState();
-            if (marker.hasProperty(HorizontalDirectionalBlock.FACING)
-                && bench.hasProperty(HorizontalDirectionalBlock.FACING)) {
-                bench = bench.setValue(HorizontalDirectionalBlock.FACING,
-                    marker.getValue(HorizontalDirectionalBlock.FACING));
-            }
-            set(level, pos, bench);
-        }
     }
 
     private static void resolveBottles(ServerLevel level, List<BlockPos> marked,

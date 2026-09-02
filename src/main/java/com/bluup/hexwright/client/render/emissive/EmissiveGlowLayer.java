@@ -1,5 +1,6 @@
 package com.bluup.hexwright.client.render.emissive;
 
+import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import net.fabricmc.fabric.api.client.rendering.v1.CoreShaderRegistrationCallback;
@@ -11,6 +12,20 @@ import org.jetbrains.annotations.Nullable;
 
 public final class EmissiveGlowLayer extends RenderType {
     private static final String SHADER_NAME = "hexwright_item_glow";
+
+    private static final TextureStateShard BLOCK_ATLAS_MIPPED =
+        new TextureStateShard(TextureAtlas.LOCATION_BLOCKS, false, true);
+
+    private static final LayeringStateShard DECAL_OFFSET_LAYERING = new LayeringStateShard(
+        "hexwright_decal_offset",
+        () -> {
+            RenderSystem.polygonOffset(0.0f, -10.0f);
+            RenderSystem.enablePolygonOffset();
+        },
+        () -> {
+            RenderSystem.polygonOffset(0.0f, 0.0f);
+            RenderSystem.disablePolygonOffset();
+        });
 
     @Nullable
     private static ShaderInstance shader;
@@ -24,11 +39,11 @@ public final class EmissiveGlowLayer extends RenderType {
         true,
         RenderType.CompositeState.builder()
             .setShaderState(new ShaderStateShard(EmissiveGlowLayer::shader))
-            .setTextureState(new TextureStateShard(TextureAtlas.LOCATION_BLOCKS, false, false))
+            .setTextureState(BLOCK_ATLAS_MIPPED)
             .setTransparencyState(TRANSLUCENT_TRANSPARENCY)
             .setCullState(NO_CULL)
             .setWriteMaskState(COLOR_WRITE)
-            .setLayeringState(POLYGON_OFFSET_LAYERING)
+            .setLayeringState(DECAL_OFFSET_LAYERING)
             .createCompositeState(false));
 
     private static final RenderType MASKED_LAYER = create(
@@ -40,12 +55,12 @@ public final class EmissiveGlowLayer extends RenderType {
         true,
         RenderType.CompositeState.builder()
             .setShaderState(RENDERTYPE_ENTITY_TRANSLUCENT_EMISSIVE_SHADER)
-            .setTextureState(new TextureStateShard(TextureAtlas.LOCATION_BLOCKS, false, false))
+            .setTextureState(BLOCK_ATLAS_MIPPED)
             .setTransparencyState(TRANSLUCENT_TRANSPARENCY)
             .setCullState(NO_CULL)
             .setWriteMaskState(COLOR_WRITE)
             .setOverlayState(OVERLAY)
-            .setLayeringState(POLYGON_OFFSET_LAYERING)
+            .setLayeringState(DECAL_OFFSET_LAYERING)
             .createCompositeState(true));
 
     private EmissiveGlowLayer(String name, VertexFormat format, VertexFormat.Mode mode, int bufferSize,
