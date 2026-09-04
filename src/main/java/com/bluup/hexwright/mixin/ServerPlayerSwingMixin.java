@@ -4,6 +4,7 @@ import com.bluup.hexwright.server.weapon.AnimatedWeapon;
 import com.bluup.hexwright.server.weapon.MeleeSwingState;
 import com.bluup.hexwright.server.weapon.SwingArc;
 import net.minecraft.network.protocol.game.ServerboundInteractPacket;
+import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
 import net.minecraft.network.protocol.game.ServerboundSwingPacket;
 import net.minecraft.network.protocol.game.ServerboundUseItemOnPacket;
 import net.minecraft.server.level.ServerPlayer;
@@ -78,6 +79,24 @@ public abstract class ServerPlayerSwingMixin {
     )
     private void hexwright$noteBlockInteract(ServerboundUseItemOnPacket packet, CallbackInfo ci) {
         hexwright$noteInteract(packet.getHand());
+    }
+
+    @Inject(
+        method = "handlePlayerAction",
+        at = @At(
+            value = "INVOKE",
+            target = "Lnet/minecraft/network/protocol/PacketUtils;ensureRunningOnSameThread"
+                + "(Lnet/minecraft/network/protocol/Packet;Lnet/minecraft/network/PacketListener;"
+                + "Lnet/minecraft/server/level/ServerLevel;)V",
+            shift = At.Shift.AFTER
+        )
+    )
+    private void hexwright$noteDrop(ServerboundPlayerActionPacket packet, CallbackInfo ci) {
+        ServerboundPlayerActionPacket.Action action = packet.getAction();
+        if (action == ServerboundPlayerActionPacket.Action.DROP_ITEM
+            || action == ServerboundPlayerActionPacket.Action.DROP_ALL_ITEMS) {
+            this.hexwright$swingState.noteInteract(this.player.server.getTickCount());
+        }
     }
 
     @Unique

@@ -17,13 +17,29 @@ public final class EmissiveBloomConfig {
 
     public boolean blockGlow = true;
 
+    public boolean blockGlowDisableWhenShaderPackActive = true;
+
     public int blockGlowDistance = 48;
 
     public float blockGlowStrength = 1.0f;
 
+    public float blockGlowLift = 0.0f;
+
+    public float blockGlowDepthSlope = 0.0f;
+
+    public float blockGlowDepthBias = -10.0f;
+
+    public boolean blockGlowMipmap = true;
+
+    public boolean blockGlowDebug = false;
+
+
+
+
+
     public float blurRadius = 1.4f;
 
-    public boolean disableWhenShaderPackActive = true;
+    public boolean disableWhenShaderPackActive = false;
 
     public int debugMode = 0;
 }

@@ -1,6 +1,5 @@
 package com.bluup.hexwright.mixin;
 
-import at.petrak.hexcasting.api.addldata.ADIotaHolder;
 import at.petrak.hexcasting.api.casting.eval.CastingEnvironment;
 import at.petrak.hexcasting.api.casting.eval.env.StaffCastEnv;
 import at.petrak.hexcasting.api.casting.iota.Iota;
@@ -9,9 +8,9 @@ import at.petrak.hexcasting.api.casting.iota.PatternIota;
 import at.petrak.hexcasting.api.casting.math.HexPattern;
 import at.petrak.hexcasting.api.casting.mishaps.MishapBadOffhandItem;
 import at.petrak.hexcasting.common.casting.actions.rw.OpRead;
-import at.petrak.hexcasting.xplat.IXplatAbstractions;
 import com.bluup.hexwright.server.hexicon.HexiconData;
 import com.bluup.hexwright.server.item.HexwrightItems;
+import com.bluup.hexwright.server.staff_assembly.HeldIotaPrecedence;
 import com.bluup.hexwright.server.staff_assembly.StaffAssemblyData;
 import com.bluup.hexwright.server.staff_assembly.StaffPowers;
 import com.mojang.datafixers.util.Pair;
@@ -57,10 +56,7 @@ public abstract class OpReadMixin {
         if (!book.is(HexwrightItems.CONFIGURABLE_STAFF)) {
             return false;
         }
-        return env.getHeldItemToOperateOn(stack -> {
-            ADIotaHolder holder = IXplatAbstractions.INSTANCE.findDataHolder(stack);
-            return holder != null && holder.readIota(env.getWorld()) != null;
-        }) != null;
+        return HeldIotaPrecedence.yieldsRead(env);
     }
 
     @Inject(
@@ -80,11 +76,7 @@ public abstract class OpReadMixin {
             return;
         }
 
-        boolean yieldsToRealHolder = env.getHeldItemToOperateOn(stack -> {
-            ADIotaHolder holder = IXplatAbstractions.INSTANCE.findDataHolder(stack);
-            return holder != null && holder.readIota(env.getWorld()) != null;
-        }) != null;
-        if (yieldsToRealHolder) {
+        if (HeldIotaPrecedence.yieldsRead(env)) {
             return;
         }
 

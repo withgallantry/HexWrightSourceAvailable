@@ -32,7 +32,7 @@ public final class SlashWaveVisualClient {
 
     private static final float TILT_DEGREES = 90.0f;
 
-    private static final float FADE_IN_TICKS = 2.0f;
+    private static final float FADE_IN_TICKS = 1.0f;
     private static final float FADE_OUT_TICKS = 3.0f;
 
     private static final Set<SlashWaveEntity> LIVE =

@@ -4,6 +4,8 @@ import com.lowdragmc.lowdraglib.gui.editor.annotation.Configurable;
 import com.lowdragmc.lowdraglib.gui.editor.annotation.LDLRegister;
 import com.lowdragmc.lowdraglib.gui.editor.configurator.IConfigurableWidget;
 import com.lowdragmc.lowdraglib.gui.widget.Widget;
+import net.fabricmc.api.EnvType;
+import net.fabricmc.api.Environment;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -44,6 +46,7 @@ public class StaffItemDisplayWidget extends Widget implements IConfigurableWidge
     }
 
     @Override
+    @Environment(EnvType.CLIENT)
     public void drawInBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
         super.drawInBackground(graphics, mouseX, mouseY, partialTicks);
         ItemStack stack = stackSupplier != null ? stackSupplier.get() : previewStack();
@@ -58,6 +61,7 @@ public class StaffItemDisplayWidget extends Widget implements IConfigurableWidge
     }
 
     @Override
+    @Environment(EnvType.CLIENT)
     public void drawInForeground(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
         super.drawInForeground(graphics, mouseX, mouseY, partialTicks);
         if (!showTooltip || !this.isMouseOverElement(mouseX, mouseY)) {
@@ -90,6 +94,7 @@ public class StaffItemDisplayWidget extends Widget implements IConfigurableWidge
         return new ItemStack(item);
     }
 
+    @Environment(EnvType.CLIENT)
     public static void renderScaledItem(GuiGraphics graphics, ItemStack stack, int x, int y, int iconSize) {
         if (stack.isEmpty() || iconSize <= 0) {
             return;

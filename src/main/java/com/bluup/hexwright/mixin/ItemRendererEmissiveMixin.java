@@ -1,5 +1,6 @@
 package com.bluup.hexwright.mixin;
 
+import com.bluup.hexwright.client.render.IrisCompat;
 import com.bluup.hexwright.client.render.emissive.EmissiveItemModels;
 import com.bluup.hexwright.client.staff_assembly.StaffTipFlash;
 import com.llamalad7.mixinextras.sugar.Local;
@@ -31,7 +32,12 @@ public abstract class ItemRendererEmissiveMixin {
                                                  MultiBufferSource bufferSource, int light, int overlay,
                                                  BakedModel model, CallbackInfo ci,
                                                  @Local RenderType itemLayer) {
-        EmissiveItemModels.renderGlow(model, poseStack, bufferSource, overlay, itemLayer);
+        if (IrisCompat.isRenderingShadowPass()) {
+            return;
+        }
+        boolean handPose = displayContext == ItemDisplayContext.FIRST_PERSON_RIGHT_HAND
+            || displayContext == ItemDisplayContext.FIRST_PERSON_LEFT_HAND;
+        EmissiveItemModels.renderGlow(model, poseStack, bufferSource, overlay, itemLayer, handPose);
         StaffTipFlash.onStaffRendered(stack, displayContext, poseStack, bufferSource, itemLayer);
     }
 }

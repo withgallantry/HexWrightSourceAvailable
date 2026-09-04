@@ -1,6 +1,5 @@
 package com.bluup.hexwright.mixin;
 
-import at.petrak.hexcasting.api.addldata.ADIotaHolder;
 import at.petrak.hexcasting.api.casting.RenderedSpell;
 import at.petrak.hexcasting.api.casting.castables.SpellAction;
 import at.petrak.hexcasting.api.casting.eval.CastingEnvironment;
@@ -8,13 +7,12 @@ import at.petrak.hexcasting.api.casting.eval.vm.CastingImage;
 import at.petrak.hexcasting.api.casting.iota.Iota;
 import at.petrak.hexcasting.api.casting.mishaps.MishapOthersName;
 import at.petrak.hexcasting.common.casting.actions.rw.OpWrite;
-import com.bluup.hexwright.server.armour.HexwrightArmourItem;
 import com.bluup.hexwright.server.hexicon.HexiconData;
 import com.bluup.hexwright.server.reliquary.ChestCastEnv;
+import com.bluup.hexwright.server.staff_assembly.HeldIotaPrecedence;
 import com.bluup.hexwright.server.staff_assembly.StaffPowers;
 import com.bluup.hexwright.server.item.HexwrightItems;
 import at.petrak.hexcasting.api.casting.eval.env.StaffCastEnv;
-import at.petrak.hexcasting.xplat.IXplatAbstractions;
 import com.mojang.datafixers.util.Pair;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
@@ -78,11 +76,7 @@ public abstract class OpWriteMixin {
             return;
         }
 
-        CastingEnvironment.HeldItemInfo writableTarget = env.getHeldItemToOperateOn(stack -> {
-            ADIotaHolder holder = IXplatAbstractions.INSTANCE.findDataHolder(stack);
-            return holder != null && holder.writeIota(datum, true);
-        });
-        if (writableTarget != null) {
+        if (HeldIotaPrecedence.yieldsWrite(env, datum)) {
             return;
         }
 
@@ -104,10 +98,7 @@ public abstract class OpWriteMixin {
         if (!book.is(HexwrightItems.CONFIGURABLE_STAFF)) {
             return false;
         }
-        return env.getHeldItemToOperateOn(stack -> {
-            ADIotaHolder holder = IXplatAbstractions.INSTANCE.findDataHolder(stack);
-            return holder != null && holder.writeIota(datum, true);
-        }) != null;
+        return HeldIotaPrecedence.yieldsWrite(env, datum);
     }
 
     @Inject(
@@ -121,17 +112,9 @@ public abstract class OpWriteMixin {
             return;
         }
         Iota datum = args.get(0);
-        if (hexwright$writeLandedOnArmour(datum, env)) {
+        if (HeldIotaPrecedence.yieldsWrite(env, datum)) {
             return;
         }
         StaffPowers.bindFromWrite(env, datum);
-    }
-
-    private static boolean hexwright$writeLandedOnArmour(Iota datum, CastingEnvironment env) {
-        CastingEnvironment.HeldItemInfo target = env.getHeldItemToOperateOn(stack -> {
-            ADIotaHolder holder = IXplatAbstractions.INSTANCE.findDataHolder(stack);
-            return holder != null && holder.writeIota(datum, true);
-        });
-        return target != null && target.stack().getItem() instanceof HexwrightArmourItem;
     }
 }

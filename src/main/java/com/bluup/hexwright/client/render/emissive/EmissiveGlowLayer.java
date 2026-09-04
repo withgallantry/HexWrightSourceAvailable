@@ -16,10 +16,14 @@ public final class EmissiveGlowLayer extends RenderType {
     private static final TextureStateShard BLOCK_ATLAS_MIPPED =
         new TextureStateShard(TextureAtlas.LOCATION_BLOCKS, false, true);
 
+    private static final TextureStateShard BLOCK_ATLAS_UNMIPPED =
+        new TextureStateShard(TextureAtlas.LOCATION_BLOCKS, false, false);
+
     private static final LayeringStateShard DECAL_OFFSET_LAYERING = new LayeringStateShard(
         "hexwright_decal_offset",
         () -> {
-            RenderSystem.polygonOffset(0.0f, -10.0f);
+            EmissiveBloomConfig depth = EmissiveBloomConfigManager.get();
+            RenderSystem.polygonOffset(depth.blockGlowDepthSlope, depth.blockGlowDepthBias);
             RenderSystem.enablePolygonOffset();
         },
         () -> {
@@ -29,6 +33,9 @@ public final class EmissiveGlowLayer extends RenderType {
 
     @Nullable
     private static ShaderInstance shader;
+
+
+
 
     private static final RenderType LAYER = create(
         "hexwright_item_glow",
@@ -46,22 +53,31 @@ public final class EmissiveGlowLayer extends RenderType {
             .setLayeringState(DECAL_OFFSET_LAYERING)
             .createCompositeState(false));
 
-    private static final RenderType MASKED_LAYER = create(
-        "hexwright_item_glowmask",
-        DefaultVertexFormat.NEW_ENTITY,
-        VertexFormat.Mode.QUADS,
-        256,
-        true,
-        true,
-        RenderType.CompositeState.builder()
-            .setShaderState(RENDERTYPE_ENTITY_TRANSLUCENT_EMISSIVE_SHADER)
-            .setTextureState(BLOCK_ATLAS_MIPPED)
-            .setTransparencyState(TRANSLUCENT_TRANSPARENCY)
-            .setCullState(NO_CULL)
-            .setWriteMaskState(COLOR_WRITE)
-            .setOverlayState(OVERLAY)
-            .setLayeringState(DECAL_OFFSET_LAYERING)
-            .createCompositeState(true));
+    private static final RenderType MASKED_LAYER =
+        maskedLayer("hexwright_item_glowmask", BLOCK_ATLAS_MIPPED);
+
+    private static final RenderType MASKED_LAYER_UNMIPPED =
+        maskedLayer("hexwright_item_glowmask_unmipped", BLOCK_ATLAS_UNMIPPED);
+
+    private static RenderType maskedLayer(String name, TextureStateShard texture) {
+        return create(name,
+            DefaultVertexFormat.NEW_ENTITY,
+            VertexFormat.Mode.QUADS,
+            256,
+            true,
+            true,
+            RenderType.CompositeState.builder()
+                .setShaderState(RENDERTYPE_ENTITY_TRANSLUCENT_EMISSIVE_SHADER)
+                .setTextureState(texture)
+                .setTransparencyState(TRANSLUCENT_TRANSPARENCY)
+                .setCullState(NO_CULL)
+                .setWriteMaskState(COLOR_WRITE)
+                .setOverlayState(OVERLAY)
+                .setLayeringState(DECAL_OFFSET_LAYERING)
+                .createCompositeState(true));
+    }
+
+
 
     private EmissiveGlowLayer(String name, VertexFormat format, VertexFormat.Mode mode, int bufferSize,
                               boolean affectsCrumbling, boolean sortOnUpload,
@@ -85,10 +101,16 @@ public final class EmissiveGlowLayer extends RenderType {
         return MASKED_LAYER;
     }
 
+    public static RenderType maskedLayerUnmipped() {
+        return MASKED_LAYER_UNMIPPED;
+    }
+
     @Nullable
     private static ShaderInstance shader() {
         return shader;
     }
+
+
 
     public static void updateKnee(float knee) {
         if (shader != null && shader.getUniform("GlowKnee") != null) {

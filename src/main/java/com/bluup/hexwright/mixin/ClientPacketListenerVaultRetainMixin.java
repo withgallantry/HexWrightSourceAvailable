@@ -1,5 +1,6 @@
 package com.bluup.hexwright.mixin;
 
+import com.bluup.hexwright.client.portal.DimensionLeakFixCompat;
 import com.bluup.hexwright.client.portal.RemoteLevelManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.ReceivingLevelScreen;
@@ -21,6 +22,7 @@ public abstract class ClientPacketListenerVaultRetainMixin {
             + "Lnet/minecraft/util/thread/BlockableEventLoop;)V"))
     private void hexwright$retainLevelForVaultView(ClientboundRespawnPacket packet, CallbackInfo ci) {
         hexwright$respawnStartNanos = System.nanoTime();
+        DimensionLeakFixCompat.noteTransition(Minecraft.getInstance().level, packet.getDimension());
         RemoteLevelManager.retainOutgoingLevel(packet.getDimension());
         hexwright$retainDoneNanos = System.nanoTime();
     }

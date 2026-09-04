@@ -34,6 +34,12 @@ public final class VehicleFlightHud {
     private static final int COLOR_BAR_SPEED = 0xFF8FD3FF;
     private static final int COLOR_BAR_MEDIA = 0xFFB784E8;
     private static final int COLOR_BAR_MEDIA_LOW = 0xFFE0605A;
+    private static final int COLOR_SPEED_OVERSPEED = 0xFFFF7A6E;
+    private static final int COLOR_BAR_SPEED_OVERSPEED = 0xFFE0605A;
+
+    private static final float WOBBLE_TICKS = 9.0f;
+    private static final float WOBBLE_CYCLES = 3.0f;
+    private static final float WOBBLE_AMPLITUDE = 2.5f;
 
     private static final float MEDIA_LOW_FRACTION = 0.15f;
 
@@ -43,6 +49,8 @@ public final class VehicleFlightHud {
 
     private static float smoothedSpeed;
     private static int smoothedSpeedVehicleId = -1;
+    private static boolean wasOverspeed;
+    private static float wobbleAge = WOBBLE_TICKS;
 
     private VehicleFlightHud() {
     }
@@ -94,11 +102,15 @@ public final class VehicleFlightHud {
         int y = contentTop + TITLE_TO_BODY;
 
         float maxSpeed = (float) vehicle.getMaxHorizontalSpeed() * TICKS_PER_SECOND;
-        drawStat(graphics, font, contentLeft, contentRight, y,
+        boolean overspeed = vehicle.isOverspeed();
+        int shake = speedRowShake(client, overspeed);
+        drawStat(graphics, font, contentLeft + shake, contentRight + shake, y,
             Component.translatable("hud.hexwright.vehicle.speed"),
-            Component.translatable("hud.hexwright.vehicle.speed_value", String.format("%.1f", speed)));
+            Component.translatable("hud.hexwright.vehicle.speed_value", String.format("%.1f", speed)),
+            overspeed ? COLOR_SPEED_OVERSPEED : COLOR_VALUE);
         y += TEXT_ROW;
-        drawBar(graphics, contentLeft, contentRight, y, speed / maxSpeed, COLOR_BAR_SPEED);
+        drawBar(graphics, contentLeft + shake, contentRight + shake, y, speed / maxSpeed,
+            overspeed ? COLOR_BAR_SPEED_OVERSPEED : COLOR_BAR_SPEED);
         y += BAR_ROW;
 
         if (showReservoir) {
@@ -148,6 +160,8 @@ public final class VehicleFlightHud {
         if (smoothedSpeedVehicleId != vehicle.getId()) {
             smoothedSpeedVehicleId = vehicle.getId();
             smoothedSpeed = measured;
+            wasOverspeed = false;
+            wobbleAge = WOBBLE_TICKS;
             return measured;
         }
         float step = Mth.clamp(client.getDeltaFrameTime() * SPEED_SMOOTHING, 0.0f, 1.0f);
@@ -174,11 +188,31 @@ public final class VehicleFlightHud {
         return null;
     }
 
+    private static int speedRowShake(Minecraft client, boolean overspeed) {
+        if (overspeed && !wasOverspeed) {
+            wobbleAge = 0.0f;
+        }
+        wasOverspeed = overspeed;
+        if (wobbleAge >= WOBBLE_TICKS) {
+            return 0;
+        }
+        wobbleAge = Math.min(WOBBLE_TICKS, wobbleAge + client.getDeltaFrameTime());
+        float progress = wobbleAge / WOBBLE_TICKS;
+        float decay = 1.0f - progress;
+        return Math.round(Mth.sin(progress * WOBBLE_CYCLES * Mth.TWO_PI) * WOBBLE_AMPLITUDE * decay);
+    }
+
     private static void drawStat(
         GuiGraphics graphics, Font font, int left, int right, int y, Component label, Component value
     ) {
+        drawStat(graphics, font, left, right, y, label, value, COLOR_VALUE);
+    }
+
+    private static void drawStat(
+        GuiGraphics graphics, Font font, int left, int right, int y, Component label, Component value, int valueColor
+    ) {
         graphics.drawString(font, label, left, y, COLOR_LABEL);
-        graphics.drawString(font, value, right - font.width(value), y, COLOR_VALUE);
+        graphics.drawString(font, value, right - font.width(value), y, valueColor);
     }
 
     private static void drawBar(GuiGraphics graphics, int left, int right, int y, float fraction, int color) {

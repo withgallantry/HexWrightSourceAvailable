@@ -234,17 +234,22 @@ public final class VaultChunkStreamer {
     private static void snapshotEntities(MinecraftServer server, VaultPortalSession session,
                                          ServerLevel vaultLevel, ServerLevel outsideLevel) {
         if (!session.vaultViewers().isEmpty()) {
-            HexwrightNetworking.sendVaultEntities(server, vaultLevel,
-                session.vaultViewers(), gatherEntities(vaultLevel, session.roomBounds()));
+            AABB room = session.roomBounds();
+            HexwrightNetworking.sendVaultEntities(server, vaultLevel, chunkOf(room.getCenter()),
+                session.vaultViewers(), gatherEntities(vaultLevel, room));
         }
         if (!session.outsideViewers().isEmpty()) {
             Vec3 c = session.outsideWindow().center();
             AABB outsideBox = new AABB(
                 c.x - OUTSIDE_ENTITY_RANGE, c.y - OUTSIDE_ENTITY_RANGE, c.z - OUTSIDE_ENTITY_RANGE,
                 c.x + OUTSIDE_ENTITY_RANGE, c.y + OUTSIDE_ENTITY_RANGE, c.z + OUTSIDE_ENTITY_RANGE);
-            HexwrightNetworking.sendVaultEntities(server, outsideLevel,
+            HexwrightNetworking.sendVaultEntities(server, outsideLevel, chunkOf(c),
                 session.outsideViewers(), gatherEntities(outsideLevel, outsideBox));
         }
+    }
+
+    private static ChunkPos chunkOf(Vec3 point) {
+        return new ChunkPos(BlockPos.containing(point));
     }
 
     private static List<Entity> gatherEntities(ServerLevel level, AABB bounds) {

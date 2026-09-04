@@ -103,6 +103,8 @@ class WorktableBlockEntity(
 
     private val items: NonNullList<ItemStack> = NonNullList.withSize(CONTAINER_SIZE, ItemStack.EMPTY)
 
+    private val pouchSlotView = SingleItemSlotView(this)
+
     private var infusing = false
 
     private var selectedRecipe = defaultRecipe()
@@ -470,7 +472,7 @@ class WorktableBlockEntity(
             Hexwright.LOGGER.warn("$UI_PROJECT_NAME is missing slot widget 'pouch'")
             return null
         }
-        widget.setContainerSlot(this, POUCH_SLOT)
+        widget.setContainerSlot(pouchSlotView, POUCH_SLOT)
         widget.setCanPutItems(true)
         widget.setCanTakeItems(true)
         widget.setLocationInfo(false, false)
@@ -503,7 +505,7 @@ class WorktableBlockEntity(
     private fun createFallbackUI(player: Player): ModularUI {
         val ui = ModularUI(200, 176, this, player)
 
-        ui.widget(SlotWidget(this, POUCH_SLOT, 20, 20))
+        ui.widget(SlotWidget(pouchSlotView, POUCH_SLOT, 20, 20))
         ui.widget(SlotWidget(this, RESULT_SLOT, 60, 20, false, true))
 
         for (row in 0 until 3) {

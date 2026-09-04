@@ -37,6 +37,12 @@ public final class EmissiveBloomConfigManager {
     private static final float BLUR_RADIUS_MAX = 8.0f;
     private static final int BLOCK_GLOW_DISTANCE_MIN = 0;
     private static final int BLOCK_GLOW_DISTANCE_MAX = 128;
+    private static final float BLOCK_GLOW_LIFT_MIN = 0.0f;
+    private static final float BLOCK_GLOW_LIFT_MAX = 0.25f;
+    private static final float BLOCK_GLOW_DEPTH_BIAS_MIN = -1024.0f;
+    private static final float BLOCK_GLOW_DEPTH_BIAS_MAX = 0.0f;
+    private static final float BLOCK_GLOW_DEPTH_SLOPE_MIN = -16.0f;
+    private static final float BLOCK_GLOW_DEPTH_SLOPE_MAX = 0.0f;
     private static final float BLOCK_GLOW_STRENGTH_MIN = 0.0f;
     private static final float BLOCK_GLOW_STRENGTH_MAX = 1.0f;
 
@@ -103,8 +109,14 @@ public final class EmissiveBloomConfigManager {
         CONFIG.glowSaturation = clampGlowSaturation(loaded.glowSaturation);
         CONFIG.blurRadius = clampBlurRadius(loaded.blurRadius);
         CONFIG.blockGlow = loaded.blockGlow;
+        CONFIG.blockGlowDisableWhenShaderPackActive = loaded.blockGlowDisableWhenShaderPackActive;
         CONFIG.blockGlowDistance = clampBlockGlowDistance(loaded.blockGlowDistance);
         CONFIG.blockGlowStrength = clampBlockGlowStrength(loaded.blockGlowStrength);
+        CONFIG.blockGlowLift = clampBlockGlowLift(loaded.blockGlowLift);
+        CONFIG.blockGlowDepthSlope = clampBlockGlowDepthSlope(loaded.blockGlowDepthSlope);
+        CONFIG.blockGlowDepthBias = clampBlockGlowDepthBias(loaded.blockGlowDepthBias);
+        CONFIG.blockGlowMipmap = loaded.blockGlowMipmap;
+        CONFIG.blockGlowDebug = loaded.blockGlowDebug;
         CONFIG.disableWhenShaderPackActive = loaded.disableWhenShaderPackActive;
         CONFIG.debugMode = clampDebugMode(loaded.debugMode);
     }
@@ -140,6 +152,18 @@ public final class EmissiveBloomConfigManager {
 
     static int clampBlockGlowDistance(int value) {
         return Mth.clamp(value, BLOCK_GLOW_DISTANCE_MIN, BLOCK_GLOW_DISTANCE_MAX);
+    }
+
+    static float clampBlockGlowLift(float value) {
+        return Mth.clamp(value, BLOCK_GLOW_LIFT_MIN, BLOCK_GLOW_LIFT_MAX);
+    }
+
+    static float clampBlockGlowDepthBias(float value) {
+        return Mth.clamp(value, BLOCK_GLOW_DEPTH_BIAS_MIN, BLOCK_GLOW_DEPTH_BIAS_MAX);
+    }
+
+    static float clampBlockGlowDepthSlope(float value) {
+        return Mth.clamp(value, BLOCK_GLOW_DEPTH_SLOPE_MIN, BLOCK_GLOW_DEPTH_SLOPE_MAX);
     }
 
     static float clampBlockGlowStrength(float value) {

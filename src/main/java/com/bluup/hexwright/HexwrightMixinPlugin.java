@@ -49,6 +49,9 @@ public class HexwrightMixinPlugin implements IMixinConfigPlugin {
         if (simple.startsWith("Sodium")) {
             return FabricLoader.getInstance().isModLoaded("sodium");
         }
+        if (simple.startsWith("Iris")) {
+            return FabricLoader.getInstance().isModLoaded("iris");
+        }
         return true;
     }
 

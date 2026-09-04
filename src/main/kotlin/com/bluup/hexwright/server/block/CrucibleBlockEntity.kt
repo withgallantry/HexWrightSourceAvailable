@@ -1,6 +1,8 @@
 package com.bluup.hexwright.server.block
 
+import at.petrak.hexcasting.api.misc.MediaConstants
 import at.petrak.hexcasting.common.lib.HexItems
+import at.petrak.hexcasting.xplat.IXplatAbstractions
 import com.bluup.hexwright.Hexwright
 import com.bluup.hexwright.server.menu.UiTemplates
 import com.bluup.hexwright.client.block.CrucibleFlameVisualClient
@@ -82,6 +84,10 @@ class CrucibleBlockEntity(
     }
 
     private val items: NonNullList<ItemStack> = NonNullList.withSize(CONTAINER_SIZE, ItemStack.EMPTY)
+
+    private val pouchSlotView = SingleItemSlotView(this)
+
+    private fun slotContainer(slot: Int): Container = if (slot == POUCH_SLOT) pouchSlotView else this
 
     private var progress = 0
 
@@ -201,13 +207,7 @@ class CrucibleBlockEntity(
         return profile.data().categories().isNotEmpty() && profile.essenceYield() > 0
     }
 
-    private fun isAcceptedCrucibleFuel(stack: ItemStack): Boolean = when (stack.item) {
-        HexItems.AMETHYST_DUST,
-        Items.AMETHYST_SHARD,
-        Items.AMETHYST_CLUSTER,
-        HexItems.CHARGED_AMETHYST -> true
-        else -> false
-    }
+    private fun isAcceptedCrucibleFuel(stack: ItemStack): Boolean = fuelItemsPerUnit(stack) > 0
 
     private fun fuelItemsPerUnit(stack: ItemStack): Int {
         if (stack.isEmpty) return 0
@@ -217,8 +217,16 @@ class CrucibleBlockEntity(
             Items.AMETHYST_SHARD -> FUEL_ITEMS_SHARD
             Items.AMETHYST_CLUSTER -> FUEL_ITEMS_CRYSTAL
             HexItems.CHARGED_AMETHYST -> FUEL_ITEMS_CHARGED
-            else -> 0
+            else -> mediaFuelItemsPerUnit(stack)
         }
+    }
+
+    private fun mediaFuelItemsPerUnit(stack: ItemStack): Int {
+        val holder = IXplatAbstractions.INSTANCE.findMediaHolder(stack) ?: return 0
+        if (!holder.canProvide() || !holder.canConstructBattery()) return 0
+        val perItem = holder.media / stack.count.coerceAtLeast(1)
+        if (perItem <= 0) return 0
+        return (perItem / MediaConstants.DUST_UNIT).toInt().coerceAtLeast(1)
     }
 
     private fun fuelTicksFor(stack: ItemStack, processTicks: Int): Int {
@@ -415,7 +423,9 @@ class CrucibleBlockEntity(
         )
         root.addWidget(syncWidget)
 
-        syncWidget.updateScreen()
+        if (level?.isClientSide == true) {
+            syncWidget.applyBoundState()
+        }
     }
 
     private fun bindNoPouchPlacard(widget: Widget?) {
@@ -445,7 +455,7 @@ class CrucibleBlockEntity(
     }
 
     private fun bindFilteredContainerSlot(widget: SlotWidget, slotIndex: Int) {
-        val filtered = object : Slot(this, slotIndex, 0, 0) {
+        val filtered = object : Slot(slotContainer(slotIndex), slotIndex, 0, 0) {
             override fun mayPlace(stack: ItemStack): Boolean = canPlaceItem(slotIndex, stack)
         }
 
@@ -458,7 +468,7 @@ class CrucibleBlockEntity(
             SLOT_WIDGET_UPDATE_SLOT?.invoke(widget, filtered)
         } catch (t: Throwable) {
             Hexwright.LOGGER.error("Failed to bind filtered crucible slot widget; falling back to default slot binding", t)
-            widget.setContainerSlot(this, slotIndex)
+            widget.setContainerSlot(slotContainer(slotIndex), slotIndex)
         }
     }
 
@@ -512,7 +522,7 @@ class CrucibleBlockEntity(
     }
 
     private inner class FilteredSlotWidget(slotIndex: Int, x: Int, y: Int) :
-        SlotWidget(this@CrucibleBlockEntity, slotIndex, x, y) {
+        SlotWidget(this@CrucibleBlockEntity.slotContainer(slotIndex), slotIndex, x, y) {
         override fun createSlot(inventory: Container, index: Int): Slot {
             return object : Slot(inventory, index, 0, 0) {
                 override fun mayPlace(stack: ItemStack): Boolean = canPlaceItem(index, stack)
@@ -538,11 +548,15 @@ class CrucibleBlockEntity(
 
         override fun updateScreen() {
             super.updateScreen()
+            applyBoundState()
+            refreshEssenceList()
+        }
+
+        fun applyBoundState() {
             val hasPouch = uiPouchStack().item is EndlessPouchItem
             noPouchWidget?.setVisible(!hasPouch)
             updatePouchGuide()
             updateFuelVisual()
-            refreshEssenceList()
         }
 
         private fun updatePouchGuide() {

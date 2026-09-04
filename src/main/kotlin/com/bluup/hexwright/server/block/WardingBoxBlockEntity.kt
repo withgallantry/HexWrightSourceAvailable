@@ -1,8 +1,10 @@
 package com.bluup.hexwright.server.block
 
+import com.bluup.hexwright.server.hexpatterns.PerWorldPatterns
 import com.bluup.hexwright.server.hexpatterns.StoredHex
 import at.petrak.hexcasting.api.casting.iota.Iota
 import at.petrak.hexcasting.api.casting.iota.IotaType
+import at.petrak.hexcasting.api.casting.iota.ListIota
 import at.petrak.hexcasting.api.misc.MediaConstants
 import at.petrak.hexcasting.api.pigment.FrozenPigment
 import at.petrak.hexcasting.xplat.IXplatAbstractions
@@ -173,6 +175,8 @@ class WardingBoxBlockEntity(
 
     private var dungeonTrap = false
 
+    private var trapSpellChecked = false
+
     private var ownerId: UUID? = null
     private var ownerName = ""
 
@@ -322,6 +326,24 @@ class WardingBoxBlockEntity(
     }
 
     fun isDungeonTrap(): Boolean = dungeonTrap
+
+    private fun recutTrapSpell(serverLevel: ServerLevel) {
+        val tag = spellTag ?: return
+        val iota = try {
+            IotaType.deserialize(tag, serverLevel)
+        } catch (e: RuntimeException) {
+            return
+        }
+        val hex = StoredHex.decode(iota) ?: return
+        val recut = PerWorldPatterns.rescramble(hex, serverLevel) ?: return
+        spellTag = IotaType.serialize(ListIota(recut))
+        spellSize = recut.size
+        Hexwright.LOGGER.info(
+            "Re-cut the Great Spell inscribed in the dungeon trap at {} to this world's drawing",
+            worldPosition
+        )
+        setChanged()
+    }
 
     fun toItemStack(): ItemStack {
         val stack = WardingBoxData.create(quality)
@@ -524,6 +546,10 @@ class WardingBoxBlockEntity(
 
     fun serverTick() {
         val serverLevel = level as? ServerLevel ?: return
+        if (dungeonTrap && !trapSpellChecked) {
+            trapSpellChecked = true
+            recutTrapSpell(serverLevel)
+        }
         redstoneSignal(serverLevel)?.let { powered ->
             if (active != powered) {
                 active = powered

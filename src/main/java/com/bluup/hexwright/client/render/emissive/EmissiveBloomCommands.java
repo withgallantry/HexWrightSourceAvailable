@@ -31,6 +31,11 @@ final class EmissiveBloomCommands {
                 .then(ClientCommandManager.literal("status").executes(EmissiveBloomCommands::status))
                 .then(ClientCommandManager.literal("on").executes(ctx -> setEnabled(ctx.getSource(), true)))
                 .then(ClientCommandManager.literal("off").executes(ctx -> setEnabled(ctx.getSource(), false)))
+                .then(ClientCommandManager.literal("undershaders")
+                    .then(ClientCommandManager.literal("on")
+                        .executes(ctx -> setUnderShaders(ctx.getSource(), true)))
+                    .then(ClientCommandManager.literal("off")
+                        .executes(ctx -> setUnderShaders(ctx.getSource(), false))))
                 .then(setting("intensity", EmissiveBloomConfigManager::clampIntensity,
                     (config, value) -> config.intensity = value))
                 .then(setting("threshold", EmissiveBloomConfigManager::clampGlowThreshold,
@@ -55,7 +60,33 @@ final class EmissiveBloomCommands {
                             .executes(EmissiveBloomCommands::setBlockGlowStrength)))
                     .then(ClientCommandManager.literal("distance")
                         .then(ClientCommandManager.argument("blocks", IntegerArgumentType.integer(0, 128))
-                            .executes(EmissiveBloomCommands::setBlockGlowDistance))))
+                            .executes(EmissiveBloomCommands::setBlockGlowDistance)))
+                    .then(ClientCommandManager.literal("lift")
+                        .then(ClientCommandManager.argument("blocks", FloatArgumentType.floatArg())
+                            .executes(EmissiveBloomCommands::setBlockGlowLift)))
+                    .then(ClientCommandManager.literal("undershaders")
+                        .then(ClientCommandManager.literal("on")
+                            .executes(ctx -> setBlockGlowUnderShaders(ctx.getSource(), true)))
+                        .then(ClientCommandManager.literal("off")
+                            .executes(ctx -> setBlockGlowUnderShaders(ctx.getSource(), false))))
+                    .then(ClientCommandManager.literal("bias")
+                        .then(ClientCommandManager.argument("units", FloatArgumentType.floatArg())
+                            .executes(EmissiveBloomCommands::setBlockGlowDepthBias)))
+                    .then(ClientCommandManager.literal("slope")
+                        .then(ClientCommandManager.argument("factor", FloatArgumentType.floatArg())
+                            .executes(EmissiveBloomCommands::setBlockGlowDepthSlope)))
+                    .then(ClientCommandManager.literal("debug")
+                        .then(ClientCommandManager.literal("on")
+                            .executes(ctx -> setBlockGlowDebug(ctx.getSource(), true)))
+                        .then(ClientCommandManager.literal("off")
+                            .executes(ctx -> setBlockGlowDebug(ctx.getSource(), false))))
+                    .then(ClientCommandManager.literal("trace")
+                        .executes(ctx -> traceBlockGlow(ctx.getSource())))
+                    .then(ClientCommandManager.literal("mipmap")
+                        .then(ClientCommandManager.literal("on")
+                            .executes(ctx -> setBlockGlowMipmap(ctx.getSource(), true)))
+                        .then(ClientCommandManager.literal("off")
+                            .executes(ctx -> setBlockGlowMipmap(ctx.getSource(), false)))))
                 .then(ClientCommandManager.literal("debug")
                     .then(ClientCommandManager.argument("mode", IntegerArgumentType.integer(0, 3))
                         .executes(EmissiveBloomCommands::setDebugMode)))));
@@ -86,6 +117,67 @@ final class EmissiveBloomCommands {
         EmissiveBloomConfigManager.get().blockGlowStrength = value;
         EmissiveBloomConfigManager.save();
         feedback(ctx.getSource(), "Block glow strength = " + value);
+        return SINGLE_SUCCESS;
+    }
+
+    private static int setBlockGlowUnderShaders(FabricClientCommandSource source, boolean under) {
+        EmissiveBloomConfigManager.get().blockGlowDisableWhenShaderPackActive = !under;
+        EmissiveBloomConfigManager.save();
+        feedback(source, "Block masks under shader packs " + (under ? "on." : "off."));
+        return SINGLE_SUCCESS;
+    }
+
+    private static int setBlockGlowDepthBias(CommandContext<FabricClientCommandSource> ctx) {
+        float value = EmissiveBloomConfigManager.clampBlockGlowDepthBias(
+            FloatArgumentType.getFloat(ctx, "units"));
+        EmissiveBloomConfigManager.get().blockGlowDepthBias = value;
+        EmissiveBloomConfigManager.save();
+        feedback(ctx.getSource(), "Block glow depth bias = " + value
+            + " depth units (vanilla's decal layering uses -10)");
+        return SINGLE_SUCCESS;
+    }
+
+    private static int setBlockGlowDepthSlope(CommandContext<FabricClientCommandSource> ctx) {
+        float value = EmissiveBloomConfigManager.clampBlockGlowDepthSlope(
+            FloatArgumentType.getFloat(ctx, "factor"));
+        EmissiveBloomConfigManager.get().blockGlowDepthSlope = value;
+        EmissiveBloomConfigManager.save();
+        feedback(ctx.getSource(), "Block glow depth slope = " + value
+            + " (0 is off; vanilla's decal layering uses -1)");
+        return SINGLE_SUCCESS;
+    }
+
+    private static int setBlockGlowLift(CommandContext<FabricClientCommandSource> ctx) {
+        float value = EmissiveBloomConfigManager.clampBlockGlowLift(
+            FloatArgumentType.getFloat(ctx, "blocks"));
+        EmissiveBloomConfigManager.get().blockGlowLift = value;
+        EmissiveBloomConfigManager.save();
+        feedback(ctx.getSource(), "Block glow lift = " + value + " blocks (1/"
+            + (value > 0.0f ? Math.round(1.0f / value) : 0) + ")");
+        return SINGLE_SUCCESS;
+    }
+
+    private static int setBlockGlowDebug(FabricClientCommandSource source, boolean debug) {
+        EmissiveBloomConfigManager.get().blockGlowDebug = debug;
+        EmissiveBloomConfigManager.save();
+        feedback(source, "Block mask tint " + (debug ? "on (magenta)." : "off."));
+        return SINGLE_SUCCESS;
+    }
+
+
+
+    private static int traceBlockGlow(FabricClientCommandSource source) {
+        BlockGlowTrace.request();
+        feedback(source, "Block mask trace armed - the next frame with a lamp in view is logged.");
+        return SINGLE_SUCCESS;
+    }
+
+
+
+    private static int setBlockGlowMipmap(FabricClientCommandSource source, boolean mipmap) {
+        EmissiveBloomConfigManager.get().blockGlowMipmap = mipmap;
+        EmissiveBloomConfigManager.save();
+        feedback(source, "Block glow mipmapping " + (mipmap ? "on." : "off."));
         return SINGLE_SUCCESS;
     }
 
@@ -127,10 +219,25 @@ final class EmissiveBloomCommands {
             + " | core " + config.coreStrength
             + " | radius " + config.blurRadius
             + " | scale " + config.framebufferScale
-            + " | blocks " + (config.blockGlow ? "on" : "off")
+            + " | blocks " + (config.blockGlow
+                ? (config.blockGlowDisableWhenShaderPackActive && IrisCompat.isShaderPackActive()
+                    ? "suppressed: shader pack" : "on")
+                : "off")
             + " at " + config.blockGlowStrength + "/" + config.blockGlowDistance + "m"
+            + " | depth " + config.blockGlowDepthSlope + "/" + config.blockGlowDepthBias
+            + " lift " + config.blockGlowLift
             + " | shaders " + (EmissiveBloomShaders.shadersReady() ? "loaded" : "NOT LOADED")
+            + " | composite " + (IrisCompat.isShaderPackActive()
+                ? "after the shader pack's final pass" : "vanilla, world then hand")
             + (config.debugMode == 0 ? "" : " | DEBUG " + config.debugMode + ": " + DEBUG_MODE_NAMES[config.debugMode]));
+        return SINGLE_SUCCESS;
+    }
+
+    private static int setUnderShaders(FabricClientCommandSource source, boolean under) {
+        EmissiveBloomConfigManager.get().disableWhenShaderPackActive = !under;
+        EmissiveBloomConfigManager.save();
+        feedback(source, "Halo under shader packs " + (under ? "on." : "off.")
+            + (IrisCompat.isShaderPackActive() ? "" : " (No shader pack is active right now.)"));
         return SINGLE_SUCCESS;
     }
 

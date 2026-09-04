@@ -83,8 +83,15 @@ class EssenceGaugeBlock(properties: Properties) : Block(properties), EntityBlock
 
         when {
             EssenceNetwork.isEssenceSource(held) -> {
-                val previous = be.dockSource(held.copy())
-                player.setItemInHand(hand, previous)
+                val previous = be.dockSource(held.copyWithCount(1))
+                held.shrink(1)
+                if (!previous.isEmpty) {
+                    if (held.isEmpty) {
+                        player.setItemInHand(hand, previous)
+                    } else {
+                        player.inventory.placeItemBackInInventory(previous)
+                    }
+                }
                 level.playSound(null, pos, SoundEvents.AMETHYST_BLOCK_PLACE, SoundSource.BLOCKS, 0.7f, 1.2f)
                 EssenceNetwork.warnIfOutOfRange(serverPlayer, be.dockedSource(), level, pos)
             }

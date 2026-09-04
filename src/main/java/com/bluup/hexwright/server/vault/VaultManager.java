@@ -536,7 +536,7 @@ public final class VaultManager {
         }
         level.getChunk(door.anchor().getX() >> 4, door.anchor().getZ() >> 4);
         PortalWindow window = VaultPortalPlacement.windowNear(
-            level, door.anchor(), door.facing(), REOPEN_SEARCH_RADIUS);
+            level, door.anchor(), door.facing(), REOPEN_SEARCH_RADIUS, false);
         if (window == null) {
             return null;
         }

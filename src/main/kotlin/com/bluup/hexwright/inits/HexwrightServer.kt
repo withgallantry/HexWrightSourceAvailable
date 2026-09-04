@@ -70,7 +70,10 @@ object HexwrightServer : ModInitializer {
         com.bluup.hexwright.server.weapon.SoulHarvest.register()
         com.bluup.hexwright.server.vehicle.VehicleDebugCommand.register()
         val fabricLoader = net.fabricmc.loader.api.FabricLoader.getInstance()
-        if (fabricLoader.isModLoaded("trinkets") || fabricLoader.isModLoaded("tclayer")) {
+        val trinketsIsReal = fabricLoader.getModContainer("trinkets")
+            .map { it.metadata.id == "trinkets" }
+            .orElse(false)
+        if (trinketsIsReal) {
             com.bluup.hexwright.compat.trinkets.TrinketsCompat.register()
         }
         if (fabricLoader.isModLoaded("accessories")) {
@@ -109,6 +112,7 @@ object HexwrightServer : ModInitializer {
         }
         ServerLifecycleEvents.SERVER_STARTED.register { server ->
             com.bluup.hexwright.common.aspects.RecipeAspects.rebuild(server)
+            com.bluup.hexwright.server.hexpatterns.PerWorldPatterns.prime(server)
         }
         ServerLifecycleEvents.END_DATA_PACK_RELOAD.register { server, _, success ->
             if (success) {

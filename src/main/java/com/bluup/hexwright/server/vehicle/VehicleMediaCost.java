@@ -15,7 +15,8 @@ public final class VehicleMediaCost {
         double maxVerticalSpeed,
         double maxAcceleration,
         double vehicleMediaMultiplier,
-        double loadMultiplier
+        double loadMultiplier,
+        boolean overspeedPenalty
     ) {
         double horizontalSpeedFraction = Math.sqrt(
             resultingVelocity.x * resultingVelocity.x + resultingVelocity.z * resultingVelocity.z
@@ -28,6 +29,9 @@ public final class VehicleMediaCost {
             + VehicleConfig.CLIMB_COST_COEFFICIENT * climbFraction * climbFraction
             + VehicleConfig.MANOEUVRE_COST_COEFFICIENT * changeFraction * changeFraction;
 
+        if (overspeedPenalty) {
+            raw *= VehicleConfig.OVERSPEED_MEDIA_MULTIPLIER;
+        }
         return Math.round(raw * vehicleMediaMultiplier * loadMultiplier);
     }
 }

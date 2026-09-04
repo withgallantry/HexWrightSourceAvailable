@@ -142,6 +142,11 @@ public final class VehicleDebugOverlay {
         y = row(graphics, font, x, right, y, "hud.hexwright.vehicle.debug.velocity", vec(state.velocity()));
         y = row(graphics, font, x, right, y, "hud.hexwright.vehicle.debug.speed",
             Component.literal(String.format("%.3f", state.velocity().length())));
+        y = row(graphics, font, x, right, y, "hud.hexwright.vehicle.debug.ground_speed",
+            Component.literal(String.format("%.3f", Math.sqrt(
+                state.velocity().x * state.velocity().x + state.velocity().z * state.velocity().z))));
+        y = row(graphics, font, x, right, y, "hud.hexwright.vehicle.debug.climb_speed",
+            Component.literal(String.format("%+.3f", state.velocity().y)));
         y = row(graphics, font, x, right, y, "hud.hexwright.vehicle.debug.forward", vec(state.riderForward()));
         y = row(graphics, font, x, right, y, "hud.hexwright.vehicle.debug.right", vec(state.riderRight()));
         y = row(graphics, font, x, right, y, "hud.hexwright.vehicle.debug.command", vec(state.previousCommand()));

@@ -26,6 +26,11 @@ import net.minecraft.client.resources.model.BakedModel;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL30;
 
+import org.joml.Matrix3f;
+import org.joml.Matrix4f;
+
+import java.util.ArrayList;
+import java.util.List;
 import java.util.function.Consumer;
 
 public final class EmissiveBloom {
@@ -39,6 +44,15 @@ public final class EmissiveBloom {
 
     private static boolean capturing;
     private static boolean anythingCaptured;
+    private static boolean worldPassDone;
+
+    private static boolean deferToIrisFinalPass;
+
+    private static final List<PendingGlow> DEFERRED = new ArrayList<>();
+
+    private static final PoseStack REPLAY = new PoseStack();
+
+    private static final int[] VIEWPORT = new int[4];
 
     private EmissiveBloom() {
     }
@@ -50,6 +64,7 @@ public final class EmissiveBloom {
         EmissiveBloomCommands.register();
 
         WorldRenderEvents.START.register(context -> beginWorldPass());
+        WorldRenderEvents.LAST.register(context -> endWorldPass());
         ClientLifecycleEvents.CLIENT_STOPPING.register(client -> {
             EmissiveBloomTargets.close();
             EmissiveBloomShaders.close();
@@ -63,12 +78,16 @@ public final class EmissiveBloom {
     private static void beginWorldPass() {
         capturing = false;
         anythingCaptured = false;
+        worldPassDone = false;
+        deferToIrisFinalPass = false;
+        DEFERRED.clear();
 
         EmissiveBloomConfig config = EmissiveBloomConfigManager.get();
         if (!config.enabled || config.intensity <= 0.0f) {
             return;
         }
-        if (config.disableWhenShaderPackActive && IrisCompat.isShaderPackActive()) {
+        boolean shaderPack = IrisCompat.isShaderPackActive();
+        if (shaderPack && config.disableWhenShaderPackActive) {
             return;
         }
         if (PortalViewRenderer.isRenderingView()) {
@@ -90,44 +109,121 @@ public final class EmissiveBloom {
         }
 
         clearGlowBuffer();
+        deferToIrisFinalPass = shaderPack;
 
         main.bindWrite(true);
         capturing = true;
     }
 
     static void captureGlow(PoseStack.Pose pose, BakedModel glow, RenderType layer,
-                            int overlay, float red, float green, float blue) {
+                            int overlay, float red, float green, float blue, boolean handPose) {
+        if (!capturing || PortalViewRenderer.isRenderingView()
+            || IrisCompat.isRenderingShadowPass()) {
+            return;
+        }
+        if (!worldPassDone && !handPose) {
+            DEFERRED.add(new PendingGlow(new Matrix4f(pose.pose()), new Matrix3f(pose.normal()),
+                glow, layer, overlay, red, green, blue));
+            return;
+        }
         capture(layer, consumer ->
             EmissiveItemModels.emitGlowQuads(consumer, pose, glow, overlay, red, green, blue));
     }
 
-    public static void capture(RenderType layer, Consumer<VertexConsumer> emitter) {
+    private static void endWorldPass() {
         if (!capturing || PortalViewRenderer.isRenderingView()) {
+            return;
+        }
+        replayDeferred();
+        if (!deferToIrisFinalPass) {
+            compositeWorldGlow();
+        }
+        worldPassDone = true;
+    }
+
+    private static void replayDeferred() {
+        for (PendingGlow pending : DEFERRED) {
+            REPLAY.setIdentity();
+            PoseStack.Pose pose = REPLAY.last();
+            pose.pose().set(pending.pose());
+            pose.normal().set(pending.normal());
+            capture(pending.layer(), consumer -> EmissiveItemModels.emitGlowQuads(
+                consumer, pose, pending.glow(), pending.overlay(),
+                pending.red(), pending.green(), pending.blue()));
+        }
+        DEFERRED.clear();
+    }
+
+    private record PendingGlow(Matrix4f pose, Matrix3f normal, BakedModel glow, RenderType layer,
+                               int overlay, float red, float green, float blue) {
+    }
+
+    public static void capture(RenderType layer, Consumer<VertexConsumer> emitter) {
+        if (!capturing || PortalViewRenderer.isRenderingView()
+            || IrisCompat.isRenderingShadowPass()) {
             return;
         }
 
         int previous = GL11.glGetInteger(GL30.GL_DRAW_FRAMEBUFFER_BINDING);
         BlendMode previousBlendMode = BlendModeAccessor.hexwright$getLastApplied();
-        EmissiveBloomTargets.glow().bindWrite(false);
 
-        emitter.accept(GLOW_BUFFER.getBuffer(layer));
-        GLOW_BUFFER.endBatch();
+        GL11.glGetIntegerv(GL11.GL_VIEWPORT, VIEWPORT);
+        RenderTarget glow = EmissiveBloomTargets.glow();
+
+        IrisCompat.beginPrivatePass();
+        try {
+            glow.bindWrite(true);
+
+            emitter.accept(GLOW_BUFFER.getBuffer(layer));
+            GLOW_BUFFER.endBatch();
+        } finally {
+            IrisCompat.endPrivatePass();
+        }
 
         GlStateManager._glBindFramebuffer(GL30.GL_FRAMEBUFFER, previous);
+        GlStateManager._viewport(VIEWPORT[0], VIEWPORT[1], VIEWPORT[2], VIEWPORT[3]);
         BlendModeAccessor.hexwright$setLastApplied(previousBlendMode);
         anythingCaptured = true;
+    }
+
+    public static void compositeWorldGlow() {
+        EmissiveBloomConfig config = EmissiveBloomConfigManager.get();
+        if (!capturing || !anythingCaptured || config.debugMode != 0) {
+            return;
+        }
+        runBlurAndComposite(config);
+        clearGlowBuffer();
+        anythingCaptured = false;
     }
 
     public static void finishFrame() {
         if (!capturing) {
             return;
         }
+        if (deferToIrisFinalPass) {
+            capturing = false;
+            anythingCaptured = false;
+            return;
+        }
         capturing = false;
         if (!anythingCaptured) {
             return;
         }
+        runBlurAndComposite(EmissiveBloomConfigManager.get());
+    }
 
-        EmissiveBloomConfig config = EmissiveBloomConfigManager.get();
+    public static void onIrisFinalPassComplete() {
+        if (!capturing || !deferToIrisFinalPass || PortalViewRenderer.isRenderingView()) {
+            return;
+        }
+        if (!anythingCaptured) {
+            return;
+        }
+        runBlurAndComposite(EmissiveBloomConfigManager.get());
+        anythingCaptured = false;
+    }
+
+    private static void runBlurAndComposite(EmissiveBloomConfig config) {
         Minecraft client = Minecraft.getInstance();
         RenderTarget main = client.getMainRenderTarget();
 
@@ -138,6 +234,7 @@ public final class EmissiveBloom {
         RenderSystem.disableDepthTest();
         RenderSystem.depthMask(false);
         RenderSystem.disableBlend();
+        IrisCompat.beginPrivatePass();
         try {
             if (config.debugMode != DEBUG_CAPTURE_ONLY) {
                 buildGlowLevels(config);
@@ -146,6 +243,7 @@ public final class EmissiveBloom {
                 }
             }
         } finally {
+            IrisCompat.endPrivatePass();
             restoreState(main, previous, previousBlendMode);
         }
     }
@@ -184,26 +282,42 @@ public final class EmissiveBloom {
     private static void composite(RenderTarget main, EmissiveBloomConfig config) {
         main.bindWrite(true);
 
+        if (config.debugMode == DEBUG_VIEW_GLOW) {
+            viewGlow(config);
+            return;
+        }
+
+        additiveBlend();
+        compositeLevel(false, EmissiveBloomTargets.tight(), config.intensity * config.coreStrength);
+        compositeLevel(false, EmissiveBloomTargets.wide(), config.intensity);
+    }
+
+    private static void viewGlow(EmissiveBloomConfig config) {
+        RenderSystem.disableBlend();
+        BlendModeAccessor.hexwright$setLastApplied(null);
+        compositeLevel(true, EmissiveBloomTargets.tight(), config.coreStrength);
+
+        additiveBlend();
+        compositeLevel(true, EmissiveBloomTargets.wide(), 1.0f);
+    }
+
+    private static void additiveBlend() {
         RenderSystem.enableBlend();
         RenderSystem.blendFuncSeparate(
             GlStateManager.SourceFactor.ONE, GlStateManager.DestFactor.ONE,
             GlStateManager.SourceFactor.ZERO, GlStateManager.DestFactor.ONE);
-
-        boolean viewGlow = config.debugMode == DEBUG_VIEW_GLOW;
-        float strength = viewGlow ? 1.0f : config.intensity;
-        compositeLevel(viewGlow, EmissiveBloomTargets.tight(), strength * config.coreStrength);
-        compositeLevel(viewGlow, EmissiveBloomTargets.wide(), strength);
     }
 
     private static void compositeLevel(boolean viewGlow, RenderTarget level, float strength) {
-        if (strength <= 0.0f) {
+        if (strength <= 0.0f && !viewGlow) {
             return;
         }
         ShaderInstance shader = viewGlow ? EmissiveBloomShaders.view() : EmissiveBloomShaders.composite();
         shader.setSampler("DiffuseSampler", level.getColorTextureId());
-        setUniform(shader, "Intensity", strength);
+        setUniform(shader, "Intensity", Math.max(strength, 0.0f));
         draw(shader);
     }
+
 
     private static void clearGlowBuffer() {
         int previous = GL11.glGetInteger(GL30.GL_DRAW_FRAMEBUFFER_BINDING);

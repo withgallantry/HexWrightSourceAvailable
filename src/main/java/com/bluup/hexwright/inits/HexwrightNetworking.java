@@ -855,6 +855,8 @@ public final class HexwrightNetworking {
 
         ClientPlayNetworking.registerGlobalReceiver(VAULT_REMOTE_ENTITIES_S2C, (client, handler, buf, responseSender) -> {
             ResourceLocation dimension = buf.readResourceLocation();
+            net.minecraft.world.level.ChunkPos regionChunk =
+                new net.minecraft.world.level.ChunkPos(buf.readVarInt(), buf.readVarInt());
             int count = buf.readVarInt();
             List<com.bluup.hexwright.client.portal.RemoteLevelManager.EntitySnapshot> snapshots = new ArrayList<>(count);
             for (int i = 0; i < count; i++) {
@@ -884,7 +886,7 @@ public final class HexwrightNetworking {
                     List.copyOf(equipment), List.copyOf(data)));
             }
             client.execute(() -> com.bluup.hexwright.client.portal.RemoteLevelManager
-                .handleEntities(dimension, snapshots));
+                .handleEntities(dimension, regionChunk, snapshots));
         });
 
         ClientPlayNetworking.registerGlobalReceiver(VAULT_REMOTE_DESTROY_S2C, (client, handler, buf, responseSender) -> {
@@ -1017,6 +1019,7 @@ public final class HexwrightNetworking {
     }
 
     public static void sendVaultEntities(net.minecraft.server.MinecraftServer server, ServerLevel level,
+                                         net.minecraft.world.level.ChunkPos region,
                                          java.util.Set<UUID> viewers,
                                          java.util.List<net.minecraft.world.entity.Entity> entities) {
         for (UUID id : viewers) {
@@ -1026,6 +1029,8 @@ public final class HexwrightNetworking {
             }
             FriendlyByteBuf buf = PacketByteBufs.create();
             buf.writeResourceLocation(level.dimension().location());
+            buf.writeVarInt(region.x);
+            buf.writeVarInt(region.z);
             buf.writeVarInt(entities.size());
             for (net.minecraft.world.entity.Entity entity : entities) {
                 buf.writeVarInt(entity.getId());

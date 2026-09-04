@@ -1,5 +1,6 @@
 package com.bluup.hexwright.client.portal;
 
+import com.bluup.hexwright.client.render.IrisCompat;
 import com.bluup.hexwright.mixin.BloomEffectAccessor;
 import com.bluup.hexwright.mixin.GameRendererAccessor;
 import com.bluup.hexwright.mixin.LevelRendererAccessor;
@@ -49,11 +50,13 @@ import java.util.concurrent.Future;
 
 public final class PortalViewRenderer {
 
-    private static final int MAX_VIEWS = 2;
+    private static final int MAX_VIEWS = Math.max(1,
+        Integer.getInteger("hexwright.portal.views.max", 3));
 
     private static final int MAX_NESTED_VIEWS = 1;
 
-    private static final int MAX_PASSES_PER_FRAME = 3;
+    private static final int MAX_PASSES_PER_FRAME = Math.max(1,
+        Integer.getInteger("hexwright.portal.passes", 4));
 
     private static final int DEPTH_CEILING = Math.max(1, Math.min(4,
         Integer.getInteger("hexwright.portal.depth", 2)));
@@ -99,6 +102,13 @@ public final class PortalViewRenderer {
     private static final Map<PassKey, Target> TARGETS = new HashMap<>();
     private static final Set<PassKey> RENDERED_THIS_FRAME = new HashSet<>();
 
+    private static final Set<ViewKey> RENDERED_LAST_FRAME = new HashSet<>();
+
+    private static final double INCUMBENT_BIAS = 0.7;
+
+
+    private static final boolean IRIS_VIEWS_ENABLED =
+        !"false".equals(System.getProperty("hexwright.portal.iris"));
 
     private static final boolean VIEWS_ENABLED =
         !"false".equals(System.getProperty("hexwright.portal.views"));
@@ -196,6 +206,7 @@ public final class PortalViewRenderer {
     private static long frame;
     private static int passDepth;
     private static int passesThisFrame;
+    private static int pendingTopLevelPasses;
     private static @Nullable PassKey activePassKey;
     private static @Nullable PortalFold activeTransform;
     private static @Nullable PortalWindow activeClipWindow;
@@ -212,11 +223,15 @@ public final class PortalViewRenderer {
     }
 
     public static int maxDepth() {
-        return switch (PortalOptions.views()) {
+        int configured = switch (PortalOptions.views()) {
             case SHIMMER -> 0;
             case PANES -> 1;
             case FULL -> DEPTH_CEILING;
         };
+        if (!IrisCompat.isShaderPackActive()) {
+            return configured;
+        }
+        return IRIS_VIEWS_ENABLED ? Math.min(configured, 1) : 0;
     }
 
     public static boolean isRenderingView() {
@@ -268,8 +283,15 @@ public final class PortalViewRenderer {
         int depth = passDepth;
         if (depth == 0) {
             frame++;
+            RENDERED_LAST_FRAME.clear();
+            for (PassKey rendered : RENDERED_THIS_FRAME) {
+                if (rendered.parent() == null) {
+                    RENDERED_LAST_FRAME.add(rendered.pane());
+                }
+            }
             RENDERED_THIS_FRAME.clear();
             passesThisFrame = 0;
+            pendingTopLevelPasses = 0;
             chunkBuildBudget = CHUNK_BUILD_BUDGET_PER_FRAME;
             expireStaleTargets();
         }
@@ -279,6 +301,9 @@ public final class PortalViewRenderer {
 
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null || mc.player == null) {
+            return;
+        }
+        if (IrisCompat.isRenderingShadowPass()) {
             return;
         }
         if (!VIEWS_ENABLED) {
@@ -304,12 +329,16 @@ public final class PortalViewRenderer {
         if (views.isEmpty()) {
             return;
         }
+        if (depth == 0) {
+            pendingTopLevelPasses = views.size();
+        }
 
         if (depth == 0) {
             com.lowdragmc.photon.client.postprocessing.BloomEffect.updateScreenSize();
         }
 
         RenderTarget parentTarget = mc.getMainRenderTarget();
+        PortalPassTrace.strategy(IrisCompat.isShaderPackActive());
         PortalFold parentFold = activeTransform;
         PortalWindow parentClipWindow = activeClipWindow;
         ViewKey parentDestinationPane = activeDestinationPane;
@@ -320,6 +349,9 @@ public final class PortalViewRenderer {
         boolean handWasRendered = grAccess.hexwright$getRenderHand();
 
         for (SelectedView view : views) {
+            if (depth == 0) {
+                pendingTopLevelPasses--;
+            }
             if (passesThisFrame >= MAX_PASSES_PER_FRAME) {
                 break;
             }
@@ -356,7 +388,11 @@ public final class PortalViewRenderer {
             try {
                 holder.target.clear(Minecraft.ON_OSX);
                 holder.target.bindWrite(true);
+                PortalPassTrace.probe("before renderLevel", holder.target, parentTarget);
+                IrisCompat.beginNestedWorldPass();
                 gameRenderer.renderLevel(partialTick, nanos, new PoseStack());
+                IrisCompat.endNestedWorldPass();
+                PortalPassTrace.probe("after renderLevel", holder.target, parentTarget);
                 RENDERED_THIS_FRAME.add(passKey);
             } finally {
                 endPortalPass();
@@ -468,10 +504,17 @@ public final class PortalViewRenderer {
                     remote ? destDimension : null, destCenter));
             }
         }
-        candidates.sort((a, b) -> Double.compare(a.distanceSq(), b.distanceSq()));
-        int limit = Math.min(nested ? MAX_NESTED_VIEWS : MAX_VIEWS,
-            MAX_PASSES_PER_FRAME - passesThisFrame);
+        candidates.sort((a, b) -> Double.compare(sortDepth(a, nested), sortDepth(b, nested)));
+        int spare = MAX_PASSES_PER_FRAME - passesThisFrame - (nested ? pendingTopLevelPasses : 0);
+        int limit = Math.min(nested ? MAX_NESTED_VIEWS : MAX_VIEWS, spare);
         return candidates.size() > limit ? candidates.subList(0, Math.max(limit, 0)) : candidates;
+    }
+
+    private static double sortDepth(SelectedView candidate, boolean nested) {
+        if (nested || !RENDERED_LAST_FRAME.contains(candidate.key())) {
+            return candidate.distanceSq();
+        }
+        return candidate.distanceSq() * INCUMBENT_BIAS;
     }
 
 
@@ -541,7 +584,7 @@ public final class PortalViewRenderer {
         if (bloomInput == null) {
             return;
         }
-        int previous = org.lwjgl.opengl.GL11.glGetInteger(GL30.GL_FRAMEBUFFER_BINDING);
+        int previous = GL30.glGetInteger(GL30.GL_FRAMEBUFFER_BINDING);
         com.mojang.blaze3d.platform.GlStateManager._glBindFramebuffer(
             GL30.GL_FRAMEBUFFER, bloomInput.frameBufferId);
         int attached = GL30.glGetFramebufferAttachmentParameteri(
@@ -989,6 +1032,7 @@ public final class PortalViewRenderer {
         }
         TARGETS.clear();
         RENDERED_THIS_FRAME.clear();
+        RENDERED_LAST_FRAME.clear();
     }
 
     private static void expireStaleTargets() {

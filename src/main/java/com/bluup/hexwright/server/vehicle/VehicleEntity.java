@@ -63,6 +63,8 @@ public abstract class VehicleEntity extends Entity {
         SynchedEntityData.defineId(VehicleEntity.class, EntityDataSerializers.VECTOR3);
     private static final EntityDataAccessor<Boolean> DATA_STALLED =
         SynchedEntityData.defineId(VehicleEntity.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<Boolean> DATA_OVERSPEED =
+        SynchedEntityData.defineId(VehicleEntity.class, EntityDataSerializers.BOOLEAN);
     private static final EntityDataAccessor<Long> DATA_MEDIA =
         SynchedEntityData.defineId(VehicleEntity.class, EntityDataSerializers.LONG);
     private static final EntityDataAccessor<Long> DATA_MEDIA_COST =
@@ -79,11 +81,13 @@ public abstract class VehicleEntity extends Entity {
     private @Nullable Iota storedHex;
     private ListIota persistentMemory = new ListIota(List.of());
     private Vec3 previousCommand = Vec3.ZERO;
+    private int overspeedRuns = 0;
     private boolean converting = false;
     private int flightProgramCooldown = 0;
     private boolean hadControllingRider = false;
     private @Nullable UUID dismountedRider;
     private boolean dismountedToGround = false;
+    private boolean dismountedWithNoRoom = false;
     private double parkedAnchorY = Double.NaN;
 
     private int lerpSteps;
@@ -103,6 +107,7 @@ public abstract class VehicleEntity extends Entity {
         this.entityData.define(DATA_QUALITY, PocketCasterData.Quality.CRUDE.name());
         this.entityData.define(DATA_ACCEPTED_COMMAND, new Vector3f());
         this.entityData.define(DATA_STALLED, false);
+        this.entityData.define(DATA_OVERSPEED, false);
         this.entityData.define(DATA_MEDIA, 0L);
         this.entityData.define(DATA_MEDIA_COST, 0L);
     }
@@ -243,6 +248,17 @@ public abstract class VehicleEntity extends Entity {
         return this.entityData.get(DATA_STALLED);
     }
 
+    public boolean isOverspeed() {
+        return this.entityData.get(DATA_OVERSPEED);
+    }
+
+    private void clearOverspeed() {
+        overspeedRuns = 0;
+        if (this.entityData.get(DATA_OVERSPEED)) {
+            this.entityData.set(DATA_OVERSPEED, false);
+        }
+    }
+
     private void setStalled(boolean stalled) {
         this.entityData.set(DATA_STALLED, stalled);
     }
@@ -304,6 +320,7 @@ public abstract class VehicleEntity extends Entity {
         }
         dismountedRider = player.getUUID();
         dismountedToGround = false;
+        dismountedWithNoRoom = false;
     }
 
     @Override
@@ -490,6 +507,7 @@ public abstract class VehicleEntity extends Entity {
                 setStalled(true);
             }
             setAcceptedCommand(Vec3.ZERO);
+            clearOverspeed();
             this.setNoGravity(false);
             this.setDeltaMovement(fallStep(this.getDeltaMovement()));
             this.move(MoverType.SELF, this.getDeltaMovement());
@@ -528,7 +546,10 @@ public abstract class VehicleEntity extends Entity {
     private boolean tryPackAwayAfterDismount() {
         UUID riderId = dismountedRider;
         dismountedRider = null;
-        if (riderId == null || !dismountedToGround || !packsAwayOnDismount()) {
+        if (riderId == null) {
+            return false;
+        }
+        if (!dismountedWithNoRoom && (!dismountedToGround || !packsAwayOnDismount())) {
             return false;
         }
         ServerPlayer rider = this.level().getServer() == null
@@ -542,6 +563,7 @@ public abstract class VehicleEntity extends Entity {
         this.setDeltaMovement(Vec3.ZERO);
         setStalled(false);
         setAcceptedCommand(Vec3.ZERO);
+        clearOverspeed();
         this.entityData.set(DATA_MEDIA_COST, 0L);
         maintainParkedMinHeight();
     }
@@ -590,9 +612,22 @@ public abstract class VehicleEntity extends Entity {
             return topOfBroom;
         }
 
-        Vec3 vanilla = super.getDismountLocationForPassenger(passenger);
+        if (passenger.getUUID().equals(dismountedRider)) {
+            dismountedWithNoRoom = true;
+        }
         passenger.resetFallDistance();
-        return vanilla;
+        return findFallAwayLocation(passenger);
+    }
+
+    private Vec3 findFallAwayLocation(LivingEntity passenger) {
+        Vec3 seat = passenger.position();
+        for (double drop = 0.0; drop <= VehicleConfig.DISMOUNT_GROUND_SNAP_DISTANCE; drop += 1.0) {
+            Vec3 candidate = seat.subtract(0.0, drop, 0.0);
+            if (trySelectDismountPose(passenger, candidate, true)) {
+                return candidate;
+            }
+        }
+        return seat;
     }
 
     private @Nullable Vec3 findNearbySafeDismountLocation(LivingEntity passenger, double groundY) {
@@ -626,6 +661,10 @@ public abstract class VehicleEntity extends Entity {
     }
 
     private boolean trySelectDismountPose(LivingEntity passenger, Vec3 location) {
+        return trySelectDismountPose(passenger, location, false);
+    }
+
+    private boolean trySelectDismountPose(LivingEntity passenger, Vec3 location, boolean vehicleIsLeaving) {
         Pose originalPose = passenger.getPose();
         for (Pose pose : passenger.getDismountPoses()) {
             if (pose == Pose.SWIMMING) {
@@ -633,7 +672,7 @@ public abstract class VehicleEntity extends Entity {
             }
             passenger.setPose(pose);
             AABB candidateBox = passenger.getBoundingBox().move(location.subtract(passenger.position()));
-            if (candidateBox.intersects(this.getBoundingBox())) {
+            if (!vehicleIsLeaving && candidateBox.intersects(this.getBoundingBox())) {
                 continue;
             }
             if (DismountHelper.canDismountTo(this.level(), passenger, candidateBox)) {
@@ -692,6 +731,10 @@ public abstract class VehicleEntity extends Entity {
         FlightRunner.FlightRunResult.Success success = (FlightRunner.FlightRunResult.Success) result;
         Vec3 candidateAcceleration = success.acceleration();
         Vec3 candidateVelocity = sanitizeVelocity(this.getDeltaMovement().add(candidateAcceleration));
+
+        int candidateOverspeedRuns = success.overspeed() ? overspeedRuns + 1 : 0;
+        boolean penalised = candidateOverspeedRuns >= VehicleConfig.OVERSPEED_GRACE_RUNS;
+
         long cost = VehicleMediaCost.compute(
             candidateVelocity,
             candidateAcceleration,
@@ -700,7 +743,8 @@ public abstract class VehicleEntity extends Entity {
             getMaxVerticalSpeed(),
             getMaxAcceleration(),
             getMediaMultiplier(),
-            getLoadMultiplier()
+            getLoadMultiplier(),
+            penalised
         );
         this.entityData.set(DATA_MEDIA_COST, cost);
 
@@ -710,6 +754,7 @@ public abstract class VehicleEntity extends Entity {
             }
             setStalled(true);
             setAcceptedCommand(Vec3.ZERO);
+            clearOverspeed();
             return;
         }
         env.extractMedia(cost, false);
@@ -718,6 +763,11 @@ public abstract class VehicleEntity extends Entity {
         setAcceptedCommand(candidateAcceleration);
         this.persistentMemory = success.memory();
         setStalled(false);
+
+        overspeedRuns = candidateOverspeedRuns;
+        if (this.entityData.get(DATA_OVERSPEED) != penalised) {
+            this.entityData.set(DATA_OVERSPEED, penalised);
+        }
     }
 
     public FlightExecutionContext debugContext() {

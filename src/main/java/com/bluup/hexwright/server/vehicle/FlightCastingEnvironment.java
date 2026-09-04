@@ -209,6 +209,11 @@ public final class FlightCastingEnvironment extends CastingEnvironment {
         rider.sendSystemMessage(message);
     }
 
+    @Override
+    public int maxOpCount() {
+        return VehicleConfig.MAX_FLIGHT_OP_COUNT;
+    }
+
 
     @Override
     public void postExecution(CastResult result) {

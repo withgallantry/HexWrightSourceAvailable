@@ -155,6 +155,15 @@ public final class PortalManager extends SavedData {
         return null;
     }
 
+    public boolean occupied(PortalWindow window) {
+        for (PortalPair pair : pairs) {
+            if (pair.window(0).roughlyMatches(window) || pair.window(1).roughlyMatches(window)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public @Nullable PortalPair findContaining(Vec3 point, ResourceKey<Level> dimension) {
         PortalPair best = null;
         double bestDistance = Double.MAX_VALUE;

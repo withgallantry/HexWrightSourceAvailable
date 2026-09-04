@@ -11,7 +11,9 @@ import net.minecraft.world.entity.player.Player;
 
 public final class RemnantDrinking {
 
-    private static final int TICKS_PER_DRAM = 2;
+    private static final int TICKS_PER_DRAM = 6;
+
+    private static final int MIN_DURATION_TICKS = 100;
 
     private static final double DRAMS_PER_HALF_HEART = 20.0;
 
@@ -23,7 +25,7 @@ public final class RemnantDrinking {
     }
 
     public static int durationTicks(Remnant remnant) {
-        return Math.max(20, (int) (remnant.drams() * TICKS_PER_DRAM));
+        return Math.max(MIN_DURATION_TICKS, (int) (remnant.drams() * TICKS_PER_DRAM));
     }
 
     public static int amplifier(Remnant remnant) {

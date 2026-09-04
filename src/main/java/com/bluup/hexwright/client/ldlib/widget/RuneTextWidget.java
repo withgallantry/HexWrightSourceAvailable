@@ -1,6 +1,8 @@
 package com.bluup.hexwright.client.ldlib.widget;
 
 import com.lowdragmc.lowdraglib.gui.widget.Widget;
+import net.fabricmc.api.EnvType;
+import net.fabricmc.api.Environment;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
@@ -57,6 +59,7 @@ public class RuneTextWidget extends Widget {
     }
 
     @Override
+    @Environment(EnvType.CLIENT)
     public void drawInBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
         super.drawInBackground(graphics, mouseX, mouseY, partialTicks);
 

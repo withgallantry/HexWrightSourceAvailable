@@ -10,13 +10,17 @@ import at.petrak.hexcasting.api.misc.MediaConstants;
 import com.bluup.hexwright.Hexwright;
 import com.bluup.hexwright.server.block.HexwrightBlocks;
 import com.bluup.hexwright.server.block.WardingBoxBlockEntity;
+import com.bluup.hexwright.server.hexpatterns.PerWorldPatterns;
 import com.bluup.hexwright.server.pocketcaster.PocketCasterData;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.ServerLevelAccessor;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -31,6 +35,8 @@ public final class DungeonTraps {
 
     private static final int MIN_HEIGHT = 3;
     private static final int MAX_HEIGHT = 6;
+
+    private static final String PER_WORLD = "PERWORLD";
 
     public enum Trap {
         BLAST(45, new String[] {
@@ -47,7 +53,7 @@ public final class DungeonTraps {
 
         LAVA(25, new String[] {
             "NORTH_EAST dd",
-            "EAST eaqawqadaqd",
+            "PERWORLD hexcasting:create_lava",
         });
 
         private final int weight;
@@ -58,12 +64,26 @@ public final class DungeonTraps {
             this.hex = hex;
         }
 
-        CompoundTag spell() {
+        @Nullable
+        CompoundTag spell(ServerLevel level) {
             List<Iota> patterns = new ArrayList<>(this.hex.length);
             for (String line : this.hex) {
                 int space = line.indexOf(' ');
-                patterns.add(new PatternIota(HexPattern.fromAnglesUnchecked(
-                    line.substring(space + 1), HexDir.fromString(line.substring(0, space)))));
+                String head = line.substring(0, space);
+                String rest = line.substring(space + 1);
+                HexPattern pattern;
+                if (PER_WORLD.equals(head)) {
+                    pattern = PerWorldPatterns.canonical(new ResourceLocation(rest), level);
+                    if (pattern == null) {
+                        Hexwright.LOGGER.warn(
+                            "No drawing for the Great Spell {} in this world; leaving the {} trap unlaid",
+                            rest, this.name());
+                        return null;
+                    }
+                } else {
+                    pattern = HexPattern.fromAnglesUnchecked(rest, HexDir.fromString(head));
+                }
+                patterns.add(new PatternIota(pattern));
             }
             return IotaType.serialize(new ListIota(patterns));
         }
@@ -119,13 +139,16 @@ public final class DungeonTraps {
     }
 
     static void lay(ServerLevelAccessor level, BlockPos pos, Spec spec) {
+        CompoundTag spell = spec.trap().spell(level.getLevel());
+        if (spell == null) {
+            return;
+        }
         level.setBlock(pos, HexwrightBlocks.WARDING_BOX_BLOCK.defaultBlockState(), Block.UPDATE_CLIENTS);
         BlockEntity entity = level.getBlockEntity(pos);
         if (!(entity instanceof WardingBoxBlockEntity box)) {
             Hexwright.LOGGER.warn("Dungeon trap at {} has no warding box behind it; leaving it inert", pos);
             return;
         }
-        box.installDungeonTrap(GRADE, CHARGE, spec.trap().spell(), spec.trap().size(),
-            spec.width(), spec.height());
+        box.installDungeonTrap(GRADE, CHARGE, spell, spec.trap().size(), spec.width(), spec.height());
     }
 }

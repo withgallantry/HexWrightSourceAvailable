@@ -74,6 +74,8 @@ public final class VehicleConfig {
 
     public static final int HEX_EXECUTION_INTERVAL_TICKS = 3;
 
+    public static final int MAX_FLIGHT_OP_COUNT = 1_000;
+
     public static final double FLIGHT_DRAG = 0.99;
 
 
@@ -97,8 +99,12 @@ public final class VehicleConfig {
 
     public static final long HOVER_COST = MediaConstants.DUST_UNIT / 50;
     public static final long CRUISE_COST_COEFFICIENT = MediaConstants.DUST_UNIT / 12;
-    public static final long CLIMB_COST_COEFFICIENT = MediaConstants.DUST_UNIT / 4;
+    public static final long CLIMB_COST_COEFFICIENT = MediaConstants.DUST_UNIT / 8;
     public static final long MANOEUVRE_COST_COEFFICIENT = MediaConstants.DUST_UNIT / 6;
+
+
+    public static final int OVERSPEED_GRACE_RUNS = 3;
+    public static final double OVERSPEED_MEDIA_MULTIPLIER = 30.0;
 
 
 

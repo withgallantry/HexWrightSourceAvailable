@@ -81,8 +81,17 @@ public final class PortalActions {
 
             ServerLevel level = env.getWorld();
             PortalManager manager = PortalManager.get(level);
+            UUID caster = env.getCastingEntity() != null
+                ? env.getCastingEntity().getUUID()
+                : Util.NIL_UUID;
             PortalPair coincidentFirst = manager.findCoincident(first);
             PortalPair coincidentSecond = manager.findCoincident(second);
+            if (coincidentFirst != null && !coincidentFirst.caster().equals(caster)) {
+                throw MishapInvalidIota.of(args.get(0), getArgc() - 1, "hexwright.portal_occupied");
+            }
+            if (coincidentSecond != null && !coincidentSecond.caster().equals(caster)) {
+                throw MishapInvalidIota.of(args.get(1), getArgc() - 2, "hexwright.portal_occupied");
+            }
 
             double limit = maxSeparation(level);
             if (first.center().distanceTo(second.center()) > limit) {
@@ -103,9 +112,6 @@ public final class PortalActions {
                         || !coincidentSecond.id().equals(coincidentFirst.id()))) {
                         manager.removePair(level, coincidentSecond.id());
                     }
-                    UUID caster = castEnv.getCastingEntity() != null
-                        ? castEnv.getCastingEntity().getUUID()
-                        : Util.NIL_UUID;
                     long created = level.getGameTime();
                     manager.addPair(level, new PortalPair(
                         UUID.randomUUID(), caster, first, second, created,

@@ -1,5 +1,7 @@
 package com.bluup.hexwright.client.render.emissive;
 
+import com.bluup.hexwright.client.render.IrisCompat;
+import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.math.Transformation;
@@ -10,6 +12,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.block.BlockModelShaper;
 import net.minecraft.client.renderer.block.model.BakedQuad;
@@ -40,6 +43,10 @@ public final class BlockGlow {
     @Nullable
     private static ClientLevel indexedLevel;
 
+
+    private static final MultiBufferSource.BufferSource MASKS =
+        MultiBufferSource.immediate(new BufferBuilder(2048));
+
     private BlockGlow() {
     }
 
@@ -65,9 +72,15 @@ public final class BlockGlow {
         EmissiveBloomConfig config = EmissiveBloomConfigManager.get();
         ClientLevel level = context.world();
         MultiBufferSource consumers = context.consumers();
-        RenderType layer = EmissiveGlowLayer.maskedLayer();
+        RenderType layer = pickLayer(config);
         if (!config.blockGlow || config.blockGlowStrength <= 0.0f
             || level == null || consumers == null) {
+            return;
+        }
+        if (config.blockGlowDisableWhenShaderPackActive && IrisCompat.isShaderPackActive()) {
+            return;
+        }
+        if (IrisCompat.isRenderingShadowPass()) {
             return;
         }
         if (level != indexedLevel) {
@@ -78,6 +91,7 @@ public final class BlockGlow {
             return;
         }
 
+        BlockGlowTrace.nextFrame();
         collect(level, context, config);
         if (VISIBLE.isEmpty()) {
             return;
@@ -86,15 +100,22 @@ public final class BlockGlow {
         PoseStack poses = context.matrixStack();
         Vec3 camera = context.camera().getPosition();
         float strength = config.blockGlowStrength;
+        float lift = config.blockGlowLift;
+        boolean debugTint = config.blockGlowDebug;
 
-        emitAll(consumers.getBuffer(layer), poses, camera, level, strength);
-        if (consumers instanceof MultiBufferSource.BufferSource source) {
-            source.endBatch(layer);
+        if (debugTint) {
+            outlineAll(consumers.getBuffer(RenderType.lines()), poses, camera);
         }
-        EmissiveBloom.capture(layer, consumer -> emitAll(consumer, poses, camera, level, strength));
+        BlockGlowTrace.onSubmit(MASKS, true);
+        emitAll(MASKS.getBuffer(layer), poses, camera, level, strength, lift, debugTint);
+        MASKS.endBatch();
+        EmissiveBloom.capture(layer, consumer -> emitAll(consumer, poses, camera, level, strength, lift, debugTint));
 
+        BlockGlowTrace.endPass();
         VISIBLE.clear();
     }
+
+
 
     private static void collect(ClientLevel level, WorldRenderContext context,
                                 EmissiveBloomConfig config) {
@@ -149,8 +170,25 @@ public final class BlockGlow {
         return new AABB(x, y, z, x + 16.0, y + 16.0, z + 16.0);
     }
 
+    private static RenderType pickLayer(EmissiveBloomConfig config) {
+        return config.blockGlowMipmap
+            ? EmissiveGlowLayer.maskedLayer()
+            : EmissiveGlowLayer.maskedLayerUnmipped();
+    }
+
+    private static void outlineAll(VertexConsumer consumer, PoseStack poses, Vec3 camera) {
+        for (Draw draw : VISIBLE) {
+            BlockPos pos = draw.pos();
+            poses.pushPose();
+            poses.translate(pos.getX() - camera.x, pos.getY() - camera.y, pos.getZ() - camera.z);
+            LevelRenderer.renderLineBox(poses, consumer,
+                0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 0.0f, 1.0f, 1.0f, 1.0f);
+            poses.popPose();
+        }
+    }
+
     private static void emitAll(VertexConsumer consumer, PoseStack poses, Vec3 camera,
-                                ClientLevel level, float strength) {
+                                ClientLevel level, float strength, float lift, boolean debugTint) {
         for (Draw draw : VISIBLE) {
             BlockPos pos = draw.pos();
             poses.pushPose();
@@ -161,26 +199,33 @@ public final class BlockGlow {
                 poses.translate(-0.5f, -0.5f, -0.5f);
             }
 
-            PoseStack.Pose pose = poses.last();
             long seed = draw.state().getSeed(pos);
             for (Direction direction : DIRECTIONS) {
                 NEIGHBOUR.setWithOffset(pos, direction);
                 if (!Block.shouldRenderFace(draw.state(), level, pos, direction, NEIGHBOUR)) {
                     continue;
                 }
+                poses.pushPose();
+                poses.translate(direction.getStepX() * lift,
+                    direction.getStepY() * lift,
+                    direction.getStepZ() * lift);
                 RANDOM.setSeed(seed);
-                emit(consumer, pose, draw.glow().getQuads(draw.state(), direction, RANDOM), strength);
+                emit(consumer, poses.last(), draw.glow().getQuads(draw.state(), direction, RANDOM), strength, debugTint);
+                poses.popPose();
             }
             RANDOM.setSeed(seed);
-            emit(consumer, pose, draw.glow().getQuads(draw.state(), null, RANDOM), strength);
+            emit(consumer, poses.last(), draw.glow().getQuads(draw.state(), null, RANDOM), strength, debugTint);
             poses.popPose();
         }
     }
 
     private static void emit(VertexConsumer consumer, PoseStack.Pose pose, List<BakedQuad> quads,
-                             float strength) {
+                             float strength, boolean debugTint) {
+        float red = strength;
+        float green = debugTint ? 0.0f : strength;
+        float blue = strength;
         for (BakedQuad quad : quads) {
-            consumer.putBulkData(pose, quad, strength, strength, strength,
+            consumer.putBulkData(pose, quad, red, green, blue,
                 LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY);
         }
     }

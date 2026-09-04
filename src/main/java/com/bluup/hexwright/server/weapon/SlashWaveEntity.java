@@ -40,6 +40,10 @@ public class SlashWaveEntity extends Entity {
 
     private static final double LAUNCH_HEIGHT = 1.3D;
 
+    private static final double LAUNCH_FORWARD = 0.6D;
+
+    private static final int CLEARANCE_TICKS = 2;
+
     private static final double CUT_WIDTH = 1.8D;
     private static final double CUT_HEIGHT = 0.9D;
     private static final double CUT_DEPTH = 0.8D;
@@ -80,7 +84,8 @@ public class SlashWaveEntity extends Entity {
         wave.xRotO = wave.getXRot();
 
         Vec3 heading = wave.heading();
-        Vec3 from = player.position().add(0.0D, LAUNCH_HEIGHT, 0.0D);
+        Vec3 from = player.position().add(0.0D, LAUNCH_HEIGHT, 0.0D)
+            .add(heading.scale(LAUNCH_FORWARD));
         wave.setPos(from.x, from.y, from.z);
         wave.setDeltaMovement(heading.scale(SPEED));
         level.addFreshEntity(wave);
@@ -106,15 +111,22 @@ public class SlashWaveEntity extends Entity {
         this.age++;
         if (this.level() instanceof ServerLevel serverLevel) {
             cut(serverLevel, from, to);
-            HitResult wall = this.level().clip(new ClipContext(from, to, ClipContext.Block.COLLIDER,
-                ClipContext.Fluid.NONE, this));
-            if (wall.getType() != HitResult.Type.MISS || this.age >= LIFE_TICKS) {
+            if (this.age >= LIFE_TICKS || blocked(from, to)) {
                 expire(serverLevel);
                 return;
             }
         }
 
         this.setPos(to.x, to.y, to.z);
+    }
+
+    private boolean blocked(Vec3 from, Vec3 to) {
+        if (this.age <= CLEARANCE_TICKS) {
+            return false;
+        }
+        HitResult wall = this.level().clip(new ClipContext(from, to, ClipContext.Block.COLLIDER,
+            ClipContext.Fluid.NONE, this));
+        return wall.getType() != HitResult.Type.MISS;
     }
 
     private void cut(ServerLevel level, Vec3 from, Vec3 to) {

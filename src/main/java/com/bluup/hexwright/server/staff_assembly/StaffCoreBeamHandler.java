@@ -40,9 +40,11 @@ public final class StaffCoreBeamHandler {
     private static final String PROJECTILE_CLIP = "staff_projectile_release";
 
     private static final long BOLT_FIRE_COST = MediaConstants.DUST_UNIT / 30;
+    private static final int BOLT_COOLDOWN_TICKS = 10;
     private static final long AREA_HOLD_COST_PER_SECOND = MediaConstants.DUST_UNIT / 30;
 
     private static final Map<UUID, Boolean> BEAM_WAS_ACTIVE = new HashMap<>();
+    private static final Map<UUID, Integer> BOLT_LAST_FIRE_TICK = new HashMap<>();
     private static final Map<UUID, Boolean> AREA_WAS_ACTIVE = new HashMap<>();
     private static final Map<UUID, Double> AREA_DRAIN_PROGRESS = new HashMap<>();
 
@@ -52,7 +54,7 @@ public final class StaffCoreBeamHandler {
     public static void handle(ServerPlayer player, boolean active, boolean crosshairFree, boolean leftClickBusy) {
         ItemStack held = player.getMainHandItem();
         if (held.isEmpty() || !held.is(HexwrightItems.CONFIGURABLE_STAFF)) {
-            clearPlayer(player);
+            clearHeldState(player);
             HexwrightNetworking.sendStaffCoreSphereVisual(player, false, null, 0.0);
             return;
         }
@@ -60,7 +62,7 @@ public final class StaffCoreBeamHandler {
         ItemStack coreItem = StaffAssemblyData.getCoreItem(held);
         Optional<CoreData> coreData = CoreRegistry.lookup(coreItem.getItem());
         if (coreData.isEmpty()) {
-            clearPlayer(player);
+            clearHeldState(player);
             HexwrightNetworking.sendStaffCoreSphereVisual(player, false, null, 0.0);
             return;
         }
@@ -114,6 +116,11 @@ public final class StaffCoreBeamHandler {
     }
 
     public static void clearPlayer(ServerPlayer player) {
+        BOLT_LAST_FIRE_TICK.remove(player.getUUID());
+        clearHeldState(player);
+    }
+
+    private static void clearHeldState(ServerPlayer player) {
         BEAM_WAS_ACTIVE.remove(player.getUUID());
         stopAreaChannel(player, false);
     }
@@ -180,6 +187,12 @@ public final class StaffCoreBeamHandler {
     }
 
     private static void fireBolt(ServerPlayer player, ItemStack staff) {
+        int now = player.server.getTickCount();
+        Integer lastFire = BOLT_LAST_FIRE_TICK.get(player.getUUID());
+        if (lastFire != null && now >= lastFire && now - lastFire < BOLT_COOLDOWN_TICKS) {
+            return;
+        }
+
         if (!payMediaCost(player, staff, BOLT_FIRE_COST)) {
             playNoMediaMishap(player);
             return;
@@ -195,6 +208,7 @@ public final class StaffCoreBeamHandler {
         bolt.setPos(start.x, start.y, start.z);
         bolt.shoot(direction.x, direction.y, direction.z, (float) BOLT_SPEED, 0.0f);
         player.level().addFreshEntity(bolt);
+        BOLT_LAST_FIRE_TICK.put(player.getUUID(), now);
         HexwrightNetworking.sendPlayerAnimation(player, PlayerAnimationLayer.ONE_SHOT, PROJECTILE_CLIP);
 
         player.level().playSound(null, player.getX(), player.getY(), player.getZ(), HexwrightSoundEvents.staffCoreProjectileFire(), SoundSource.PLAYERS, 0.75f, 1.0f);

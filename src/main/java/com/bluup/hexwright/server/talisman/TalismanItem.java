@@ -19,6 +19,7 @@ import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 
 public class TalismanItem extends Item implements IotaHolderItem {
@@ -99,6 +100,11 @@ public class TalismanItem extends Item implements IotaHolderItem {
                 Component.translatable(trigger.get().translationKey()), trigger.get().ordinal(),
                 Component.translatable(context.get().translationKey()), context.get().ordinal()
             ).withStyle(ChatFormatting.LIGHT_PURPLE));
+            long cooldown = TalismanData.cooldownTicks(stack, trigger.get());
+            tooltip.add(Component.translatable(
+                "tooltip.hexwright.talisman.cooldown",
+                String.format(Locale.ROOT, "%.1f", cooldown / 20.0)
+            ).withStyle(ChatFormatting.GRAY));
         } else {
             tooltip.add(Component.translatable("tooltip.hexwright.talisman.blank")
                 .withStyle(ChatFormatting.GRAY));

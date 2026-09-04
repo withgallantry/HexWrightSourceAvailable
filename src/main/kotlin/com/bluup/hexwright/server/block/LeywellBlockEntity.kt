@@ -157,6 +157,11 @@ class LeywellBlockEntity(
 
     override fun stillValid(player: Player): Boolean = Container.stillValidBlockEntity(this, player)
 
+    override fun canPlaceItem(slot: Int, stack: ItemStack): Boolean =
+        slot == SOURCE_SLOT && EssenceNetwork.isEssenceSource(stack)
+
+    override fun getMaxStackSize(): Int = 1
+
     override fun clearContent() {
         for (i in items.indices) items[i] = ItemStack.EMPTY
     }

@@ -19,6 +19,8 @@ public final class VaultPortalPlacement {
 
     private static final int PLACEMENT_DISTANCE = 2;
 
+    private static final int SIDESTEP_RADIUS = 2;
+
     private static final int[] CANDIDATE_DY = {0, 1, -1, -2};
 
     private VaultPortalPlacement() {
@@ -33,10 +35,15 @@ public final class VaultPortalPlacement {
         if (!anchorState.isAir() && !anchorState.canBeReplaced()) {
             anchor = anchor.above();
         }
-        return windowAt(level, anchor.relative(facing, PLACEMENT_DISTANCE), facing);
+        return windowNear(level, anchor.relative(facing, PLACEMENT_DISTANCE), facing, SIDESTEP_RADIUS);
     }
 
     public static @Nullable PortalWindow windowAt(ServerLevel level, BlockPos base, Direction facing) {
+        return windowAt(level, base, facing, true);
+    }
+
+    public static @Nullable PortalWindow windowAt(ServerLevel level, BlockPos base, Direction facing,
+                                                  boolean requireFree) {
         Vec3i d = facing.getNormal();
         int ux = -d.getZ();
         int uz = d.getX();
@@ -46,20 +53,25 @@ public final class VaultPortalPlacement {
             if (!paneClear(level, first, ux, uz) || !hasSturdyFloor(level, first, ux, uz)) {
                 continue;
             }
-            PortalWindow window = window(level, first, ux, uz);
+            PortalWindow window = window(level, first, ux, uz, requireFree);
             if (window != null) {
                 return window;
             }
         }
 
         if (paneClear(level, base, ux, uz)) {
-            return window(level, base, ux, uz);
+            return window(level, base, ux, uz, requireFree);
         }
         return null;
     }
 
     public static @Nullable PortalWindow windowNear(ServerLevel level, BlockPos base, Direction facing,
                                                     int radius) {
+        return windowNear(level, base, facing, radius, true);
+    }
+
+    public static @Nullable PortalWindow windowNear(ServerLevel level, BlockPos base, Direction facing,
+                                                    int radius, boolean requireFree) {
         List<BlockPos> candidates = new ArrayList<>();
         for (int dx = -radius; dx <= radius; dx++) {
             for (int dz = -radius; dz <= radius; dz++) {
@@ -68,7 +80,7 @@ public final class VaultPortalPlacement {
         }
         candidates.sort(Comparator.comparingInt(pos -> pos.distManhattan(base)));
         for (BlockPos candidate : candidates) {
-            PortalWindow window = windowAt(level, candidate, facing);
+            PortalWindow window = windowAt(level, candidate, facing, requireFree);
             if (window != null) {
                 return window;
             }
@@ -86,13 +98,14 @@ public final class VaultPortalPlacement {
         return Direction.getNearest(-normal.x, 0.0, -normal.z);
     }
 
-    private static @Nullable PortalWindow window(ServerLevel level, BlockPos first, int ux, int uz) {
+    private static @Nullable PortalWindow window(ServerLevel level, BlockPos first, int ux, int uz,
+                                                 boolean requireFree) {
         PortalWindow window = PortalWindow.fromCorners(
             Vec3.atCenterOf(first), Vec3.atCenterOf(first.offset(ux, 2, uz)));
         if (window == null) {
             return null;
         }
-        if (PortalManager.get(level).findCoincident(window) != null) {
+        if (requireFree && PortalManager.get(level).occupied(window)) {
             return null;
         }
         return window;

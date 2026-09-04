@@ -160,6 +160,7 @@ public final class HexwrightClient implements ClientModInitializer {
         com.bluup.hexwright.client.block.RuinedPortalRifts.register();
         com.bluup.hexwright.client.portal.PortalCrossingPredictor.register();
         com.bluup.hexwright.client.portal.RemoteLevelManager.register();
+        com.bluup.hexwright.client.portal.DimensionLeakFixCompat.register();
         com.bluup.hexwright.client.portal.RemotePhotonVisuals.register();
 
         net.fabricmc.loader.api.FabricLoader fabricLoader = net.fabricmc.loader.api.FabricLoader.getInstance();

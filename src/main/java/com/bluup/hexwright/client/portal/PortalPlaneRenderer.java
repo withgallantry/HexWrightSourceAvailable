@@ -80,7 +80,8 @@ public final class PortalPlaneRenderer {
                     continue;
                 }
                 int textureId = PortalViewRenderer.viewTextureId(entry.pair().id(), side);
-                boolean settled = progress >= SETTLED_PROGRESS && textureId >= 0;
+                boolean settled = progress >= SETTLED_PROGRESS && textureId >= 0
+                    && !com.bluup.hexwright.client.render.IrisCompat.isShaderPackActive();
                 if (settled == settledPhase) {
                     panes.add(new Pane(entry, side, distSq, progress, textureId));
                 }

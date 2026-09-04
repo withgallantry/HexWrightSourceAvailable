@@ -123,7 +123,8 @@ public final class EmissiveItemModels {
     }
 
     public static void renderGlow(BakedModel model, PoseStack poseStack,
-                                  MultiBufferSource buffers, int overlay, RenderType itemLayer) {
+                                  MultiBufferSource buffers, int overlay, RenderType itemLayer,
+                                  boolean handPose) {
         if (!(model instanceof EmissiveBakedModel emissive)) {
             return;
         }
@@ -135,7 +136,9 @@ public final class EmissiveItemModels {
             return;
         }
 
-        if (buffers instanceof MultiBufferSource.BufferSource source) {
+        MultiBufferSource.BufferSource source =
+            buffers instanceof MultiBufferSource.BufferSource batched ? batched : null;
+        if (source != null) {
             source.endBatch(itemLayer);
         }
         PoseStack.Pose pose = poseStack.last();
@@ -151,8 +154,11 @@ public final class EmissiveItemModels {
             EmissiveGlowLayer.updateKnee(config.glowKnee);
         }
         emitGlowQuads(buffers.getBuffer(layer), pose, glow, overlay, red, green, blue);
+        if (source != null) {
+            source.endBatch(layer);
+        }
 
-        EmissiveBloom.captureGlow(pose, glow, layer, overlay, red, green, blue);
+        EmissiveBloom.captureGlow(pose, glow, layer, overlay, red, green, blue, handPose);
     }
 
     static void emitGlowQuads(VertexConsumer consumer, PoseStack.Pose pose, BakedModel glow,

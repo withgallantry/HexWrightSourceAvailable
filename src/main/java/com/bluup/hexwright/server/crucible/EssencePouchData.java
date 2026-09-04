@@ -67,6 +67,17 @@ public final class EssencePouchData {
         return total;
     }
 
+    public static void clear(ItemStack pouch) {
+        CompoundTag tag = pouch.getTag();
+        if (tag == null) {
+            return;
+        }
+        tag.remove(TAG_ESSENCE);
+        if (tag.isEmpty()) {
+            pouch.setTag(null);
+        }
+    }
+
     public static boolean isEmpty(ItemStack pouch) {
         CompoundTag essence = essenceTag(pouch);
         return essence == null || essence.isEmpty();

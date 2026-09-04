@@ -75,16 +75,48 @@ public final class RemoteLevelManager {
 
         long retireDeadlineGameTime = Long.MAX_VALUE;
 
+        long lastDrawnGameTime;
+
+        long emptySinceGameTime;
+
         RemoteLevel(ClientLevel level, LevelRenderer renderer, boolean retained) {
             this.level = level;
             this.renderer = renderer;
             this.retained = retained;
+            this.lastDrawnGameTime = gameTime();
+            this.emptySinceGameTime = gameTime();
         }
     }
 
-    private static final Map<ResourceLocation, RemoteLevel> LEVELS = new HashMap<>();
+    private static final Map<ResourceLocation, List<RemoteLevel>> LEVELS = new HashMap<>();
 
-    private static final Map<ResourceLocation, RemoteLevel> RETIRING = new HashMap<>();
+    private static final Map<ResourceLocation, List<RemoteLevel>> RETIRING = new HashMap<>();
+
+    private static final int MAX_LIVE_REGIONS = 3;
+
+    private static List<RemoteLevel> live(ResourceLocation dimension) {
+        return LEVELS.getOrDefault(dimension, List.of());
+    }
+
+    private static void addLive(ResourceLocation dimension, RemoteLevel remote) {
+        LEVELS.computeIfAbsent(dimension, key -> new ArrayList<>()).add(remote);
+    }
+
+    private static void detach(Map<ResourceLocation, List<RemoteLevel>> from,
+                               ResourceLocation dimension, RemoteLevel remote) {
+        List<RemoteLevel> levels = from.get(dimension);
+        if (levels == null) {
+            return;
+        }
+        levels.remove(remote);
+        if (levels.isEmpty()) {
+            from.remove(dimension);
+        }
+    }
+
+    private static boolean tracked(ResourceLocation dimension) {
+        return LEVELS.containsKey(dimension) || RETIRING.containsKey(dimension);
+    }
 
     private static final Set<LevelRenderer> STREAMED_RENDERERS =
         java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
@@ -129,8 +161,9 @@ public final class RemoteLevelManager {
         if (!ClientPortalManager.pairJoins(outgoing.dimension(), incoming)) {
             return;
         }
-        RemoteLevel destination = LEVELS.get(incoming.location());
-        skipNextLoadingScreen = SKIP_LOADING_SCREEN && destination != null && !destination.retained;
+        List<RemoteLevel> destination = live(incoming.location());
+        skipNextLoadingScreen = SKIP_LOADING_SCREEN
+            && destination.stream().anyMatch(remote -> !remote.retained);
         ResourceLocation key = outgoing.dimension().location();
         destroyEvery(key);
         List<Integer> stale = new ArrayList<>();
@@ -145,7 +178,7 @@ public final class RemoteLevelManager {
         LevelRenderer replacement = new LevelRenderer(mc, mc.getEntityRenderDispatcher(),
             mc.getBlockEntityRenderDispatcher(), mc.renderBuffers());
         ((MinecraftPortalAccessor) (Object) mc).hexwright$setLevelRenderer(replacement);
-        LEVELS.put(key, new RemoteLevel(outgoing, outgoingRenderer, true));
+        addLive(key, new RemoteLevel(outgoing, outgoingRenderer, true));
         HexwrightNetworking.sendVaultRetained(key, true);
         Hexwright.LOGGER.info(
             "[vault] retained {} ({} entities cleared) for the view out of {}; loading screen skipped: {}",
@@ -172,7 +205,7 @@ public final class RemoteLevelManager {
             Hexwright.LOGGER.warn("Remote level init named unknown dimension type {}", dimensionType);
             return;
         }
-        LEVELS.put(dimension, createStreamedLevel(mc, connection, dimension, typeHolder));
+        addLive(dimension, createStreamedLevel(mc, connection, dimension, typeHolder));
     }
 
     private static RemoteLevel createStreamedLevel(Minecraft mc, ClientPacketListener connection,
@@ -193,17 +226,42 @@ public final class RemoteLevelManager {
     }
 
     public static void handleChunk(ResourceLocation dimension, ClientboundLevelChunkWithLightPacket packet) {
-        RemoteLevel remote = LEVELS.get(dimension);
-        if (remote == null) {
+        List<RemoteLevel> levels = live(dimension);
+        if (levels.isEmpty()) {
             return;
         }
-        if (applyChunk(remote, packet)) {
-            return;
+        for (RemoteLevel remote : levels) {
+            if (applyChunk(remote, packet)) {
+                return;
+            }
         }
-        RemoteLevel replacement = retire(dimension, remote);
-        if (replacement != null) {
-            applyChunk(replacement, packet);
+        RemoteLevel opened = openRegion(dimension, levels);
+        if (opened != null) {
+            applyChunk(opened, packet);
         }
+    }
+
+    private static @Nullable RemoteLevel openRegion(ResourceLocation dimension, List<RemoteLevel> levels) {
+        Minecraft mc = Minecraft.getInstance();
+        ClientPacketListener connection = mc.getConnection();
+        if (mc.level == null || connection == null || levels.isEmpty()) {
+            return null;
+        }
+        Holder<DimensionType> typeHolder = levels.get(0).level.dimensionTypeRegistration();
+        if (levels.size() >= MAX_LIVE_REGIONS) {
+            RemoteLevel evicted = levels.get(0);
+            for (RemoteLevel candidate : levels) {
+                if (candidate.lastDrawnGameTime < evicted.lastDrawnGameTime) {
+                    evicted = candidate;
+                }
+            }
+            retire(dimension, evicted);
+        }
+        RemoteLevel opened = createStreamedLevel(mc, connection, dimension, typeHolder);
+        addLive(dimension, opened);
+        Hexwright.LOGGER.info("[vault] {} now streams {} region(s) at once", dimension,
+            live(dimension).size());
+        return opened;
     }
 
     private static boolean applyChunk(RemoteLevel remote, ClientboundLevelChunkWithLightPacket packet) {
@@ -229,29 +287,25 @@ public final class RemoteLevelManager {
             remote.level.setSectionDirtyWithNeighbors(x, sectionY, z);
         }
         remote.chunks.add(ChunkPos.asLong(x, z));
+        remote.emptySinceGameTime = Long.MAX_VALUE;
         SodiumPortalCompat.onRemoteChunkLoaded(remote.level, x, z);
         return true;
     }
 
-    private static @Nullable RemoteLevel retire(ResourceLocation dimension, RemoteLevel outgoing) {
-        Minecraft mc = Minecraft.getInstance();
-        ClientPacketListener connection = mc.getConnection();
-        if (mc.level == null || connection == null) {
-            return null;
+    private static void retire(ResourceLocation dimension, RemoteLevel outgoing) {
+        List<RemoteLevel> fading = RETIRING.get(dimension);
+        if (fading != null) {
+            for (RemoteLevel previous : List.copyOf(fading)) {
+                detach(RETIRING, dimension, previous);
+                destroyLevel(dimension, previous);
+            }
         }
-        RemoteLevel previous = RETIRING.remove(dimension);
-        if (previous != null) {
-            destroyLevel(dimension, previous);
-        }
-        LEVELS.remove(dimension);
+        detach(LEVELS, dimension, outgoing);
         outgoing.retireDeadlineGameTime = gameTime() + PortalPair.OPEN_TICKS + FORGET_GRACE_TICKS;
-        RETIRING.put(dimension, outgoing);
-        RemoteLevel replacement = createStreamedLevel(mc, connection, dimension,
-            outgoing.level.dimensionTypeRegistration());
-        LEVELS.put(dimension, replacement);
-        Hexwright.LOGGER.info("[vault] {} now streams a second region; the old level retires with the fading pane",
+        RETIRING.computeIfAbsent(dimension, key -> new ArrayList<>()).add(outgoing);
+        Hexwright.LOGGER.info(
+            "[vault] {} is at its region limit; the least recently drawn one retires with its fading pane",
             dimension);
-        return replacement;
     }
 
     private static void applyLightData(ClientLevel level, int x, int z, ClientboundLightUpdatePacketData data) {
@@ -285,8 +339,10 @@ public final class RemoteLevelManager {
 
     private static final int FORGET_GRACE_TICKS = 4;
 
+    private static final int EMPTY_REGION_GRACE_TICKS = 100;
+
     public static void handleForget(ResourceLocation dimension, long[] chunks) {
-        if (!LEVELS.containsKey(dimension) && !RETIRING.containsKey(dimension)) {
+        if (!tracked(dimension)) {
             return;
         }
         if (ClientPortalManager.closingPaneNeeds(dimension)) {
@@ -328,26 +384,25 @@ public final class RemoteLevelManager {
 
     private static void applyForget(ResourceLocation dimension, long[] chunks) {
         boolean claimed = false;
-        RemoteLevel retiring = RETIRING.get(dimension);
-        if (retiring != null) {
-            claimed = dropChunks(retiring, chunks);
+        for (RemoteLevel retiring : List.copyOf(RETIRING.getOrDefault(dimension, List.of()))) {
+            claimed |= dropChunks(retiring, chunks);
             if (retiring.retained || retiring.chunks.isEmpty()) {
-                RETIRING.remove(dimension);
+                detach(RETIRING, dimension, retiring);
                 destroyLevel(dimension, retiring);
                 claimed = true;
             }
         }
-        RemoteLevel live = LEVELS.get(dimension);
-        if (live == null) {
-            return;
-        }
-        if (live.retained && !claimed) {
-            destroy(dimension);
-            return;
-        }
-        boolean owned = dropChunks(live, chunks);
-        if (live.chunks.isEmpty() && (owned || !claimed)) {
-            destroy(dimension);
+        List<RemoteLevel> levels = List.copyOf(live(dimension));
+        boolean lastRegion = levels.size() <= 1;
+        for (RemoteLevel level : levels) {
+            if (level.retained && !claimed && lastRegion) {
+                destroyLive(dimension, level);
+                continue;
+            }
+            boolean owned = dropChunks(level, chunks);
+            if (level.chunks.isEmpty() && (owned || (!claimed && lastRegion))) {
+                destroyLive(dimension, level);
+            }
         }
     }
 
@@ -361,13 +416,16 @@ public final class RemoteLevelManager {
                 remote.level.getChunkSource().drop(ChunkPos.getX(packed), ChunkPos.getZ(packed));
             }
         }
+        if (owned && remote.chunks.isEmpty()) {
+            remote.emptySinceGameTime = gameTime();
+        }
         return owned;
     }
 
     public static void handleBlockUpdate(ResourceLocation dimension, BlockPos pos, int stateId,
                                          @Nullable CompoundTag blockEntityTag) {
-        RemoteLevel remote = LEVELS.get(dimension);
-        if (!holds(remote, pos.getX() >> 4, pos.getZ() >> 4)) {
+        RemoteLevel remote = liveHolding(dimension, pos.getX() >> 4, pos.getZ() >> 4);
+        if (remote == null) {
             return;
         }
         remote.level.setBlock(pos, Block.stateById(stateId), 19);
@@ -380,15 +438,16 @@ public final class RemoteLevelManager {
     }
 
     public static void handleDestroyProgress(ResourceLocation dimension, int breakerId, BlockPos pos, int stage) {
-        RemoteLevel remote = LEVELS.get(dimension);
+        RemoteLevel remote = liveHolding(dimension, pos.getX() >> 4, pos.getZ() >> 4);
         if (remote != null) {
             remote.renderer.destroyBlockProgress(breakerId, pos, stage);
         }
     }
 
-    public static void handleEntities(ResourceLocation dimension, List<EntitySnapshot> snapshots) {
+    public static void handleEntities(ResourceLocation dimension, ChunkPos regionChunk,
+                                      List<EntitySnapshot> snapshots) {
         Minecraft mc = Minecraft.getInstance();
-        RemoteLevel remote = LEVELS.get(dimension);
+        RemoteLevel remote = liveHolding(dimension, regionChunk.x, regionChunk.z);
         if (remote == null) {
             return;
         }
@@ -466,31 +525,38 @@ public final class RemoteLevelManager {
         }
         ResourceLocation currentDimension = mc.level.dimension().location();
         for (ResourceLocation dimension : List.copyOf(RETIRING.keySet())) {
-            RemoteLevel retiring = RETIRING.get(dimension);
-            if (dimension.equals(currentDimension) || gameTime() >= retiring.retireDeadlineGameTime) {
-                RETIRING.remove(dimension);
-                destroyLevel(dimension, retiring);
-                continue;
+            for (RemoteLevel retiring : List.copyOf(RETIRING.getOrDefault(dimension, List.of()))) {
+                if (dimension.equals(currentDimension) || gameTime() >= retiring.retireDeadlineGameTime) {
+                    detach(RETIRING, dimension, retiring);
+                    destroyLevel(dimension, retiring);
+                    continue;
+                }
+                retiring.level.setGameTime(mc.level.getGameTime());
+                retiring.level.setDayTime(mc.level.getDayTime());
             }
-            retiring.level.setGameTime(mc.level.getGameTime());
-            retiring.level.setDayTime(mc.level.getDayTime());
         }
         for (ResourceLocation dimension : List.copyOf(LEVELS.keySet())) {
-            RemoteLevel remote = LEVELS.get(dimension);
-            if (dimension.equals(currentDimension)) {
-                destroy(dimension);
-                continue;
-            }
-            remote.level.setGameTime(mc.level.getGameTime());
-            remote.level.setDayTime(mc.level.getDayTime());
-            for (Entity entity : List.copyOf(remote.entities.values())) {
-                try {
-                    entity.setOldPosAndRot();
-                    entity.tickCount++;
-                    entity.tick();
-                } catch (RuntimeException e) {
-                    remote.level.removeEntity(entity.getId(), Entity.RemovalReason.DISCARDED);
-                    remote.entities.remove(entity.getId());
+            for (RemoteLevel remote : List.copyOf(live(dimension))) {
+                if (dimension.equals(currentDimension)) {
+                    destroyLive(dimension, remote);
+                    continue;
+                }
+                if (!remote.retained && remote.chunks.isEmpty()
+                    && gameTime() - remote.emptySinceGameTime > EMPTY_REGION_GRACE_TICKS) {
+                    destroyLive(dimension, remote);
+                    continue;
+                }
+                remote.level.setGameTime(mc.level.getGameTime());
+                remote.level.setDayTime(mc.level.getDayTime());
+                for (Entity entity : List.copyOf(remote.entities.values())) {
+                    try {
+                        entity.setOldPosAndRot();
+                        entity.tickCount++;
+                        entity.tick();
+                    } catch (RuntimeException e) {
+                        remote.level.removeEntity(entity.getId(), Entity.RemovalReason.DISCARDED);
+                        remote.entities.remove(entity.getId());
+                    }
                 }
             }
         }
@@ -504,12 +570,25 @@ public final class RemoteLevelManager {
     private static @Nullable RemoteLevel levelHolding(ResourceLocation dimension, Vec3 anchor) {
         int chunkX = net.minecraft.util.Mth.floor(anchor.x) >> 4;
         int chunkZ = net.minecraft.util.Mth.floor(anchor.z) >> 4;
-        RemoteLevel live = LEVELS.get(dimension);
-        if (holds(live, chunkX, chunkZ)) {
-            return live;
+        RemoteLevel found = liveHolding(dimension, chunkX, chunkZ);
+        if (found != null) {
+            return found;
         }
-        RemoteLevel retiring = RETIRING.get(dimension);
-        return holds(retiring, chunkX, chunkZ) ? retiring : null;
+        for (RemoteLevel retiring : RETIRING.getOrDefault(dimension, List.of())) {
+            if (holds(retiring, chunkX, chunkZ)) {
+                return retiring;
+            }
+        }
+        return null;
+    }
+
+    private static @Nullable RemoteLevel liveHolding(ResourceLocation dimension, int chunkX, int chunkZ) {
+        for (RemoteLevel remote : live(dimension)) {
+            if (holds(remote, chunkX, chunkZ)) {
+                return remote;
+            }
+        }
+        return null;
     }
 
     private static boolean holds(@Nullable RemoteLevel remote, int chunkX, int chunkZ) {
@@ -525,14 +604,19 @@ public final class RemoteLevelManager {
         return remotePassActive;
     }
 
-    public static @Nullable ClientLevel remoteLevel(ResourceLocation dimension) {
-        RemoteLevel remote = LEVELS.get(dimension);
-        return remote != null ? remote.level : null;
+    public static @Nullable ClientLevel remoteLevel(ResourceLocation dimension, Vec3 anchor) {
+        RemoteLevel remote = liveHolding(dimension,
+            net.minecraft.util.Mth.floor(anchor.x) >> 4, net.minecraft.util.Mth.floor(anchor.z) >> 4);
+        return remote == null ? null : remote.level;
     }
 
     public static @Nullable ResourceLocation activeRemoteDimension() {
         return remotePassActive && activeRemote != null
             ? activeRemote.level.dimension().location() : null;
+    }
+
+    public static @Nullable ClientLevel activeRemoteClientLevel() {
+        return remotePassActive && activeRemote != null ? activeRemote.level : null;
     }
 
     public static boolean shouldSkipLoadingScreen() {
@@ -591,6 +675,7 @@ public final class RemoteLevelManager {
             ((LevelRendererAccessor) remote.renderer).hexwright$viewArea()
                 .repositionCamera(foldedCamera.x, foldedCamera.z);
         }
+        remote.lastDrawnGameTime = gameTime();
         savedMainLevel = mc.level;
         savedMainRenderer = mc.levelRenderer;
         mc.level = remote.level;
@@ -616,16 +701,13 @@ public final class RemoteLevelManager {
     }
 
 
-    private static void destroy(ResourceLocation dimension) {
-        RemoteLevel remote = LEVELS.remove(dimension);
-        if (remote == null) {
-            return;
-        }
+    private static void destroyLive(ResourceLocation dimension, RemoteLevel remote) {
+        detach(LEVELS, dimension, remote);
         destroyLevel(dimension, remote);
     }
 
     private static void destroyLevel(ResourceLocation dimension, RemoteLevel remote) {
-        if (!LEVELS.containsKey(dimension) && !RETIRING.containsKey(dimension)) {
+        if (!tracked(dimension)) {
             DEFERRED_FORGETS.remove(dimension);
         }
         for (Integer id : remote.entities.keySet()) {
@@ -640,20 +722,22 @@ public final class RemoteLevelManager {
     }
 
     private static void destroyEvery(ResourceLocation dimension) {
-        RemoteLevel retiring = RETIRING.remove(dimension);
-        if (retiring != null) {
+        for (RemoteLevel retiring : List.copyOf(RETIRING.getOrDefault(dimension, List.of()))) {
+            detach(RETIRING, dimension, retiring);
             destroyLevel(dimension, retiring);
         }
-        destroy(dimension);
+        for (RemoteLevel remote : List.copyOf(live(dimension))) {
+            destroyLive(dimension, remote);
+        }
     }
 
     public static void destroyAll() {
         DEFERRED_FORGETS.clear();
         for (ResourceLocation dimension : List.copyOf(RETIRING.keySet())) {
-            destroyLevel(dimension, RETIRING.remove(dimension));
+            destroyEvery(dimension);
         }
         for (ResourceLocation dimension : List.copyOf(LEVELS.keySet())) {
-            destroy(dimension);
+            destroyEvery(dimension);
         }
     }
 }

@@ -75,7 +75,7 @@ public final class RemotePhotonVisuals {
         }
     }
 
-    private static final Map<ResourceLocation, State> STATES = new HashMap<>();
+    private static final Map<ClientLevel, State> STATES = new java.util.IdentityHashMap<>();
 
     private RemotePhotonVisuals() {
     }
@@ -101,7 +101,7 @@ public final class RemotePhotonVisuals {
             return;
         }
 
-        Map<ResourceLocation, Set<Vec3>> anchors = new HashMap<>();
+        Map<ClientLevel, Set<Vec3>> anchors = new java.util.IdentityHashMap<>();
         for (ClientPortalManager.Entry entry : ClientPortalManager.entries()) {
             PortalPair pair = entry.pair();
             if (!pair.isCrossDimensional()) {
@@ -112,27 +112,27 @@ public final class RemotePhotonVisuals {
                 if (dim == null || ClientPortalManager.sideIsLocal(pair, side)) {
                     continue;
                 }
-                anchors.computeIfAbsent(dim.location(), key -> new HashSet<>())
-                    .add(pair.window(side).center());
+                Vec3 anchor = pair.window(side).center();
+                ClientLevel remote = RemoteLevelManager.remoteLevel(dim.location(), anchor);
+                if (remote == null) {
+                    continue;
+                }
+                anchors.computeIfAbsent(remote, key -> new HashSet<>()).add(anchor);
             }
         }
 
-        Iterator<Map.Entry<ResourceLocation, State>> states = STATES.entrySet().iterator();
+        Iterator<Map.Entry<ClientLevel, State>> states = STATES.entrySet().iterator();
         while (states.hasNext()) {
-            Map.Entry<ResourceLocation, State> entry = states.next();
-            if (!anchors.containsKey(entry.getKey())
-                || RemoteLevelManager.remoteLevel(entry.getKey()) != entry.getValue().fxLevel.remote) {
+            Map.Entry<ClientLevel, State> entry = states.next();
+            if (!anchors.containsKey(entry.getKey())) {
                 entry.getValue().destroyEffects();
                 states.remove();
             }
         }
 
-        for (Map.Entry<ResourceLocation, Set<Vec3>> viewed : anchors.entrySet()) {
-            ClientLevel remote = RemoteLevelManager.remoteLevel(viewed.getKey());
-            if (remote == null) {
-                continue;
-            }
-            State state = STATES.computeIfAbsent(viewed.getKey(), key -> new State(remote));
+        for (Map.Entry<ClientLevel, Set<Vec3>> viewed : anchors.entrySet()) {
+            ClientLevel remote = viewed.getKey();
+            State state = STATES.computeIfAbsent(remote, State::new);
             reconcile(state, remote, viewed.getValue());
             state.particles.tick();
         }
@@ -203,11 +203,11 @@ public final class RemotePhotonVisuals {
     }
 
     public static void render(PoseStack poseStack, Camera camera, float partialTick) {
-        ResourceLocation dimension = RemoteLevelManager.activeRemoteDimension();
-        if (dimension == null) {
+        ClientLevel remote = RemoteLevelManager.activeRemoteClientLevel();
+        if (remote == null) {
             return;
         }
-        State state = STATES.get(dimension);
+        State state = STATES.get(remote);
         if (state != null) {
             state.particles.render(poseStack, camera, partialTick);
         }

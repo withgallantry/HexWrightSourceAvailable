@@ -22,7 +22,7 @@ public final class FlightRunner {
     }
 
     public sealed interface FlightRunResult {
-        record Success(Vec3 acceleration, ListIota memory) implements FlightRunResult {
+        record Success(Vec3 acceleration, ListIota memory, boolean overspeed) implements FlightRunResult {
         }
 
         record Failed(Component riderMessage, boolean punishing) implements FlightRunResult {
@@ -54,23 +54,29 @@ public final class FlightRunner {
         }
 
         Iota top = stack.get(stack.size() - 1);
-        if (!(top instanceof ListIota outputList)) {
-            return failed("top_not_list");
-        }
-
-        List<Iota> outputElems = new ArrayList<>();
-        for (Iota entry : outputList.getList()) {
-            outputElems.add(entry);
-        }
-        if (outputElems.size() != 2) {
-            return failed("wrong_shape");
-        }
-
-        if (!(outputElems.get(0) instanceof Vec3Iota throttleIota)) {
-            return failed("command_not_vector");
-        }
-        if (!(outputElems.get(1) instanceof ListIota memoryIota)) {
-            return failed("memory_not_list");
+        Vec3Iota throttleIota;
+        ListIota memoryIota;
+        if (top instanceof Vec3Iota bareThrottle) {
+            throttleIota = bareThrottle;
+            memoryIota = new ListIota(List.of());
+        } else if (top instanceof ListIota outputList) {
+            List<Iota> outputElems = new ArrayList<>();
+            for (Iota entry : outputList.getList()) {
+                outputElems.add(entry);
+            }
+            if (outputElems.size() != 2) {
+                return failed("wrong_shape");
+            }
+            if (!(outputElems.get(0) instanceof Vec3Iota listedThrottle)) {
+                return failed("command_not_vector");
+            }
+            if (!(outputElems.get(1) instanceof ListIota listedMemory)) {
+                return failed("memory_not_list");
+            }
+            throttleIota = listedThrottle;
+            memoryIota = listedMemory;
+        } else {
+            return failed("bad_output");
         }
 
         if (memoryIota.size() > VehicleConfig.MEMORY_MAX_IOTAS
@@ -86,12 +92,10 @@ public final class FlightRunner {
 
         Vec3 currentVelocity = context.getVehicleVelocity();
         Vec3 resultingVelocity = currentVelocity.add(requestedAcceleration);
-        if (!isVelocityAcceptable(currentVelocity, resultingVelocity,
-            context.getMaxHorizontalSpeed(), context.getMaxVerticalSpeed())) {
-            return failed("speed_too_large");
-        }
+        boolean overspeed = !isVelocityAcceptable(currentVelocity, resultingVelocity,
+            context.getMaxHorizontalSpeed(), context.getMaxVerticalSpeed());
 
-        return new FlightRunResult.Success(requestedAcceleration, memoryIota);
+        return new FlightRunResult.Success(requestedAcceleration, memoryIota, overspeed);
     }
 
     private static boolean isVelocityAcceptable(Vec3 current, Vec3 result, double maxHorizontalSpeed, double maxVerticalSpeed) {

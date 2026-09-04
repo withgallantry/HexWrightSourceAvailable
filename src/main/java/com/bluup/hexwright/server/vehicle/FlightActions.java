@@ -4,6 +4,7 @@ import com.bluup.hexwright.server.hexpatterns.HexwrightConstMediaAction;
 import at.petrak.hexcasting.api.casting.ActionRegistryEntry;
 import at.petrak.hexcasting.api.casting.castables.ConstMediaAction;
 import at.petrak.hexcasting.api.casting.eval.CastingEnvironment;
+import at.petrak.hexcasting.api.casting.iota.DoubleIota;
 import at.petrak.hexcasting.api.casting.iota.EntityIota;
 import at.petrak.hexcasting.api.casting.iota.Iota;
 import at.petrak.hexcasting.api.casting.iota.ListIota;
@@ -11,7 +12,6 @@ import at.petrak.hexcasting.api.casting.iota.Vec3Iota;
 import at.petrak.hexcasting.api.casting.math.HexDir;
 import at.petrak.hexcasting.api.casting.math.HexPattern;
 import at.petrak.hexcasting.api.casting.mishaps.MishapBadCaster;
-import at.petrak.hexcasting.api.misc.MediaConstants;
 import at.petrak.hexcasting.xplat.IXplatAbstractions;
 import com.bluup.hexwright.Hexwright;
 import net.minecraft.core.Registry;
@@ -30,9 +30,13 @@ public final class FlightActions {
         Registry<ActionRegistryEntry> registry = IXplatAbstractions.INSTANCE.getActionRegistry();
 
         Registry.register(registry, Hexwright.id("conveyances_reflection"),
-            new ActionRegistryEntry(HexPattern.fromAngles("aqaewde", HexDir.SOUTH_WEST), CONVEYANCES_REFLECTION));
+            new ActionRegistryEntry(HexPattern.fromAngles("aqaeede", HexDir.SOUTH_WEST), CONVEYANCES_REFLECTION));
         Registry.register(registry, Hexwright.id("conveyance_entitys_reflection"),
             new ActionRegistryEntry(HexPattern.fromAngles("aqaewdeqaa", HexDir.SOUTH_WEST), CONVEYANCE_ENTITYS_REFLECTION));
+        Registry.register(registry, Hexwright.id("speedys_reflection"),
+            new ActionRegistryEntry(HexPattern.fromAngles("aqadd", HexDir.SOUTH_WEST), SPEEDYS_REFLECTION));
+        Registry.register(registry, Hexwright.id("locomotions_reflection"),
+            new ActionRegistryEntry(HexPattern.fromAngles("aqawa", HexDir.SOUTH_WEST), LOCOMOTIONS_REFLECTION));
         Registry.register(registry, Hexwright.id("debug_flight_reflection"),
             new ActionRegistryEntry(DEBUG_FLIGHT_HEX_PATTERN, DEBUG_FLIGHT_REFLECTION));
     }
@@ -52,13 +56,52 @@ public final class FlightActions {
 
         @Override
         public long getMediaCost() {
-            return MediaConstants.DUST_UNIT / 10;
+            return 0L;
         }
 
         @Override
         public List<Iota> execute(List<? extends Iota> args, CastingEnvironment env) {
             FlightCastingEnvironment flightEnv = requireFlightEnv(env);
             return List.of(flightEnv.getContext().toContextList());
+        }
+    };
+
+    private static final ConstMediaAction SPEEDYS_REFLECTION = new HexwrightConstMediaAction() {
+        @Override
+        public int getArgc() {
+            return 0;
+        }
+
+        @Override
+        public long getMediaCost() {
+            return 0L;
+        }
+
+        @Override
+        public List<Iota> execute(List<? extends Iota> args, CastingEnvironment env) {
+            FlightCastingEnvironment flightEnv = requireFlightEnv(env);
+            return List.of(flightEnv.getContext().toLimitsList());
+        }
+    };
+
+    private static final ConstMediaAction LOCOMOTIONS_REFLECTION = new HexwrightConstMediaAction() {
+        @Override
+        public int getArgc() {
+            return 0;
+        }
+
+        @Override
+        public long getMediaCost() {
+            return 0L;
+        }
+
+        @Override
+        public List<Iota> execute(List<? extends Iota> args, CastingEnvironment env) {
+            FlightExecutionContext context = requireFlightEnv(env).getContext();
+            return List.of(
+                new DoubleIota(context.getClimbSpeed()),
+                new DoubleIota(context.getGroundSpeed())
+            );
         }
     };
 
@@ -70,7 +113,7 @@ public final class FlightActions {
 
         @Override
         public long getMediaCost() {
-            return MediaConstants.DUST_UNIT / 10;
+            return 0L;
         }
 
         @Override

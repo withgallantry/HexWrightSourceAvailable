@@ -2,6 +2,7 @@ package com.bluup.hexwright.server.talisman;
 
 import com.bluup.hexwright.Hexwright;
 import com.bluup.hexwright.server.armour.GemArmourRecipe;
+import com.bluup.hexwright.server.crucible.EssencePouchMergeRecipe;
 import com.bluup.hexwright.server.vault.VaultKeyCopyRecipe;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -19,6 +20,9 @@ public final class HexwrightRecipes {
     public static final RecipeSerializer<VaultKeyCopyRecipe> VAULT_KEY_COPY =
         new SimpleCraftingRecipeSerializer<>(VaultKeyCopyRecipe::new);
 
+    public static final RecipeSerializer<EssencePouchMergeRecipe> ESSENCE_POUCH_MERGE =
+        new SimpleCraftingRecipeSerializer<>(EssencePouchMergeRecipe::new);
+
     private HexwrightRecipes() {
     }
 
@@ -29,5 +33,7 @@ public final class HexwrightRecipes {
             Hexwright.id("gem_armour"), GEM_ARMOUR);
         Registry.register(BuiltInRegistries.RECIPE_SERIALIZER,
             Hexwright.id("vault_key_copy"), VAULT_KEY_COPY);
+        Registry.register(BuiltInRegistries.RECIPE_SERIALIZER,
+            Hexwright.id("essence_pouch_merge"), ESSENCE_POUCH_MERGE);
     }
 }

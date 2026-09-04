@@ -92,22 +92,33 @@ public final class FlightExecutionContext {
         return maxAcceleration;
     }
 
-    public ListIota toContextList() {
-        List<Iota> limits = List.of(
+    public double getClimbSpeed() {
+        return vehicleVelocity.y;
+    }
+
+    public double getGroundSpeed() {
+        return Math.sqrt(vehicleVelocity.x * vehicleVelocity.x + vehicleVelocity.z * vehicleVelocity.z);
+    }
+
+    public ListIota toLimitsList() {
+        return new ListIota(List.of(
             new DoubleIota(maxHorizontalSpeed),
             new DoubleIota(maxVerticalSpeed),
             new DoubleIota(maxAcceleration)
-        );
+        ));
+    }
+
+    public ListIota toContextList() {
         List<Iota> values = List.of(
             new Vec3Iota(riderInput),
-            new Vec3Iota(vehiclePosition),
-            new Vec3Iota(vehicleVelocity),
             new Vec3Iota(riderForward),
             new Vec3Iota(riderRight),
+            new Vec3Iota(vehicleVelocity),
+            new DoubleIota(getClimbSpeed()),
+            new DoubleIota(getGroundSpeed()),
             new Vec3Iota(previousCommand),
-            persistentMemory,
-            new ListIota(limits),
-            new DoubleIota((double) internalMedia)
+            new DoubleIota((double) internalMedia),
+            persistentMemory
         );
         return new ListIota(values);
     }

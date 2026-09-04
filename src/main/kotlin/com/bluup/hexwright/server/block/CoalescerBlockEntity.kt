@@ -143,6 +143,8 @@ class CoalescerBlockEntity(
 
     private val items: NonNullList<ItemStack> = NonNullList.withSize(CONTAINER_SIZE, ItemStack.EMPTY)
 
+    private val pouchSlotView = SingleItemSlotView(this)
+
     private var requestedAmount = 1
 
     private var seedPrice: Map<IngredientCategory, Double> = emptyMap()
@@ -170,7 +172,8 @@ class CoalescerBlockEntity(
 
     override fun setItem(slot: Int, stack: ItemStack) {
         items[slot] = stack
-        if (stack.count > maxStackSize) stack.count = maxStackSize
+        val limit = if (slot == POUCH_SLOT) 1 else maxStackSize
+        if (stack.count > limit) stack.count = limit
         setChanged()
     }
 
@@ -682,7 +685,7 @@ class CoalescerBlockEntity(
         y: Int,
         private val swapGuideBackground: Boolean = false
     ) :
-        SlotWidget(this@CoalescerBlockEntity, POUCH_SLOT, x, y, true, true) {
+        SlotWidget(this@CoalescerBlockEntity.pouchSlotView, POUCH_SLOT, x, y, true, true) {
 
         private var pouchGuideShown = true
 
