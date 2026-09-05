@@ -17,6 +17,7 @@ import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.client.renderer.LevelRenderer;
+import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.chunk.ChunkRenderDispatcher;
 import net.minecraft.client.renderer.chunk.RenderRegionCache;
 import net.minecraft.client.renderer.culling.Frustum;
@@ -96,7 +97,15 @@ public final class PortalViewRenderer {
 
     private static final class Target {
         TextureTarget target;
+        int diagnosticPasses;
+        final LightTexture lightmap = new LightTexture(Minecraft.getInstance().gameRenderer, Minecraft.getInstance());
+        long lastLightmapTick = Long.MIN_VALUE;
         long lastUsedFrame;
+
+        void destroy() {
+            target.destroyBuffers();
+            lightmap.close();
+        }
     }
 
     private static final Map<PassKey, Target> TARGETS = new HashMap<>();
@@ -108,7 +117,10 @@ public final class PortalViewRenderer {
 
 
     private static final boolean IRIS_VIEWS_ENABLED =
-        !"false".equals(System.getProperty("hexwright.portal.iris"));
+        "true".equals(System.getProperty("hexwright.portal.iris"));
+
+    private static final int MAX_IRIS_VIEWS = Math.max(1,
+        Integer.getInteger("hexwright.portal.iris.views", 1));
 
     private static final boolean VIEWS_ENABLED =
         !"false".equals(System.getProperty("hexwright.portal.views"));
@@ -118,6 +130,9 @@ public final class PortalViewRenderer {
 
     private static final boolean SCISSOR_ENABLED =
         !"false".equals(System.getProperty("hexwright.portal.scissor"));
+
+    private static final boolean CLIP_ENABLED =
+        !"false".equals(System.getProperty("hexwright.portal.clip"));
 
     private static final boolean FRESH_FILL_ENABLED =
         !"false".equals(System.getProperty("hexwright.portal.freshfill"));
@@ -132,7 +147,8 @@ public final class PortalViewRenderer {
         "true".equals(System.getProperty("hexwright.portal.panebloom"));
 
     static {
-        if (DEBUG || !VIEWS_ENABLED || !CONE_ENABLED || !SCISSOR_ENABLED || !FRESH_FILL_ENABLED) {
+        if (DEBUG || !VIEWS_ENABLED || !CONE_ENABLED || !SCISSOR_ENABLED || !FRESH_FILL_ENABLED
+            || !CLIP_ENABLED) {
             com.bluup.hexwright.Hexwright.LOGGER.info(
                 "[portal-debug] toggles: views={} cone={} scissor={} freshfill={} debug={}",
                 VIEWS_ENABLED, CONE_ENABLED, SCISSOR_ENABLED, FRESH_FILL_ENABLED, DEBUG);
@@ -213,6 +229,8 @@ public final class PortalViewRenderer {
     private static @Nullable ViewKey activeDestinationPane;
     private static @Nullable PortalCone activeCone;
     private static @Nullable AABB arrivalBox;
+    private static double activeNearPlane = -1.0;
+
     private static boolean scissorActive;
     private static int scissorX;
     private static int scissorY;
@@ -232,6 +250,41 @@ public final class PortalViewRenderer {
             return configured;
         }
         return IRIS_VIEWS_ENABLED ? Math.min(configured, 1) : 0;
+    }
+
+    private static int maxViews() {
+        return IrisCompat.isShaderPackActive()
+            ? Math.min(MAX_VIEWS, MAX_IRIS_VIEWS)
+            : MAX_VIEWS;
+    }
+
+    public static double activeNearPlane() {
+        return passDepth > 0 ? activeNearPlane : -1.0;
+    }
+
+    private static @Nullable String refusalReason;
+
+    private static boolean refuse(int depth, String reason) {
+        if (depth == 0 && !reason.equals(refusalReason)) {
+            refusalReason = reason;
+            com.bluup.hexwright.Hexwright.LOGGER.info("[portal] no pane is being rendered: {}", reason);
+        }
+        return false;
+    }
+
+    private static void noteViewRendered() {
+        if (refusalReason != null) {
+            com.bluup.hexwright.Hexwright.LOGGER.info("[portal] panes are rendering again (was: {})", refusalReason);
+            refusalReason = null;
+        }
+    }
+
+    static int passDepthForLedger() {
+        return passDepth;
+    }
+
+    static boolean scissorActiveForLedger() {
+        return scissorActive;
     }
 
     public static boolean isRenderingView() {
@@ -267,7 +320,7 @@ public final class PortalViewRenderer {
     }
 
     public static @Nullable PortalCone activeCone() {
-        return activeCone;
+        return IrisCompat.isRenderingShadowPass() ? null : activeCone;
     }
 
     public static int viewTextureId(UUID pairId, int side) {
@@ -296,37 +349,48 @@ public final class PortalViewRenderer {
             expireStaleTargets();
         }
         if (depth >= maxDepth()) {
+            refuse(depth, "the Portal Views setting allows no pass at this depth");
             return;
         }
 
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null || mc.player == null) {
+            refuse(depth, "no level or player yet");
             return;
         }
         if (IrisCompat.isRenderingShadowPass()) {
+            refuse(depth, "the shader pack is filling its shadow map");
             return;
         }
         if (!VIEWS_ENABLED) {
+            refuse(depth, "-Dhexwright.portal.views=false");
             return;
         }
         if (Minecraft.useShaderTransparency() && !FABULOUS_VIEWS) {
+            refuse(depth, "Fabulous graphics, with -Dhexwright.portal.fabulous=false");
             return;
         }
         if (PortalShaders.shader() == null) {
+            refuse(depth, "the pane shader failed to load");
             return;
         }
         if (!resolveRenderChunkInfoCtor()) {
+            refuse(depth, "RenderChunkInfo's constructor could not be resolved");
             return;
         }
         if (passesThisFrame >= MAX_PASSES_PER_FRAME) {
+            refuse(depth, "the frame's whole pass budget was already spent");
             return;
         }
         if (RemoteLevelManager.isRemotePassActive()) {
+            refuse(depth, "a remote pass is still marked active - if this persists, one was never "
+                + "closed out and views cannot resume until the level is reloaded");
             return;
         }
 
         List<SelectedView> views = selectViews(mc, partialTick, depth);
         if (views.isEmpty()) {
+            refuse(depth, "no pane is close enough, big enough on screen, or ready to be drawn");
             return;
         }
         if (depth == 0) {
@@ -348,6 +412,8 @@ public final class PortalViewRenderer {
         GameRendererAccessor grAccess = (GameRendererAccessor) gameRenderer;
         boolean handWasRendered = grAccess.hexwright$getRenderHand();
 
+        PortalPassLedger.Reading before = depth == 0 ? PortalPassLedger.read() : null;
+
         for (SelectedView view : views) {
             if (depth == 0) {
                 pendingTopLevelPasses--;
@@ -355,69 +421,87 @@ public final class PortalViewRenderer {
             if (passesThisFrame >= MAX_PASSES_PER_FRAME) {
                 break;
             }
-            PassKey passKey = new PassKey(view.key(), parentPassKey);
-            Target holder = TARGETS.computeIfAbsent(passKey, key -> {
-                Target created = new Target();
-                created.target = new TextureTarget(parentTarget.width, parentTarget.height, true,
-                    Minecraft.ON_OSX);
-                created.target.setClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-                return created;
-            });
-            if (holder.target.width != parentTarget.width || holder.target.height != parentTarget.height) {
-                holder.target.resize(parentTarget.width, parentTarget.height, Minecraft.ON_OSX);
-            }
-            holder.lastUsedFrame = frame;
+            try (PortalRenderState ignored = new PortalRenderState()) {
+                PassKey passKey = new PassKey(view.key(), parentPassKey);
+                Target holder = TARGETS.computeIfAbsent(passKey, key -> {
+                    Target created = new Target();
+                    created.target = new TextureTarget(parentTarget.width, parentTarget.height, true,
+                        Minecraft.ON_OSX);
+                    created.target.setClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+                    return created;
+                });
+                if (holder.target.width != parentTarget.width || holder.target.height != parentTarget.height) {
+                    holder.target.resize(parentTarget.width, parentTarget.height, Minecraft.ON_OSX);
+                }
+                holder.lastUsedFrame = frame;
 
-            if (view.remoteDimension() != null) {
-                Entity viewEntity = mc.getCameraEntity() == null ? mc.player : mc.getCameraEntity();
-                Vec3 foldedEye = view.fold().apply(viewEntity.getEyePosition(partialTick));
-                if (!RemoteLevelManager.beginPass(view.remoteDimension(), foldedEye, view.remoteAnchor())) {
-                    continue;
+                try {
+                    if (view.remoteDimension() != null) {
+                        Entity viewEntity = mc.getCameraEntity() == null ? mc.player : mc.getCameraEntity();
+                        Vec3 foldedEye = view.fold().apply(viewEntity.getEyePosition(partialTick));
+                        if (!RemoteLevelManager.beginPass(view.remoteDimension(), foldedEye, view.remoteAnchor())) {
+                            continue;
+                        }
+                    }
+                    activeTransform = view.fold();
+                    activeClipWindow = view.fold().toWindow();
+                    activeDestinationPane = new ViewKey(view.key().pairId(), 1 - view.key().side());
+                    activePassKey = passKey;
+                    passDepth = depth + 1;
+                    passesThisFrame++;
+                    grAccess.hexwright$setRenderHand(false);
+                    grAccess.hexwright$setCamera(portalCamera(gameRenderer.getMainCamera()));
+                    grAccess.hexwright$setLightTexture(holder.lightmap);
+                    mcAccess.hexwright$setMainRenderTarget(holder.target);
+                    repointPhotonBloom(holder.target);
+                    IrisCompat.preparePortalWorld();
+                    if (holder.lastLightmapTick != mc.level.getGameTime()) {
+                        holder.lastLightmapTick = mc.level.getGameTime();
+                        holder.lightmap.tick();
+                    }
+                    markLightTextureDirty(gameRenderer);
+                    holder.target.clear(Minecraft.ON_OSX);
+                    holder.target.bindWrite(true);
+                    PortalPassTrace.probe("before renderLevel", holder.target, parentTarget);
+                    gameRenderer.renderLevel(partialTick, nanos, new PoseStack());
+                    PortalPassTrace.probe("after renderLevel", holder.target, parentTarget);
+                    PortalPassTrace.viewReadiness(passKey.toString(), ++holder.diagnosticPasses, holder.target);
+                    RENDERED_THIS_FRAME.add(passKey);
+                    if (depth == 0) noteViewRendered();
+                } finally {
+                    try {
+                        ((PortalLevelRendererState) mc.levelRenderer).hexwright$restorePortalState();
+                    } finally {
+                        endPortalPass();
+                        mcAccess.hexwright$setMainRenderTarget(parentTarget);
+                        grAccess.hexwright$setRenderHand(handWasRendered);
+                        passDepth = depth;
+                        activeTransform = parentFold;
+                        activeClipWindow = parentClipWindow;
+                        activeDestinationPane = parentDestinationPane;
+                        activePassKey = parentPassKey;
+                        activeCone = null;
+                        arrivalBox = null;
+                        RemoteLevelManager.endPass();
+                        repointPhotonBloom(parentTarget);
+                    }
                 }
             }
-            activeTransform = view.fold();
-            activeClipWindow = view.fold().toWindow();
-            activeDestinationPane = new ViewKey(view.key().pairId(), 1 - view.key().side());
-            activePassKey = passKey;
-            passDepth = depth + 1;
-            passesThisFrame++;
-            grAccess.hexwright$setRenderHand(false);
-            mcAccess.hexwright$setMainRenderTarget(holder.target);
-            repointPhotonBloom(holder.target);
-            markLightTextureDirty(gameRenderer);
-            try {
-                holder.target.clear(Minecraft.ON_OSX);
-                holder.target.bindWrite(true);
-                PortalPassTrace.probe("before renderLevel", holder.target, parentTarget);
-                IrisCompat.beginNestedWorldPass();
-                gameRenderer.renderLevel(partialTick, nanos, new PoseStack());
-                IrisCompat.endNestedWorldPass();
-                PortalPassTrace.probe("after renderLevel", holder.target, parentTarget);
-                RENDERED_THIS_FRAME.add(passKey);
-            } finally {
-                endPortalPass();
-                mcAccess.hexwright$setMainRenderTarget(parentTarget);
-                repointPhotonBloom(parentTarget);
-                grAccess.hexwright$setRenderHand(handWasRendered);
-                passDepth = depth;
-                activeTransform = parentFold;
-                activeClipWindow = parentClipWindow;
-                activeDestinationPane = parentDestinationPane;
-                activePassKey = parentPassKey;
-                activeCone = null;
-                arrivalBox = null;
-                RemoteLevelManager.endPass();
-            }
         }
 
-        markLightTextureDirty(gameRenderer);
-        parentTarget.bindWrite(true);
-        if (depth == 0) {
-            Entity cameraEntity = mc.getCameraEntity() == null ? mc.player : mc.getCameraEntity();
-            gameRenderer.getMainCamera().setup(mc.level, cameraEntity,
-                !mc.options.getCameraType().isFirstPerson(),
-                mc.options.getCameraType().isMirrored(), partialTick);
+        if (before != null) {
+            PortalPassLedger.verify(before);
         }
+
+    }
+
+    private static Camera portalCamera(Camera source) {
+        Camera camera = new Camera();
+        var original = (com.bluup.hexwright.mixin.CameraAccessor) source;
+        var copy = (com.bluup.hexwright.mixin.CameraAccessor) camera;
+        copy.hexwright$setEyeHeight(original.hexwright$getEyeHeight());
+        copy.hexwright$setOldEyeHeight(original.hexwright$getOldEyeHeight());
+        return camera;
     }
 
     private static void markLightTextureDirty(GameRenderer gameRenderer) {
@@ -493,7 +577,8 @@ public final class PortalViewRenderer {
                 var destDimension = pair.dimensionOr(1 - side, currentDimension);
                 boolean remote = !destDimension.equals(currentDimension);
                 Vec3 destCenter = pair.window(1 - side).center();
-                if (remote && (nested || !RemoteLevelManager.isReady(destDimension, destCenter))) {
+                if (remote && (nested
+                    || !RemoteLevelManager.isReady(destDimension, destCenter))) {
                     continue;
                 }
                 PortalFold fold = parentFold == null || !nested
@@ -506,7 +591,7 @@ public final class PortalViewRenderer {
         }
         candidates.sort((a, b) -> Double.compare(sortDepth(a, nested), sortDepth(b, nested)));
         int spare = MAX_PASSES_PER_FRAME - passesThisFrame - (nested ? pendingTopLevelPasses : 0);
-        int limit = Math.min(nested ? MAX_NESTED_VIEWS : MAX_VIEWS, spare);
+        int limit = Math.min(nested ? MAX_NESTED_VIEWS : maxViews(), spare);
         return candidates.size() > limit ? candidates.subList(0, Math.max(limit, 0)) : candidates;
     }
 
@@ -524,6 +609,7 @@ public final class PortalViewRenderer {
         }
         Camera camera = Minecraft.getInstance().gameRenderer.getMainCamera();
         Vec3 eye = camera.getPosition();
+        activeNearPlane = -1.0;
         activeCone = CONE_ENABLED ? PortalCone.of(eye, activeClipWindow, farCullDistance(eye)) : null;
         arrivalBox = arrivalPrebuildBox(eye, activeClipWindow);
         applyScissor(camera, projection);
@@ -604,6 +690,7 @@ public final class PortalViewRenderer {
     private static int bloomProbesLogged;
 
     public static void endPortalPass() {
+        activeNearPlane = -1.0;
         if (scissorActive) {
             RenderSystem.disableScissor();
             scissorActive = false;
@@ -640,6 +727,9 @@ public final class PortalViewRenderer {
 
     private static void applyScissor(Camera camera, Matrix4f projection) {
         if (!SCISSOR_ENABLED) {
+            return;
+        }
+        if (IrisCompat.isShaderPackActive()) {
             return;
         }
         PortalWindow window = activeClipWindow;
@@ -702,14 +792,28 @@ public final class PortalViewRenderer {
         scissorActive = true;
     }
 
-    private static int clampToScreen(double value, int limit) {
-        if (!(value > 0.0)) {
-            return 0;
+
+    public static Vector4f shaderClipPlane(Matrix4f modelView, Matrix4f projection) {
+        if (!CLIP_ENABLED || !isRenderingView() || IrisCompat.isRenderingShadowPass()
+            || activeClipWindow == null || modelView == null || projection == null) {
+            return new Vector4f(0, 0, 0, 1);
         }
-        return value >= limit ? limit : (int) value;
+        Vec3 eye = Minecraft.getInstance().gameRenderer.getMainCamera().getPosition();
+        double distance = activeClipWindow.signedDistance(eye);
+        Vec3 normal = activeClipWindow.normal().scale(distance >= 0 ? -1 : 1);
+        Vector4f plane = new Vector4f((float) normal.x, (float) normal.y, (float) normal.z,
+            (float) -Math.max(Math.abs(distance) - CLIP_BIAS, MIN_CLIP_DEPTH));
+        return new Matrix4f(projection).mul(modelView).invert().transpose().transform(plane);
+    }
+
+    private static int clampToScreen(double coordinate, int extent) {
+        return (int) Math.max(0.0, Math.min(coordinate, extent));
     }
 
     private static Matrix4f applyPortalClip(Camera camera, Matrix4f projection) {
+        if (!CLIP_ENABLED) {
+            return projection;
+        }
         Vec3 camPos = camera.getPosition();
         PortalWindow window = activeClipWindow;
         if (window == null) {
@@ -720,6 +824,10 @@ public final class PortalViewRenderer {
         double sign = signedDist >= 0.0 ? 1.0 : -1.0;
         Vec3 m = window.normal().scale(-sign);
         double depth = Math.max(Math.abs(signedDist) - CLIP_BIAS, MIN_CLIP_DEPTH);
+
+        if (IrisCompat.isShaderPackActive()) {
+            return projection;
+        }
 
         Matrix3f viewRotation = new Matrix3f()
             .rotationX((float) Math.toRadians(camera.getXRot()))
@@ -1019,7 +1127,7 @@ public final class PortalViewRenderer {
         }
         TARGETS.entrySet().removeIf(mapping -> {
             if (mapping.getKey().mentionsDeadPair(live)) {
-                mapping.getValue().target.destroyBuffers();
+                mapping.getValue().destroy();
                 return true;
             }
             return false;
@@ -1028,7 +1136,7 @@ public final class PortalViewRenderer {
 
     public static void destroyAllTargets() {
         for (Target holder : TARGETS.values()) {
-            holder.target.destroyBuffers();
+            holder.destroy();
         }
         TARGETS.clear();
         RENDERED_THIS_FRAME.clear();
@@ -1038,7 +1146,7 @@ public final class PortalViewRenderer {
     private static void expireStaleTargets() {
         TARGETS.entrySet().removeIf(mapping -> {
             if (frame - mapping.getValue().lastUsedFrame > TARGET_TTL_FRAMES) {
-                mapping.getValue().target.destroyBuffers();
+                mapping.getValue().destroy();
                 return true;
             }
             return false;
@@ -1053,7 +1161,7 @@ public final class PortalViewRenderer {
             if (oldest == null) {
                 break;
             }
-            oldest.getValue().target.destroyBuffers();
+            oldest.getValue().destroy();
             TARGETS.remove(oldest.getKey());
         }
     }

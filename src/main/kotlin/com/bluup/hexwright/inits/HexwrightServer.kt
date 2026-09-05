@@ -51,6 +51,8 @@ object HexwrightServer : ModInitializer {
         com.bluup.hexwright.server.hexpatterns.HarmonicTransducerActions.register()
         com.bluup.hexwright.server.harmonic.HarmonicEvents.register()
         com.bluup.hexwright.server.hexpatterns.WardingBoxActions.register()
+        com.bluup.hexwright.server.hexpatterns.MediaGrantActions.register()
+        com.bluup.hexwright.server.media.MediaGrants.register()
         com.bluup.hexwright.server.hexpatterns.WielderActions.register()
         com.bluup.hexwright.server.armour.ArmourPowerActions.register()
         TalismanActions.register()
@@ -69,16 +71,7 @@ object HexwrightServer : ModInitializer {
         com.bluup.hexwright.server.weapon.SlamWindUp.register()
         com.bluup.hexwright.server.weapon.SoulHarvest.register()
         com.bluup.hexwright.server.vehicle.VehicleDebugCommand.register()
-        val fabricLoader = net.fabricmc.loader.api.FabricLoader.getInstance()
-        val trinketsIsReal = fabricLoader.getModContainer("trinkets")
-            .map { it.metadata.id == "trinkets" }
-            .orElse(false)
-        if (trinketsIsReal) {
-            com.bluup.hexwright.compat.trinkets.TrinketsCompat.register()
-        }
-        if (fabricLoader.isModLoaded("accessories")) {
-            com.bluup.hexwright.compat.accessories.AccessoriesCompat.register()
-        }
+        com.bluup.hexwright.compat.accessories.AccessoriesCompat.register()
         Hexwright.LOGGER.info("Hexwright server initializing.")
         HexwrightNetworking.registerServer()
         HexwrightItems.register()

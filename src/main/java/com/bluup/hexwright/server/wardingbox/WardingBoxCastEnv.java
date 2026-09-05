@@ -1,6 +1,7 @@
 package com.bluup.hexwright.server.wardingbox;
 
 import com.bluup.hexwright.server.hexpatterns.CastSounds;
+import com.bluup.hexwright.server.media.MediaGrantOwner;
 import at.petrak.hexcasting.api.casting.ParticleSpray;
 import at.petrak.hexcasting.api.casting.PatternShapeMatch;
 import at.petrak.hexcasting.api.casting.eval.CastResult;
@@ -28,7 +29,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Predicate;
 
-public class WardingBoxCastEnv extends CastingEnvironment implements AreaWard.Unsealed {
+public class WardingBoxCastEnv extends CastingEnvironment implements AreaWard.Unsealed, MediaGrantOwner {
 
     private final WardingBoxBlockEntity box;
 
@@ -83,6 +84,11 @@ public class WardingBoxCastEnv extends CastingEnvironment implements AreaWard.Un
     @Override
     public Vec3 mishapSprayPos() {
         return Vec3.atCenterOf(box.getBlockPos());
+    }
+
+    @Override
+    public net.minecraft.core.BlockPos hexwright$grantPos() {
+        return box.getBlockPos();
     }
 
     @Override

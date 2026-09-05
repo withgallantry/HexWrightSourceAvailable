@@ -68,6 +68,8 @@ public final class SceneSnapshot {
             return true;
         }
 
+        int prevRead = GL11.glGetInteger(GL30.GL_READ_FRAMEBUFFER_BINDING);
+        int prevDraw = GL11.glGetInteger(GL30.GL_DRAW_FRAMEBUFFER_BINDING);
         if (!sizeMatches) {
             if (snapshot == null) {
                 snapshot = new TextureTarget(main.width, main.height, true, Minecraft.ON_OSX);
@@ -78,8 +80,6 @@ public final class SceneSnapshot {
             snapshot.setFilterMode(GL11.GL_LINEAR);
         }
 
-        int prevRead = GL11.glGetInteger(GL30.GL_READ_FRAMEBUFFER_BINDING);
-        int prevDraw = GL11.glGetInteger(GL30.GL_DRAW_FRAMEBUFFER_BINDING);
         com.bluup.hexwright.client.portal.PortalViewRenderer.suspendScissor();
         GlStateManager._glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, main.frameBufferId);
         GlStateManager._glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, snapshot.frameBufferId);

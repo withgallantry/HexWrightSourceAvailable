@@ -340,6 +340,29 @@ public abstract class VehicleEntity extends Entity {
         );
     }
 
+    public boolean dismissRiders(boolean keepDeployed) {
+        if (this.level().isClientSide || this.isRemoved() || converting || this.getPassengers().isEmpty()) {
+            return false;
+        }
+        ServerPlayer pilot = getControllingRider();
+        if (!keepDeployed) {
+            return convertToItemAndDiscard(ConversionReason.PACKED_AWAY, pilot);
+        }
+
+        for (Entity passenger : new ArrayList<>(this.getPassengers())) {
+            passenger.stopRiding();
+        }
+
+        boolean noRoom = dismountedWithNoRoom;
+        dismountedRider = null;
+        dismountedToGround = false;
+        dismountedWithNoRoom = false;
+        if (noRoom) {
+            return convertToItemAndDiscard(ConversionReason.PACKED_AWAY, pilot);
+        }
+        return true;
+    }
+
 
     private boolean tryChargeFrom(ItemStack stack, ServerPlayer player) {
         ADMediaHolder holder = IXplatAbstractions.INSTANCE.findMediaHolder(stack);
@@ -524,7 +547,7 @@ public abstract class VehicleEntity extends Entity {
         if (flightProgramCooldown-- <= 0) {
             flightProgramCooldown = VehicleConfig.HEX_EXECUTION_INTERVAL_TICKS;
             runFlightProgram(rider);
-            if (this.isRemoved()) {
+            if (this.isRemoved() || getControllingPassenger() != rider) {
                 return;
             }
         }
@@ -725,6 +748,10 @@ public abstract class VehicleEntity extends Entity {
                 rider.sendSystemMessage(failed.riderMessage());
                 convertToItemAndDiscard(ConversionReason.MISHAP, null);
             }
+            return;
+        }
+
+        if (this.isRemoved() || getControllingPassenger() != rider) {
             return;
         }
 

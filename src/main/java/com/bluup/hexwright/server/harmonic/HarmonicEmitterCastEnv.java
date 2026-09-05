@@ -1,6 +1,7 @@
 package com.bluup.hexwright.server.harmonic;
 
 import com.bluup.hexwright.server.hexpatterns.CastSounds;
+import com.bluup.hexwright.server.media.MediaGrantOwner;
 import at.petrak.hexcasting.api.casting.ParticleSpray;
 import at.petrak.hexcasting.api.casting.PatternShapeMatch;
 import at.petrak.hexcasting.api.casting.eval.CastResult;
@@ -28,7 +29,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Predicate;
 
-public class HarmonicEmitterCastEnv extends CastingEnvironment {
+public class HarmonicEmitterCastEnv extends CastingEnvironment implements MediaGrantOwner {
 
     public static final double AMBIT = 4.0;
 
@@ -85,6 +86,11 @@ public class HarmonicEmitterCastEnv extends CastingEnvironment {
     @Override
     public Vec3 mishapSprayPos() {
         return Vec3.atCenterOf(emitter.getBlockPos());
+    }
+
+    @Override
+    public net.minecraft.core.BlockPos hexwright$grantPos() {
+        return emitter.getBlockPos();
     }
 
     @Override

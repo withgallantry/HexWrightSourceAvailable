@@ -118,6 +118,10 @@ regex = "{^_pattern_regex}"
 path = "{$_common.src}/main/java/com/bluup/hexwright/server/remnant/RemnantActions.java"
 regex = "{^_pattern_regex}"
 
+[[extra.hexcasting.pattern_stubs]]
+path = "{$_common.src}/main/java/com/bluup/hexwright/server/hexpatterns/VoidTearActions.java"
+regex = "{^_pattern_regex}"
+
 [template]
 icon = "icon.png"
 include = [

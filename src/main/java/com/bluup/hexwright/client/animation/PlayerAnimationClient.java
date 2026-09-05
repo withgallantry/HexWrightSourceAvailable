@@ -107,7 +107,7 @@ public final class PlayerAnimationClient {
                 sub.mirror.setEnabled(sub.player.getMainArm() == HumanoidArm.LEFT);
                 sub.speed.speed = clipSpeed(sub.player, clipName);
                 sub.replaceAnimationWithFade(
-                    AbstractFadeModifier.standardFadeIn(Math.max(copy.beginTick, MIN_FADE_IN_TICKS), Ease.INOUTSINE),
+                    AbstractFadeModifier.standardFadeIn(fadeInTicks(copy.beginTick, sub.speed.speed), Ease.INOUTSINE),
                     new KeyframeAnimationPlayer(copy.build(), 0)
                         .setFirstPersonConfiguration(twoHanded ? TWO_HANDED_FIRST_PERSON : ONE_HANDED_FIRST_PERSON)
                         .setFirstPersonMode(FirstPersonMode.THIRD_PERSON_MODEL));
@@ -130,6 +130,10 @@ public final class PlayerAnimationClient {
         } catch (Exception e) {
             Hexwright.LOGGER.error("Failed to play player animation '{}'", clipName, e);
         }
+    }
+
+    private static int fadeInTicks(float beginTick, float speed) {
+        return Math.max(Math.round(beginTick / speed), MIN_FADE_IN_TICKS);
     }
 
     private static float clipSpeed(AbstractClientPlayer player, String clipName) {

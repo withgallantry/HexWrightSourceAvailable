@@ -1,6 +1,7 @@
 package com.bluup.hexwright.server.vehicle;
 
 import com.bluup.hexwright.server.hexpatterns.CastSounds;
+import com.bluup.hexwright.server.media.MediaGrantOwner;
 import at.petrak.hexcasting.api.casting.ActionRegistryEntry;
 import at.petrak.hexcasting.api.casting.PatternShapeMatch;
 import at.petrak.hexcasting.api.casting.ParticleSpray;
@@ -33,7 +34,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Predicate;
 
-public final class FlightCastingEnvironment extends CastingEnvironment {
+public final class FlightCastingEnvironment extends CastingEnvironment implements MediaGrantOwner {
 
     private static final double FLIGHT_QUERY_RADIUS = 128.0;
 
@@ -53,6 +54,11 @@ public final class FlightCastingEnvironment extends CastingEnvironment {
         this.rider = rider;
         this.context = context;
         this.addExtension(new ReservoirComponent());
+    }
+
+    @Override
+    public net.minecraft.world.entity.Entity hexwright$grantEntity() {
+        return vehicle;
     }
 
     public FlightExecutionContext getContext() {

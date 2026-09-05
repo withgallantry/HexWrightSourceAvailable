@@ -116,7 +116,8 @@ loom {
 }
 
 dependencies {
-    modCompileOnly "dev.emi:trinkets:3.7.2"
+    modCompileOnly("maven.modrinth:iris:1.7.6+1.20.1") { transitive = false }
+    modCompileOnly("maven.modrinth:sodium:mc1.20.1-0.5.13-fabric") { transitive = false }
     modCompileOnly "maven.modrinth:accessories:${project.accessories_modrinth_version}"
 
     modCompileOnly "mezz.jei:jei-${project.minecraft_version}-fabric-api:${project.jei_version}"

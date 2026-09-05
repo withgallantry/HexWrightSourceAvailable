@@ -1,6 +1,7 @@
 package com.bluup.hexwright.mixin;
 
 import com.bluup.hexwright.client.portal.PortalViewRenderer;
+import com.bluup.hexwright.client.render.IrisCompat;
 import com.lowdragmc.photon.client.gameobject.emitter.PhotonParticleRenderType;
 import com.lowdragmc.photon.client.gameobject.emitter.data.RendererSetting;
 import com.mojang.blaze3d.pipeline.RenderTarget;
@@ -31,7 +32,7 @@ import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(LevelRenderer.class)
-public abstract class LevelRendererPortalMixin {
+public abstract class LevelRendererPortalMixin implements com.bluup.hexwright.client.portal.PortalLevelRendererState {
 
     @Shadow
     @Final
@@ -317,6 +318,7 @@ public abstract class LevelRendererPortalMixin {
         Matrix4f clipped = PortalViewRenderer.beginPortalPass(projection);
         if (clipped != projection) {
             RenderSystem.setProjectionMatrix(clipped, VertexSorting.DISTANCE_TO_ORIGIN);
+            IrisCompat.captureGbufferProjection(clipped);
         }
         return clipped;
     }
@@ -324,6 +326,11 @@ public abstract class LevelRendererPortalMixin {
     @Inject(method = "renderLevel", at = @At("RETURN"))
     private void hexwright$endPortalPass(CallbackInfo ci) {
         PortalViewRenderer.endPortalPass();
+        hexwright$restorePortalState();
+    }
+
+    @Override
+    public void hexwright$restorePortalState() {
         if (hexwright$mainSections != null) {
             hexwright$swapOutPortalState();
         }
@@ -333,7 +340,7 @@ public abstract class LevelRendererPortalMixin {
     private void hexwright$isolatedPortalVisibility(Camera camera, Frustum frustum,
                                                    boolean hasCapturedFrustum, boolean isSpectator,
                                                    CallbackInfo ci) {
-        if (!PortalViewRenderer.isRenderingView() || viewArea == null) {
+        if (!PortalViewRenderer.isRenderingView() || viewArea == null || IrisCompat.isRenderingShadowPass()) {
             return;
         }
         if (com.bluup.hexwright.client.portal.SodiumPortalCompat.isActive()) {

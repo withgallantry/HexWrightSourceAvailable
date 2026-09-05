@@ -103,6 +103,16 @@ public final class SodiumPortalCompat {
         return AVAILABLE;
     }
 
+    static int diagnosticVisibleChunks() {
+        if (!AVAILABLE) return -1;
+        try {
+            Object renderer = worldRendererInstance.invoke(null);
+            return renderer == null ? -1 : (int) visibleChunkCount.invoke(renderer);
+        } catch (ReflectiveOperationException | RuntimeException unavailable) {
+            return -1;
+        }
+    }
+
     public static Context newContext(int renderDistance) {
         if (!AVAILABLE) {
             return null;

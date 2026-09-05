@@ -4,6 +4,7 @@ import com.bluup.hexwright.server.hexpatterns.HexwrightConstMediaAction;
 import at.petrak.hexcasting.api.casting.ActionRegistryEntry;
 import at.petrak.hexcasting.api.casting.castables.ConstMediaAction;
 import at.petrak.hexcasting.api.casting.eval.CastingEnvironment;
+import at.petrak.hexcasting.api.casting.iota.BooleanIota;
 import at.petrak.hexcasting.api.casting.iota.DoubleIota;
 import at.petrak.hexcasting.api.casting.iota.EntityIota;
 import at.petrak.hexcasting.api.casting.iota.Iota;
@@ -12,6 +13,9 @@ import at.petrak.hexcasting.api.casting.iota.Vec3Iota;
 import at.petrak.hexcasting.api.casting.math.HexDir;
 import at.petrak.hexcasting.api.casting.math.HexPattern;
 import at.petrak.hexcasting.api.casting.mishaps.MishapBadCaster;
+import at.petrak.hexcasting.api.casting.mishaps.MishapInvalidIota;
+import at.petrak.hexcasting.api.casting.mishaps.MishapNotEnoughMedia;
+import at.petrak.hexcasting.api.misc.MediaConstants;
 import at.petrak.hexcasting.xplat.IXplatAbstractions;
 import com.bluup.hexwright.Hexwright;
 import net.minecraft.core.Registry;
@@ -23,6 +27,8 @@ public final class FlightActions {
 
     private FlightActions() {
     }
+
+    private static final long DISMISSAL_COST = MediaConstants.DUST_UNIT;
 
     public static final HexPattern DEBUG_FLIGHT_HEX_PATTERN = HexPattern.fromAngles("qqqaeqeeedq", HexDir.NORTH_WEST);
 
@@ -37,6 +43,8 @@ public final class FlightActions {
             new ActionRegistryEntry(HexPattern.fromAngles("aqadd", HexDir.SOUTH_WEST), SPEEDYS_REFLECTION));
         Registry.register(registry, Hexwright.id("locomotions_reflection"),
             new ActionRegistryEntry(HexPattern.fromAngles("aqawa", HexDir.SOUTH_WEST), LOCOMOTIONS_REFLECTION));
+        Registry.register(registry, Hexwright.id("vessels_dismissal"),
+            new ActionRegistryEntry(HexPattern.fromAngles("aqawqded", HexDir.SOUTH_WEST), VESSELS_DISMISSAL));
         Registry.register(registry, Hexwright.id("debug_flight_reflection"),
             new ActionRegistryEntry(DEBUG_FLIGHT_HEX_PATTERN, DEBUG_FLIGHT_REFLECTION));
     }
@@ -102,6 +110,35 @@ public final class FlightActions {
                 new DoubleIota(context.getClimbSpeed()),
                 new DoubleIota(context.getGroundSpeed())
             );
+        }
+    };
+
+    private static final ConstMediaAction VESSELS_DISMISSAL = new HexwrightConstMediaAction() {
+        @Override
+        public int getArgc() {
+            return 1;
+        }
+
+        @Override
+        public long getMediaCost() {
+            return 0L;
+        }
+
+        @Override
+        public List<Iota> execute(List<? extends Iota> args, CastingEnvironment env) {
+            FlightCastingEnvironment flightEnv = requireFlightEnv(env);
+            Iota raw = args.get(0);
+            if (!(raw instanceof BooleanIota keepDeployed)) {
+                throw MishapInvalidIota.ofType(raw, 0, "hexwright.vessels_dismissal");
+            }
+
+            if (env.extractMedia(DISMISSAL_COST, true) > 0) {
+                throw new MishapNotEnoughMedia(DISMISSAL_COST);
+            }
+            env.extractMedia(DISMISSAL_COST, false);
+
+            flightEnv.getVehicle().dismissRiders(keepDeployed.getBool());
+            return List.of();
         }
     };
 

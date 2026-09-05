@@ -28,6 +28,8 @@ public class BattleAxeItem extends BerserkWeaponItem {
 
     private static final int HACK_IMPACT_TICKS = 9;
 
+    private static final float HACK_CLIP_SPEED = 1.8F;
+
     protected static final WeaponSlash CLEAVE_SLASH =
         new WeaponSlash("left", 0.7f, 0.0f, 0.25f, 6, 10, SlashStyle.PALE);
 
@@ -89,6 +91,12 @@ public class BattleAxeItem extends BerserkWeaponItem {
     }
 
     @Override
+    public float clipSpeed(Player player, String clip) {
+        return HACK_CLIP.equals(clip) || SPRINT_HACK_CLIP.equals(clip)
+            ? HACK_CLIP_SPEED : 1.0F;
+    }
+
+    @Override
     @Nullable
     public SoundEvent strikeSound() {
         return SoundEvents.PLAYER_ATTACK_SWEEP;
@@ -101,7 +109,7 @@ public class BattleAxeItem extends BerserkWeaponItem {
 
     @Override
     public int strikeHitDelayTicks() {
-        return HACK_IMPACT_TICKS;
+        return 0;
     }
 
     @Override

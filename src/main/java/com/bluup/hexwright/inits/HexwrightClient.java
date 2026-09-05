@@ -163,13 +163,7 @@ public final class HexwrightClient implements ClientModInitializer {
         com.bluup.hexwright.client.portal.DimensionLeakFixCompat.register();
         com.bluup.hexwright.client.portal.RemotePhotonVisuals.register();
 
-        net.fabricmc.loader.api.FabricLoader fabricLoader = net.fabricmc.loader.api.FabricLoader.getInstance();
-        if (fabricLoader.isModLoaded("trinkets") || fabricLoader.isModLoaded("tclayer")) {
-            com.bluup.hexwright.compat.trinkets.TrinketsClientCompat.register();
-        }
-        if (fabricLoader.isModLoaded("accessories")) {
-            com.bluup.hexwright.compat.accessories.AccessoriesClientCompat.register();
-        }
+        com.bluup.hexwright.compat.accessories.AccessoriesClientCompat.register();
 
         BlockRenderLayerMap.INSTANCE.putBlock(HexwrightBlocks.WORKTABLE_BLOCK, RenderType.cutout());
         BlockRenderLayerMap.INSTANCE.putBlock(HexwrightBlocks.HEXID_TANK_BLOCK, RenderType.cutout());
@@ -234,6 +228,7 @@ public final class HexwrightClient implements ClientModInitializer {
         EntityRendererRegistry.register(com.bluup.hexwright.server.boss.HexwrightBossEntities.RIFT_CHUNK,
             com.bluup.hexwright.client.boss.storm.RiftChunkRenderer::new);
         com.bluup.hexwright.client.boss.storm.StormLightning.register();
+        com.bluup.hexwright.client.boss.ancient.GolemZones.register();
         com.bluup.hexwright.client.vehicle.CarpetTailModels.registerModels();
 
         registerCustomLdlibWidgets();

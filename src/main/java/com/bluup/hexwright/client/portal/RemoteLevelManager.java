@@ -37,6 +37,7 @@ import net.minecraft.world.level.LightLayer;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.chunk.DataLayer;
+import net.minecraft.world.level.chunk.ChunkStatus;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.chunk.LevelChunkSection;
 import net.minecraft.world.level.dimension.DimensionType;
@@ -541,7 +542,7 @@ public final class RemoteLevelManager {
                     destroyLive(dimension, remote);
                     continue;
                 }
-                if (!remote.retained && remote.chunks.isEmpty()
+                if (!remote.retained && remote.chunks.isEmpty() && live(dimension).size() > 1
                     && gameTime() - remote.emptySinceGameTime > EMPTY_REGION_GRACE_TICKS) {
                     destroyLive(dimension, remote);
                     continue;
@@ -596,12 +597,27 @@ public final class RemoteLevelManager {
             return false;
         }
         return remote.retained
-            ? remote.level.hasChunk(chunkX, chunkZ)
+            ? remote.level.getChunkSource().getChunk(chunkX, chunkZ, ChunkStatus.FULL, false) != null
             : remote.chunks.contains(ChunkPos.asLong(chunkX, chunkZ));
     }
 
     public static boolean isRemotePassActive() {
         return remotePassActive;
+    }
+
+    static String describeActiveRegion(Vec3 anchor) {
+        RemoteLevel remote = activeRemote;
+        if (remote == null || anchor == null) return "local";
+        int x = net.minecraft.util.Mth.floor(anchor.x) >> 4;
+        int z = net.minecraft.util.Mth.floor(anchor.z) >> 4;
+        int neighbours = 0;
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dz = -1; dz <= 1; dz++) {
+                if (holds(remote, x + dx, z + dz)) neighbours++;
+            }
+        }
+        return "retained=" + remote.retained + ", chunks=" + remote.chunks.size()
+            + ", seed=" + x + "," + z + ", neighbourhood=" + neighbours + "/9";
     }
 
     public static @Nullable ClientLevel remoteLevel(ResourceLocation dimension, Vec3 anchor) {

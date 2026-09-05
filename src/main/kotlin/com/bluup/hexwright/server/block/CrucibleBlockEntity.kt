@@ -136,8 +136,14 @@ class CrucibleBlockEntity(
     }
 
     private val processSlots = intArrayOf(ITEM_SLOT, FUEL_SLOT)
+    private val slotsForUp = intArrayOf(ITEM_SLOT)
+    private val slotsForSides = intArrayOf(FUEL_SLOT)
 
-    override fun getSlotsForFace(side: Direction): IntArray = processSlots
+    override fun getSlotsForFace(side: Direction): IntArray = when (side) {
+        Direction.UP -> slotsForUp
+        Direction.DOWN -> processSlots
+        else -> slotsForSides
+    }
 
     override fun canPlaceItemThroughFace(slot: Int, stack: ItemStack, side: Direction?): Boolean =
         slot in processSlots && canPlaceItem(slot, stack)

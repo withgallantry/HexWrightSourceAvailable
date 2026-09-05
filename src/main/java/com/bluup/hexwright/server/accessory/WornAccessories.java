@@ -20,50 +20,36 @@ public final class WornAccessories {
         void setBonusSlots(LivingEntity entity, String slot, UUID id, int bonus);
     }
 
-    private static final List<Provider> PROVIDERS = new ArrayList<>();
-    private static final List<SlotHandler> SLOT_HANDLERS = new ArrayList<>();
+    private static Provider provider;
+    private static SlotHandler slotHandler;
 
     private WornAccessories() {
     }
 
-    public static void register(Provider provider) {
-        PROVIDERS.add(provider);
+    public static void register(Provider bridge) {
+        provider = bridge;
     }
 
-    public static void register(SlotHandler handler) {
-        SLOT_HANDLERS.add(handler);
+    public static void register(SlotHandler bridge) {
+        slotHandler = bridge;
     }
 
     public static List<ItemStack> slotContents(LivingEntity entity, String slot) {
-        if (SLOT_HANDLERS.isEmpty()) {
-            return List.of();
-        }
-        List<ItemStack> contents = new ArrayList<>();
-        for (SlotHandler handler : SLOT_HANDLERS) {
-            contents.addAll(handler.contents(entity, slot));
-        }
-        return contents;
+        return slotHandler == null ? List.of() : slotHandler.contents(entity, slot);
     }
 
     public static void setBonusSlots(LivingEntity entity, String slot, UUID id, int bonus) {
-        for (SlotHandler handler : SLOT_HANDLERS) {
-            handler.setBonusSlots(entity, slot, id, bonus);
+        if (slotHandler != null) {
+            slotHandler.setBonusSlots(entity, slot, id, bonus);
         }
     }
 
     public static boolean hasProvider() {
-        return !PROVIDERS.isEmpty();
+        return provider != null;
     }
 
     public static List<ItemStack> allWorn(LivingEntity entity) {
-        if (PROVIDERS.isEmpty()) {
-            return List.of();
-        }
-        List<ItemStack> worn = new ArrayList<>();
-        for (Provider provider : PROVIDERS) {
-            worn.addAll(provider.getWorn(entity));
-        }
-        return worn;
+        return provider == null ? List.of() : new ArrayList<>(provider.getWorn(entity));
     }
 
     public static boolean isWearing(LivingEntity entity, Item item) {
