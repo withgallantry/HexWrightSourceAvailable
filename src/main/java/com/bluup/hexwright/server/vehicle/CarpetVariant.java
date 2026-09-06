@@ -9,37 +9,16 @@ import java.util.Locale;
 
 public enum CarpetVariant {
 
-    PURPLE("purple", null, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
-    RED("red", PocketCasterData.Quality.FINE, 0.07, 0.07, 0.03, 0.03, 0.006, 0.006),
-    TEAL("teal", PocketCasterData.Quality.EXQUISITE, 0.14, 0.10, 0.06, 0.04, 0.012, 0.009);
+    PURPLE("purple", null),
+    RED("red", PocketCasterData.Quality.FINE),
+    TEAL("teal", PocketCasterData.Quality.EXQUISITE);
 
     private final String id;
     private final @Nullable PocketCasterData.Quality requiredMastery;
-    private final double horizontalBonus;
-    private final double horizontalGradeBonus;
-    private final double verticalBonus;
-    private final double verticalGradeBonus;
-    private final double accelerationBonus;
-    private final double accelerationGradeBonus;
 
-    CarpetVariant(
-        String id,
-        @Nullable PocketCasterData.Quality requiredMastery,
-        double horizontalBonus,
-        double horizontalGradeBonus,
-        double verticalBonus,
-        double verticalGradeBonus,
-        double accelerationBonus,
-        double accelerationGradeBonus
-    ) {
+    CarpetVariant(String id, @Nullable PocketCasterData.Quality requiredMastery) {
         this.id = id;
         this.requiredMastery = requiredMastery;
-        this.horizontalBonus = horizontalBonus;
-        this.horizontalGradeBonus = horizontalGradeBonus;
-        this.verticalBonus = verticalBonus;
-        this.verticalGradeBonus = verticalGradeBonus;
-        this.accelerationBonus = accelerationBonus;
-        this.accelerationGradeBonus = accelerationGradeBonus;
     }
 
     public String id() {
@@ -58,23 +37,20 @@ public enum CarpetVariant {
         return ordinal() / (float) (values().length - 1);
     }
 
-    public double maxHorizontalSpeed(PocketCasterData.Quality quality) {
+
+    public static double maxHorizontalSpeed(PocketCasterData.Quality quality) {
         return VehicleConfig.CARPET_MAX_HORIZONTAL_SPEED
-            + horizontalBonus + horizontalGradeBonus * VehicleData.gradeFraction(quality);
+            + VehicleConfig.CARPET_HORIZONTAL_SPEED_GRADE_BONUS * VehicleData.gradeFraction(quality);
     }
 
-    public double maxVerticalSpeed(PocketCasterData.Quality quality) {
+    public static double maxVerticalSpeed(PocketCasterData.Quality quality) {
         return VehicleConfig.CARPET_MAX_VERTICAL_SPEED
-            + verticalBonus + verticalGradeBonus * VehicleData.gradeFraction(quality);
+            + VehicleConfig.CARPET_VERTICAL_SPEED_GRADE_BONUS * VehicleData.gradeFraction(quality);
     }
 
-    public double maxAcceleration(PocketCasterData.Quality quality) {
+    public static double maxAcceleration(PocketCasterData.Quality quality) {
         return VehicleConfig.CARPET_MAX_ACCELERATION
-            + accelerationBonus + accelerationGradeBonus * VehicleData.gradeFraction(quality);
-    }
-
-    public double horizontalSpeedBonus(PocketCasterData.Quality quality) {
-        return maxHorizontalSpeed(quality) - VehicleConfig.CARPET_MAX_HORIZONTAL_SPEED;
+            + VehicleConfig.CARPET_ACCELERATION_GRADE_BONUS * VehicleData.gradeFraction(quality);
     }
 
     public static CarpetVariant byId(String id) {

@@ -82,8 +82,12 @@ public class HexidTankBlockEntity extends BlockEntity {
         return isRemnantStore() || !holdsFluid();
     }
 
+    public boolean canAcceptRemnants(RemnantType type) {
+        return canAcceptRemnants() && (remnants.isEmpty() || remnants.has(type));
+    }
+
     public double addRemnant(@Nullable Remnant remnant) {
-        if (remnant == null || remnant.isEmpty() || !canAcceptRemnants()) {
+        if (remnant == null || remnant.isEmpty() || !canAcceptRemnants(remnant.type())) {
             return 0.0;
         }
         double room = remnantHeadroom();
@@ -106,6 +110,31 @@ public class HexidTankBlockEntity extends BlockEntity {
             return 0.0;
         }
         storeRemnants(remnants.minus(type, taken));
+        return taken;
+    }
+
+    public double pourMixture(TankRemnants blend) {
+        if (blend.isEmpty() || holdsFluid()) {
+            return 0.0;
+        }
+        TankRemnants fits = blend.cappedTo(remnantHeadroom());
+        if (fits.isEmpty()) {
+            return 0.0;
+        }
+        storeRemnants(remnants.plusAll(fits));
+        return fits.total();
+    }
+
+    public TankRemnants drawMixture(double drams) {
+        double total = remnants.total();
+        if (total <= 0.0 || drams < TankRemnants.MIN_DRAMS) {
+            return TankRemnants.EMPTY;
+        }
+        TankRemnants taken = drams >= total ? remnants : remnants.portion(drams / total);
+        if (taken.isEmpty()) {
+            return TankRemnants.EMPTY;
+        }
+        storeRemnants(remnants.minusAll(taken));
         return taken;
     }
 

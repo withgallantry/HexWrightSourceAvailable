@@ -243,6 +243,14 @@ public class HexidTankBlock extends Block implements EntityBlock {
             say(player, "hexwright.hexid_tank.not_empty");
             return false;
         }
+        if (!tank.canAcceptRemnants(contents.type())) {
+            if (tank.remnants().kinds() > 1) {
+                say(player, "hexwright.hexid_tank.holds_mixture");
+            } else {
+                say(player, "hexwright.hexid_tank.wrong_remnant", tank.remnants().largest().label());
+            }
+            return false;
+        }
         double poured = tank.addRemnant(contents);
         if (poured <= 0.0) {
             say(player, "hexwright.hexid_tank.remnants_full");

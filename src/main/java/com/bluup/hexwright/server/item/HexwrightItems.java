@@ -65,6 +65,22 @@ public final class HexwrightItems {
         new com.bluup.hexwright.server.network.ResonantRingItem(new Item.Properties().stacksTo(1).rarity(Rarity.RARE))
     );
 
+    public static final Item RING_OF_NEGATION = Registry.register(
+        BuiltInRegistries.ITEM,
+        Hexwright.id("ring_of_negation"),
+        new com.bluup.hexwright.server.combat.RingOfNegationItem(
+            com.bluup.hexwright.server.combat.RingOfNegationItem.Kind.NEGATION,
+            new Item.Properties().stacksTo(1).rarity(Rarity.RARE))
+    );
+
+    public static final Item RING_OF_REPRISAL = Registry.register(
+        BuiltInRegistries.ITEM,
+        Hexwright.id("ring_of_reprisal"),
+        new com.bluup.hexwright.server.combat.RingOfNegationItem(
+            com.bluup.hexwright.server.combat.RingOfNegationItem.Kind.REPRISAL,
+            new Item.Properties().stacksTo(1).rarity(Rarity.EPIC))
+    );
+
     public static final Item RELIQUARY_SEAL = Registry.register(
         BuiltInRegistries.ITEM,
         Hexwright.id("reliquary_seal"),
@@ -322,6 +338,8 @@ public final class HexwrightItems {
             entries.accept(CRYSTALITE_NUGGET);
             entries.accept(RESONANT_KEY);
             entries.accept(RESONANT_RING);
+            entries.accept(RING_OF_NEGATION);
+            entries.accept(RING_OF_REPRISAL);
             entries.accept(RELIQUARY_SEAL);
             entries.accept(SEALED_SATCHEL);
             entries.accept(ARTISAN_SIGNET);

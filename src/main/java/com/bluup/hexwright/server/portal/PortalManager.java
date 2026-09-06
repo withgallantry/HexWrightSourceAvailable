@@ -100,6 +100,35 @@ public final class PortalManager extends SavedData {
         landingFreeze.put(uuid, new LandingPin(pos, LANDING_FREEZE_TICKS));
     }
 
+    private static final int ARRIVAL_TRACE_TICKS = 60;
+    private final Map<UUID, Integer> arrivalTrace = new HashMap<>();
+
+    private void beginArrivalTrace(UUID uuid) {
+        arrivalTrace.put(uuid, ARRIVAL_TRACE_TICKS);
+    }
+
+    private void traceArrivals(ServerLevel level) {
+        if (arrivalTrace.isEmpty()) {
+            return;
+        }
+        var iterator = arrivalTrace.entrySet().iterator();
+        while (iterator.hasNext()) {
+            var entry = iterator.next();
+            int left = entry.getValue();
+            Entity entity = level.getEntity(entry.getKey());
+            if (entity == null || left <= 0) {
+                iterator.remove();
+                continue;
+            }
+            entry.setValue(left - 1);
+            Hexwright.LOGGER.info("[arrival server {}] t={} y={} vy={} onGround={} pinned={}",
+                level.dimension().location(), ARRIVAL_TRACE_TICKS - left,
+                String.format("%.4f", entity.getY()),
+                String.format("%+.4f", entity.getDeltaMovement().y),
+                entity.onGround(), landingFreeze.containsKey(entry.getKey()));
+        }
+    }
+
     public static PortalManager get(ServerLevel level) {
         return level.getDataStorage().computeIfAbsent(PortalManager::load, PortalManager::new, STORAGE_ID);
     }
@@ -250,6 +279,7 @@ public final class PortalManager extends SavedData {
 
 
     private void tick(ServerLevel level) {
+        traceArrivals(level);
         if (!landingFreeze.isEmpty()) {
             var iterator = landingFreeze.entrySet().iterator();
             while (iterator.hasNext()) {
@@ -477,10 +507,15 @@ public final class PortalManager extends SavedData {
     private static void applyCrossDimensionalTeleport(ServerLevel destLevel, Entity entity,
                                                       Vec3 newPos, Vec3 newVel, float newYaw, float headDelta) {
         if (entity instanceof ServerPlayer player) {
+            double sourceY = player.getY();
             player.teleportTo(destLevel, newPos.x, newPos.y, newPos.z, newYaw, player.getXRot());
             player.setDeltaMovement(newVel);
             player.connection.send(new ClientboundSetEntityMotionPacket(player.getId(), newVel));
             get(destLevel).beginLandingFreeze(player.getUUID(), newPos);
+            get(destLevel).beginArrivalTrace(player.getUUID());
+            Hexwright.LOGGER.info("[arrival server] {} exits to {} at y={} (feet), from y={}",
+                player.getGameProfile().getName(), destLevel.dimension().location(),
+                String.format("%.4f", newPos.y), String.format("%.4f", entity.getY()));
             return;
         }
         UUID uuid = entity.getUUID();

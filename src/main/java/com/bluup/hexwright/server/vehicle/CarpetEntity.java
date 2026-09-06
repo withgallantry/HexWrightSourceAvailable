@@ -62,17 +62,17 @@ public class CarpetEntity extends VehicleEntity {
 
     @Override
     public double getMaxHorizontalSpeed() {
-        return variant().maxHorizontalSpeed(getQuality());
+        return CarpetVariant.maxHorizontalSpeed(getQuality());
     }
 
     @Override
     public double getMaxVerticalSpeed() {
-        return variant().maxVerticalSpeed(getQuality());
+        return CarpetVariant.maxVerticalSpeed(getQuality());
     }
 
     @Override
     public double getMaxAcceleration() {
-        return variant().maxAcceleration(getQuality());
+        return CarpetVariant.maxAcceleration(getQuality());
     }
 
     @Override

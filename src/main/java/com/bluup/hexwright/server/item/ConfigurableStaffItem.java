@@ -1,5 +1,11 @@
 package com.bluup.hexwright.server.item;
 
+import at.petrak.hexcasting.api.casting.iota.Iota;
+import at.petrak.hexcasting.api.casting.iota.IotaType;
+import at.petrak.hexcasting.api.casting.iota.ListIota;
+import at.petrak.hexcasting.api.casting.iota.PatternIota;
+import at.petrak.hexcasting.api.casting.math.HexPattern;
+import at.petrak.hexcasting.api.item.IotaHolderItem;
 import com.bluup.hexwright.common.staff_assembly.StaffPart;
 import com.bluup.hexwright.common.staff_assembly.StaffPartCategory;
 import com.bluup.hexwright.common.staff_assembly.StaffParts;
@@ -8,12 +14,14 @@ import com.bluup.hexwright.common.staff_assembly.calc.CoreRegistry;
 import com.bluup.hexwright.common.staff_assembly.calc.EfficiencyRating;
 import com.bluup.hexwright.server.hexicon.HexiconData;
 import com.bluup.hexwright.server.pocketcaster.PocketCasterData;
+import com.bluup.hexwright.server.reliquary.ChestCastEnv;
 import com.bluup.hexwright.server.staff_assembly.StaffAssemblyData;
 import com.bluup.hexwright.server.staff_assembly.StaffCoreData;
 import com.bluup.hexwright.server.staff_assembly.StaffCoreItem;
 import com.bluup.hexwright.server.staff_assembly.StaffGreatSpellData;
 import com.bluup.hexwright.server.staff_assembly.StaffPowers;
 import net.minecraft.ChatFormatting;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.Entity;
@@ -25,9 +33,52 @@ import org.jetbrains.annotations.Nullable;
 import java.util.List;
 import java.util.Optional;
 
-public class ConfigurableStaffItem extends ItemHexwrightStaff {
+public class ConfigurableStaffItem extends ItemHexwrightStaff implements IotaHolderItem {
     public ConfigurableStaffItem(Properties properties) {
         super(properties);
+    }
+
+
+    @Override
+    public @Nullable CompoundTag readIotaTag(ItemStack stack) {
+        if (StaffPowers.hasEntityListBindingCore(stack)) {
+            List<HexPattern> patterns = StaffAssemblyData.getAreaCastPatterns(stack);
+            if (patterns.isEmpty()) {
+                return null;
+            }
+            List<Iota> iotas = new java.util.ArrayList<>(patterns.size());
+            patterns.forEach(pattern -> iotas.add(new PatternIota(pattern)));
+            return IotaType.serialize(new ListIota(iotas));
+        }
+        if (StaffPowers.hasHexiconCore(stack)) {
+            return HexiconData.readSelectedSpellTag(stack);
+        }
+        return null;
+    }
+
+    @Override
+    public boolean writeable(ItemStack stack) {
+        return StaffPowers.hasEntityListBindingCore(stack) || StaffPowers.hasHexiconCore(stack);
+    }
+
+    @Override
+    public boolean canWrite(ItemStack stack, @Nullable Iota iota) {
+        if (StaffPowers.hasEntityListBindingCore(stack)) {
+            return iota == null || StaffPowers.patternsFromIota(iota) != null;
+        }
+        return StaffPowers.hasHexiconCore(stack) && !ChestCastEnv.isScratch(stack);
+    }
+
+    @Override
+    public void writeDatum(ItemStack stack, @Nullable Iota iota) {
+        if (StaffPowers.hasEntityListBindingCore(stack)) {
+            List<HexPattern> patterns = iota == null ? List.of() : StaffPowers.patternsFromIota(iota);
+            StaffAssemblyData.setAreaCastPatterns(stack, patterns == null ? List.of() : patterns);
+            return;
+        }
+        if (StaffPowers.hasHexiconCore(stack)) {
+            HexiconData.writeSelectedSpell(stack, iota);
+        }
     }
 
     @Override

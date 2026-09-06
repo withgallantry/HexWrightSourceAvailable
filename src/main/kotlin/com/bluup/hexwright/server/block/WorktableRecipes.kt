@@ -159,6 +159,13 @@ object WorktableRecipes {
         InfusionStep(IngredientCategory.CRYSTAL, 16.0, 34, 0.07f)
     )
 
+    val RING_OF_NEGATION_STEPS = listOf(
+        InfusionStep(IngredientCategory.ARCANE, 28.0, 62, 0.13f),
+        InfusionStep(IngredientCategory.CRYSTAL, 22.0, 52, 0.105f),
+        InfusionStep(IngredientCategory.METALLIC, 18.0, 44, 0.09f),
+        InfusionStep(IngredientCategory.PRESTIGE, 16.0, 34, 0.075f)
+    )
+
     val FIELD_MARKER_STEPS = listOf(
         InfusionStep(IngredientCategory.SPATIAL, 22.0, 60, 0.12f),
         InfusionStep(IngredientCategory.CRYSTAL, 18.0, 50, 0.10f),
@@ -449,6 +456,12 @@ object WorktableRecipes {
             requiredMastery = PocketCasterData.Quality.FINE,
             graded = false
         ) { ItemStack(HexwrightItems.RESONANT_RING) },
+        WorktableRecipe(
+            "item.hexwright.ring_of_negation",
+            RING_OF_NEGATION_STEPS,
+            requiredMastery = PocketCasterData.Quality.EXQUISITE,
+            graded = false
+        ) { ItemStack(HexwrightItems.RING_OF_NEGATION) },
         WorktableRecipe(
             "block.hexwright.field_marker",
             FIELD_MARKER_STEPS,

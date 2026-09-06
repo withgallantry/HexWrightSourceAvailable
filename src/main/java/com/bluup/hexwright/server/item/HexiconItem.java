@@ -1,8 +1,12 @@
 package com.bluup.hexwright.server.item;
 
+import at.petrak.hexcasting.api.casting.iota.Iota;
+import at.petrak.hexcasting.api.item.IotaHolderItem;
 import at.petrak.hexcasting.api.item.VariantItem;
 import com.bluup.hexwright.server.hexicon.HexiconData;
+import com.bluup.hexwright.server.reliquary.ChestCastEnv;
 import net.minecraft.ChatFormatting;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.Item;
@@ -14,7 +18,7 @@ import org.jetbrains.annotations.Nullable;
 import java.util.List;
 import java.util.UUID;
 
-public class HexiconItem extends Item implements VariantItem {
+public class HexiconItem extends Item implements VariantItem, IotaHolderItem {
     public static final String[] GLAMOURS = {
         "abyssal", "blight", "celestial", "deep", "infernal", "wild"
     };
@@ -30,6 +34,27 @@ public class HexiconItem extends Item implements VariantItem {
 
     public static int glamourOf(ItemStack stack) {
         return stack.getItem() instanceof HexiconItem hexicon ? hexicon.getVariant(stack) : 0;
+    }
+
+
+    @Override
+    public @Nullable CompoundTag readIotaTag(ItemStack stack) {
+        return HexiconData.readSelectedSpellTag(stack);
+    }
+
+    @Override
+    public boolean writeable(ItemStack stack) {
+        return true;
+    }
+
+    @Override
+    public boolean canWrite(ItemStack stack, @Nullable Iota iota) {
+        return !ChestCastEnv.isScratch(stack);
+    }
+
+    @Override
+    public void writeDatum(ItemStack stack, @Nullable Iota iota) {
+        HexiconData.writeSelectedSpell(stack, iota);
     }
 
     @Override

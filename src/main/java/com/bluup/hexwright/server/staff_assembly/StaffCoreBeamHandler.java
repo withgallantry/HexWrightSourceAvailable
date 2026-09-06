@@ -47,6 +47,7 @@ public final class StaffCoreBeamHandler {
     private static final Map<UUID, Integer> BOLT_LAST_FIRE_TICK = new HashMap<>();
     private static final Map<UUID, Boolean> AREA_WAS_ACTIVE = new HashMap<>();
     private static final Map<UUID, Double> AREA_DRAIN_PROGRESS = new HashMap<>();
+    private static final Map<UUID, Integer> AREA_LAST_CAST_TICK = new HashMap<>();
 
     private StaffCoreBeamHandler() {
     }
@@ -106,7 +107,9 @@ public final class StaffCoreBeamHandler {
                 HexwrightNetworking.sendPlayerAnimation(player, PlayerAnimationLayer.LOOP, AREA_CLIP);
                 playAreaChannelSting(player, AREA_ACTIVATE_PITCH);
             }
-            StaffPowers.executeTick(player, held);
+            if (areaCastReady(player, coreItem)) {
+                StaffPowers.executeTick(player, held);
+            }
             playSphereAmbientTinkle(player);
             return;
         }
@@ -115,8 +118,20 @@ public final class StaffCoreBeamHandler {
         HexwrightNetworking.sendStaffCoreSphereVisual(player, false, null, 0.0);
     }
 
+    private static boolean areaCastReady(ServerPlayer player, ItemStack coreItem) {
+        int now = player.server.getTickCount();
+        int interval = StaffCoreData.areaCastIntervalTicks(StaffCoreData.getQuality(coreItem));
+        Integer last = AREA_LAST_CAST_TICK.get(player.getUUID());
+        if (last != null && now >= last && now - last < interval) {
+            return false;
+        }
+        AREA_LAST_CAST_TICK.put(player.getUUID(), now);
+        return true;
+    }
+
     public static void clearPlayer(ServerPlayer player) {
         BOLT_LAST_FIRE_TICK.remove(player.getUUID());
+        AREA_LAST_CAST_TICK.remove(player.getUUID());
         clearHeldState(player);
     }
 

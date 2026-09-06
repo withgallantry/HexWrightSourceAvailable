@@ -28,6 +28,9 @@ public final class DungeonFittings {
 
     private static final int MINIBOSS_HEADROOM = 3;
 
+    private static final int MINIBOSS_SKIRT = 1;
+    private static final int MINIBOSS_STANDING_HEIGHT = 3;
+
     private static final Block[] LINING = {
         Blocks.STONE_BRICKS, Blocks.STONE_BRICKS, Blocks.STONE_BRICKS,
         Blocks.CRACKED_STONE_BRICKS, Blocks.CRACKED_STONE_BRICKS,
@@ -194,6 +197,8 @@ public final class DungeonFittings {
         double centreZ = (module.minZ() + module.maxZ()) / 2.0;
         BlockPos best = null;
         double bestDistance = Double.MAX_VALUE;
+        BlockPos cramped = null;
+        double crampedDistance = Double.MAX_VALUE;
         for (BlockPos pos : air) {
             if (pos.getX() - module.minX() < MINIBOSS_MARGIN || module.maxX() - pos.getX() < MINIBOSS_MARGIN
                 || pos.getZ() - module.minZ() < MINIBOSS_MARGIN || module.maxZ() - pos.getZ() < MINIBOSS_MARGIN) {
@@ -212,13 +217,37 @@ public final class DungeonFittings {
             double dx = pos.getX() + 0.5 - centreX;
             double dz = pos.getZ() + 0.5 - centreZ;
             double distance = dx * dx + dz * dz;
+            if (!skirtClear(air, pos)) {
+                if (cramped == null || distance < crampedDistance
+                    || (distance == crampedDistance && compare(pos, cramped) < 0)) {
+                    cramped = pos;
+                    crampedDistance = distance;
+                }
+                continue;
+            }
             if (best == null || distance < bestDistance
                 || (distance == bestDistance && compare(pos, best) < 0)) {
                 best = pos;
                 bestDistance = distance;
             }
         }
-        return best;
+        return best != null ? best : cramped;
+    }
+
+    private static boolean skirtClear(Set<BlockPos> air, BlockPos pos) {
+        for (int dx = -MINIBOSS_SKIRT; dx <= MINIBOSS_SKIRT; dx++) {
+            for (int dz = -MINIBOSS_SKIRT; dz <= MINIBOSS_SKIRT; dz++) {
+                if (air.contains(pos.offset(dx, -1, dz))) {
+                    return false;
+                }
+                for (int rise = 0; rise < MINIBOSS_STANDING_HEIGHT; rise++) {
+                    if (!air.contains(pos.offset(dx, rise, dz))) {
+                        return false;
+                    }
+                }
+            }
+        }
+        return true;
     }
 
     static BlockPos tapColumn(Set<BlockPos> air, BoundingBox module) {

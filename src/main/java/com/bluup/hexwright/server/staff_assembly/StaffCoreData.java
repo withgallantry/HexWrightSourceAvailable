@@ -46,6 +46,12 @@ public final class StaffCoreData {
         return AMETHYST_SLOTS[Math.min(quality.ordinal(), AMETHYST_SLOTS.length - 1)];
     }
 
+    private static final int[] AREA_CAST_INTERVAL_TICKS = {40, 30, 20, 14, 10};
+
+    public static int areaCastIntervalTicks(PocketCasterData.Quality quality) {
+        return AREA_CAST_INTERVAL_TICKS[Math.min(quality.ordinal(), AREA_CAST_INTERVAL_TICKS.length - 1)];
+    }
+
     public static final double ECHO_MIN_IMPACT_AMBIT = 2.0;
     public static final double ECHO_MAX_IMPACT_AMBIT = 8.0;
 

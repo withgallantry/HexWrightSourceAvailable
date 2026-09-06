@@ -23,19 +23,32 @@ public final class ChestCastEnv extends PocketCasterCastEnv {
         return heldSlot.get();
     }
 
+    private static final String TAG_SCRATCH = "hexwright_scratch_copy";
+
+    public static ItemStack markScratch(ItemStack stack) {
+        if (!stack.isEmpty()) {
+            stack.getOrCreateTag().putBoolean(TAG_SCRATCH, true);
+        }
+        return stack;
+    }
+
+    public static boolean isScratch(ItemStack stack) {
+        return stack.hasTag() && stack.getTag().getBoolean(TAG_SCRATCH);
+    }
+
     @Override
     public List<HeldItemInfo> getPrimaryStacks() {
         List<HeldItemInfo> base = super.getPrimaryStacks();
         List<HeldItemInfo> copies = new ArrayList<>(base.size());
         for (HeldItemInfo info : base) {
-            copies.add(new HeldItemInfo(info.stack().copy(), null));
+            copies.add(new HeldItemInfo(markScratch(info.stack().copy()), null));
         }
         ItemStack held = heldSlot.get();
         if (held.isEmpty()) {
             return copies;
         }
         List<HeldItemInfo> withSlot = new ArrayList<>(copies.size() + 1);
-        withSlot.add(new HeldItemInfo(held.copy(), null));
+        withSlot.add(new HeldItemInfo(markScratch(held.copy()), null));
         withSlot.addAll(copies);
         return withSlot;
     }

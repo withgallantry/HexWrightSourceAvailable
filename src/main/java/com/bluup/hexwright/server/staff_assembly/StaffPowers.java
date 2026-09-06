@@ -14,9 +14,7 @@ import com.bluup.hexwright.common.staff_assembly.calc.CoreData;
 import com.bluup.hexwright.common.staff_assembly.calc.CoreRegistry;
 import com.bluup.hexwright.server.item.HexwrightItems;
 import com.bluup.hexwright.server.pocketcaster.PocketCasterData;
-import net.minecraft.ChatFormatting;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
@@ -43,28 +41,6 @@ public final class StaffPowers {
     public static final String HEXICON_POWER_ID = "built_in_hexicon";
 
     private StaffPowers() {
-    }
-
-    public static void bindFromWrite(CastingEnvironment env, Iota datum) {
-        ItemStack staff = getCastingStaff(env);
-        if (staff.isEmpty() || !hasEntityListBindingCore(staff)) {
-            return;
-        }
-
-        List<HexPattern> patterns = decodePatternPayload(datum);
-        if (patterns == null) {
-            return;
-        }
-
-        StaffAssemblyData.setAreaCastPatterns(staff, patterns);
-
-        if (env.getCaster() != null) {
-            env.getCaster().displayClientMessage(
-                Component.translatable("message.hexwright.core.area_cast_bound", patterns.size())
-                    .withStyle(ChatFormatting.AQUA),
-                true
-            );
-        }
     }
 
     public static void executeTick(ServerPlayer player, ItemStack staff) {
@@ -167,7 +143,7 @@ public final class StaffPowers {
         return held.is(HexwrightItems.CONFIGURABLE_STAFF) ? held : ItemStack.EMPTY;
     }
 
-    private static List<HexPattern> decodePatternPayload(Iota datum) {
+    public static @Nullable List<HexPattern> patternsFromIota(@Nullable Iota datum) {
         if (datum instanceof PatternIota patternIota) {
             return List.of(patternIota.getPattern());
         }

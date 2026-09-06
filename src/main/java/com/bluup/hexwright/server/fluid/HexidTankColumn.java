@@ -166,6 +166,9 @@ public final class HexidTankColumn {
             || !(level.getBlockEntity(pos.above()) instanceof HexidTankBlockEntity upper)) {
             return false;
         }
+        if (lower.isRemnantStore() && upper.isRemnantStore()) {
+            return !lower.remnants().types().equals(upper.remnants().types());
+        }
         return (lower.isRemnantStore() && upper.holdsFluid())
             || (lower.holdsFluid() && upper.isRemnantStore());
     }

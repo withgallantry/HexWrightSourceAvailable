@@ -8,9 +8,11 @@ import net.minecraft.nbt.Tag;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public final class TankRemnants {
 
@@ -52,6 +54,10 @@ public final class TankRemnants {
         List<Remnant> list = new ArrayList<>(drams.size());
         drams.forEach((type, amount) -> list.add(new Remnant(type, amount)));
         return list;
+    }
+
+    public Set<RemnantType> types() {
+        return Collections.unmodifiableSet(drams.keySet());
     }
 
     public @Nullable RemnantType largest() {
@@ -100,6 +106,22 @@ public final class TankRemnants {
         } else {
             next.put(type, left);
         }
+        return next.isEmpty() ? EMPTY : new TankRemnants(next);
+    }
+
+    public TankRemnants minusAll(TankRemnants other) {
+        if (other.isEmpty() || isEmpty()) {
+            return this;
+        }
+        Map<RemnantType, Double> next = copy();
+        other.drams.forEach((type, amount) -> {
+            double left = next.getOrDefault(type, 0.0) - amount;
+            if (left < MIN_DRAMS) {
+                next.remove(type);
+            } else {
+                next.put(type, left);
+            }
+        });
         return next.isEmpty() ? EMPTY : new TankRemnants(next);
     }
 

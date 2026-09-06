@@ -29,9 +29,12 @@ public final class VehicleConfig {
     public static final double BROOM_TRAIL_MIN_SPEED_SQ = BROOM_TRAIL_MIN_SPEED * BROOM_TRAIL_MIN_SPEED;
 
 
-    public static final double CARPET_MAX_HORIZONTAL_SPEED = 0.62;
-    public static final double CARPET_MAX_VERTICAL_SPEED = 0.30;
-    public static final double CARPET_MAX_ACCELERATION = 0.06;
+    public static final double CARPET_MAX_HORIZONTAL_SPEED = 0.95;
+    public static final double CARPET_MAX_VERTICAL_SPEED = 0.42;
+    public static final double CARPET_MAX_ACCELERATION = 0.10;
+    public static final double CARPET_HORIZONTAL_SPEED_GRADE_BONUS = 0.65;
+    public static final double CARPET_VERTICAL_SPEED_GRADE_BONUS = 0.38;
+    public static final double CARPET_ACCELERATION_GRADE_BONUS = 0.50;
     public static final int CARPET_PASSENGER_CAPACITY = 2;
     public static final double CARPET_MEDIA_MULTIPLIER = 1.0;
     public static final long CARPET_MEDIA_CAPACITY = 40L * MediaConstants.DUST_UNIT;

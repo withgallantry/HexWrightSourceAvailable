@@ -1,5 +1,6 @@
 package com.bluup.hexwright.server.vehicle;
 
+import at.petrak.hexcasting.api.misc.MediaConstants;
 import com.bluup.hexwright.server.pocketcaster.PocketCasterData;
 import com.bluup.hexwright.server.progression.MakersMark;
 import com.bluup.hexwright.server.staff_assembly.HexwrightEntities;
@@ -39,20 +40,18 @@ public class CarpetItem extends VehicleItem {
         super.appendHoverText(stack, level, tooltip, flag);
         MakersMark.appendTooltip(stack, tooltip);
 
-        CarpetVariant variant = CarpetVariant.of(stack);
-        if (variant == CarpetVariant.PURPLE) {
-            return;
-        }
-
         PocketCasterData.Quality quality = VehicleData.getQuality(stack.getOrCreateTagElement(VehicleData.ROOT_TAG));
         tooltip.add(Component.translatable(
             "tooltip.hexwright.vehicle.grade",
             Component.translatable(quality.translationKey())
         ).withStyle(ChatFormatting.LIGHT_PURPLE));
         tooltip.add(Component.translatable(
-            "tooltip.hexwright.vehicle.speed",
-            String.format("%.2f", variant.maxHorizontalSpeed(quality)),
-            String.format("%.2f", variant.horizontalSpeedBonus(quality))
+            "tooltip.hexwright.vehicle.top_speed",
+            String.format("%.2f", CarpetVariant.maxHorizontalSpeed(quality))
+        ).withStyle(ChatFormatting.AQUA));
+        tooltip.add(Component.translatable(
+            "tooltip.hexwright.vehicle.reservoir",
+            VehicleConfig.CARPET_MEDIA_CAPACITY / MediaConstants.DUST_UNIT
         ).withStyle(ChatFormatting.AQUA));
     }
 }

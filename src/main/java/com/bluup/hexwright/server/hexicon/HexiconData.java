@@ -5,14 +5,17 @@ import at.petrak.hexcasting.api.casting.iota.IotaType;
 import at.petrak.hexcasting.api.utils.NBTHelper;
 import com.bluup.hexwright.server.item.HexiconItem;
 import com.bluup.hexwright.server.item.HexwrightItems;
+import com.bluup.hexwright.server.reliquary.ChestCastEnv;
 import com.bluup.hexwright.server.staff_assembly.StaffAssemblyData;
 import com.bluup.hexwright.server.staff_assembly.StaffCoreData;
 import com.bluup.hexwright.server.staff_assembly.StaffPowers;
 import com.mojang.datafixers.util.Pair;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.player.Player;
@@ -45,6 +48,21 @@ public final class HexiconData {
     private static final String TAG_PAYLOAD_ICON = "hexwright_display_icon";
 
     private HexiconData() {
+    }
+
+    private static @Nullable MinecraftServer server = null;
+
+    public static void register() {
+        ServerLifecycleEvents.SERVER_STARTED.register(started -> server = started);
+        ServerLifecycleEvents.SERVER_STOPPED.register(stopped -> server = null);
+    }
+
+    public static @Nullable ServerLevel libraryLevel() {
+        MinecraftServer running = server;
+        if (running == null || !running.isSameThread()) {
+            return null;
+        }
+        return running.overworld();
     }
 
     public static @Nullable Pair<InteractionHand, ItemStack> findHeldSpellbook(Player player) {
@@ -142,34 +160,40 @@ public final class HexiconData {
         return HexiconSavedData.open(world).loadPayload(payloadId);
     }
 
-    public static boolean writeSelectedSpell(Player player, ItemStack stack, Iota payload) {
-        if (!(player.level() instanceof ServerLevel serverLevel)) {
+    public static boolean writeSelectedSpell(ItemStack stack, @Nullable Iota payload) {
+        ServerLevel serverLevel = libraryLevel();
+        if (serverLevel == null) {
             return false;
         }
 
-        UUID libraryId = getOrCreateLibraryId(stack, serverLevel);
-        if (libraryId == null) {
+        if (ChestCastEnv.isScratch(stack)) {
             return false;
+        }
+
+        UUID libraryId = payload == null ? getLibraryId(stack) : getOrCreateLibraryId(stack, serverLevel);
+        if (libraryId == null) {
+            return payload == null;
         }
 
         int absolute = getSelectedAbsoluteSlot(stack);
         HexiconSavedData state = HexiconSavedData.open(serverLevel);
         UUID oldPayloadId = state.getSlotReference(libraryId, absolute);
 
-        UUID newPayloadId = state.storePayload(IotaType.serialize(payload));
+        UUID newPayloadId = payload == null ? null : state.storePayload(IotaType.serialize(payload));
         state.setSlotReference(libraryId, absolute, newPayloadId);
 
         if (oldPayloadId != null && !oldPayloadId.equals(newPayloadId) && !state.isPayloadReferenced(oldPayloadId)) {
             state.removePayload(oldPayloadId);
         }
 
-        setCachedSelectedBound(stack, true);
+        setCachedSelectedBound(stack, payload != null);
         refreshCachedWrittenCount(serverLevel, stack);
         return true;
     }
 
-    public static @Nullable Iota readSelectedSpell(Player player, ItemStack stack) {
-        if (!(player.level() instanceof ServerLevel serverLevel)) {
+    public static @Nullable CompoundTag readSelectedSpellTag(ItemStack stack) {
+        ServerLevel serverLevel = libraryLevel();
+        if (serverLevel == null) {
             return null;
         }
 
@@ -192,8 +216,9 @@ public final class HexiconData {
         }
 
         setCachedSelectedBound(stack, true);
-        return IotaType.deserialize(payloadTag, serverLevel);
+        return payloadTag;
     }
+
 
     public static void refreshCachedSelectedBound(ServerLevel world, ItemStack stack) {
         UUID libraryId = getLibraryId(stack);

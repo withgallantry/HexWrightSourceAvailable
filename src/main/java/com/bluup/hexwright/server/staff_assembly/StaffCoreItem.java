@@ -66,8 +66,13 @@ public final class StaffCoreItem extends Item {
         PocketCasterData.Quality quality = StaffCoreData.getQuality(coreStack);
         int percent = (int) Math.round(StaffCoreData.gradeFraction(quality) * 100.0);
         switch (kind) {
-            case AREA -> tooltip.add(Component.translatable("tooltip.hexwright.staff_core.area_reach", percent)
-                .withStyle(ChatFormatting.LIGHT_PURPLE));
+            case AREA -> {
+                tooltip.add(Component.translatable("tooltip.hexwright.staff_core.area_reach", percent)
+                    .withStyle(ChatFormatting.LIGHT_PURPLE));
+                tooltip.add(Component.translatable("tooltip.hexwright.staff_core.area_rate",
+                        trimWhole(StaffCoreData.areaCastIntervalTicks(quality) / 20.0))
+                    .withStyle(ChatFormatting.LIGHT_PURPLE));
+            }
             case TRAVELLER -> tooltip.add((percent >= 100
                     ? Component.translatable("tooltip.hexwright.staff_core.traveller_free")
                     : Component.translatable("tooltip.hexwright.staff_core.traveller_discount", percent))
@@ -79,14 +84,14 @@ public final class StaffCoreItem extends Item {
                 .withStyle(ChatFormatting.LIGHT_PURPLE));
             case BEAM -> tooltip.add(Component.translatable(
                     "tooltip.hexwright.staff_core.echo_ambit",
-                    formatBlocks(StaffCoreData.echoImpactAmbit(quality)))
+                    trimWhole(StaffCoreData.echoImpactAmbit(quality)))
                 .withStyle(ChatFormatting.LIGHT_PURPLE));
             default -> {
             }
         }
     }
 
-    private static String formatBlocks(double blocks) {
-        return blocks == Math.rint(blocks) ? String.valueOf((int) blocks) : String.valueOf(blocks);
+    private static String trimWhole(double value) {
+        return value == Math.rint(value) ? String.valueOf((int) value) : String.valueOf(value);
     }
 }

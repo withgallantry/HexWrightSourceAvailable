@@ -53,6 +53,7 @@ object HexwrightServer : ModInitializer {
         com.bluup.hexwright.server.hexpatterns.WardingBoxActions.register()
         com.bluup.hexwright.server.hexpatterns.MediaGrantActions.register()
         com.bluup.hexwright.server.media.MediaGrants.register()
+        com.bluup.hexwright.server.hexicon.HexiconData.register()
         com.bluup.hexwright.server.hexpatterns.WielderActions.register()
         com.bluup.hexwright.server.armour.ArmourPowerActions.register()
         TalismanActions.register()

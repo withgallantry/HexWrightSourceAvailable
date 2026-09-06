@@ -51,6 +51,7 @@ public abstract class ClientPacketListenerVaultRetainMixin {
 
     @Inject(method = "handleRespawn", at = @At("TAIL"))
     private void hexwright$dismissTerrainScreenForVault(ClientboundRespawnPacket packet, CallbackInfo ci) {
+        com.bluup.hexwright.client.portal.ArrivalTrace.arm(packet.getDimension().location().toString());
         if (!RemoteLevelManager.shouldSkipLoadingScreen()) {
             return;
         }
