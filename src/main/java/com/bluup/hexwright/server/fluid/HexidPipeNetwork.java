@@ -1,11 +1,13 @@
 package com.bluup.hexwright.server.fluid;
 
+import com.bluup.hexwright.common.remnant.RemnantType;
 import com.bluup.hexwright.server.block.HexwrightBlocks;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -23,10 +25,16 @@ public final class HexidPipeNetwork {
 
     public static final long FLOW_PER_STEP = 200;
 
+    public static final double REM_FLOW_PER_STEP = HexidTank.DRAMS_PER_BLOCK / 20.0;
+
     private static boolean settling;
 
-    private record Reach(BlockPos driver, List<BlockPos> columns) {
+    private record Reach(BlockPos driver, List<BlockPos> columns, boolean feedsMixer) {
     }
+
+    public static final String CLASH_MIXED_VESSEL = "hexwright.hexid_pipe.clash";
+
+    public static final String CLASH_MIXTURE_INPUT = "hexwright.hexid_pipe.mixture_input";
 
     public static void spread(Level level, BlockPos pos) {
         if (level == null || level.isClientSide || settling) {
@@ -39,8 +47,8 @@ public final class HexidPipeNetwork {
             BlockState tank = level.getBlockState(cursor);
             for (Direction side : Direction.values()) {
                 BlockPos next = cursor.relative(side);
-                if (isPipe(level, next)
-                    && HexidPipeBlock.jointWith(tank, side.getOpposite()) == PipeJoint.TANK) {
+                if (isPipe(level, next) && HexidPipeBlock.jointWith(
+                    level.getBlockState(next), tank, side.getOpposite()) == PipeJoint.TANK) {
                     wake(level, next);
                 }
             }
@@ -54,26 +62,35 @@ public final class HexidPipeNetwork {
         level.scheduleTick(pos, HexwrightBlocks.HEXID_PIPE_BLOCK, SETTLE_PERIOD);
     }
 
-    public static void settle(ServerLevel level, BlockPos pos) {
+    public static @Nullable String settle(ServerLevel level, BlockPos pos) {
         if (settling || !isPipe(level, pos)) {
-            return;
+            return null;
         }
         Reach reach = walk(level, pos);
+        List<HexidTankBlockEntity> tanks = resolve(level, reach.columns());
+        String clash = clashReason(tanks, reach.feedsMixer());
+        if (clash != null) {
+            return clash;
+        }
         if (!pos.equals(reach.driver())) {
             level.scheduleTick(reach.driver(), HexwrightBlocks.HEXID_PIPE_BLOCK, SETTLE_PERIOD);
-            return;
+            return null;
         }
 
+        boolean suspension = carriesSuspension(tanks);
         boolean moved;
         settling = true;
         try {
-            moved = advance(resolve(level, reach.columns()));
+            moved = suspension
+                ? advanceSuspension(vessels(tanks, true))
+                : advance(vessels(tanks, false));
         } finally {
             settling = false;
         }
         if (moved) {
             level.scheduleTick(pos, HexwrightBlocks.HEXID_PIPE_BLOCK, SETTLE_PERIOD);
         }
+        return null;
     }
 
     public static List<HexidTankBlockEntity> tanksOn(Level level, BlockPos pos) {
@@ -83,46 +100,127 @@ public final class HexidPipeNetwork {
         return resolve(level, walk(level, pos).columns());
     }
 
+    public static boolean isSuspension(List<HexidTankBlockEntity> tanks) {
+        return carriesSuspension(tanks);
+    }
+
+    public static List<HexidTankBlockEntity> sharing(Level level, BlockPos pos) {
+        if (level == null || level.isClientSide) {
+            return List.of();
+        }
+        BlockPos bottom = HexidTankColumn.controllerPos(level, pos);
+        int height = 1 + HexidTankColumn.above(level, bottom);
+        Set<BlockPos> columns = new LinkedHashSet<>();
+        BlockPos.MutableBlockPos cursor = bottom.mutable();
+        for (int i = 0; i < height; i++, cursor.move(0, 1, 0)) {
+            BlockState tank = level.getBlockState(cursor);
+            for (Direction side : Direction.values()) {
+                BlockPos next = cursor.relative(side);
+                if (isPipe(level, next) && HexidPipeBlock.jointWith(
+                    level.getBlockState(next), tank, side.getOpposite()) == PipeJoint.TANK) {
+                    columns.addAll(walk(level, next).columns());
+                }
+            }
+        }
+        return resolve(level, List.copyOf(columns));
+    }
+
     private static Reach walk(Level level, BlockPos start) {
         Set<BlockPos> seen = new HashSet<>();
         Set<BlockPos> columns = new LinkedHashSet<>();
         Deque<BlockPos> queue = new ArrayDeque<>();
         BlockPos driver = start;
+        boolean feedsMixer = false;
         seen.add(start);
         queue.add(start);
 
         while (!queue.isEmpty() && seen.size() <= MAX_PIPES) {
             BlockPos pipe = queue.poll();
+            BlockState here = level.getBlockState(pipe);
             for (Direction side : Direction.values()) {
                 BlockPos next = pipe.relative(side);
                 if (!level.isLoaded(next)) {
                     continue;
                 }
                 BlockState state = level.getBlockState(next);
-                if (state.is(HexwrightBlocks.HEXID_PIPE_BLOCK)) {
+                PipeJoint joint = HexidPipeBlock.jointWith(here, state, side);
+                if (joint == PipeJoint.PIPE) {
                     if (seen.add(next)) {
                         queue.add(next);
                         if (next.compareTo(driver) < 0) {
                             driver = next.immutable();
                         }
                     }
-                } else if (HexidPipeBlock.jointWith(state, side) == PipeJoint.TANK) {
-                    columns.add(HexidTankColumn.controllerPos(level, next));
+                } else if (joint == PipeJoint.TANK) {
+                    if (state.is(HexwrightBlocks.ALEMBIX_BLOCK)) {
+                        feedsMixer |= side.getAxis().isHorizontal();
+                    } else if (HexidTankColumn.isTank(state)) {
+                        columns.add(HexidTankColumn.controllerPos(level, next));
+                    }
                 }
             }
         }
-        return new Reach(driver, List.copyOf(columns));
+        return new Reach(driver, List.copyOf(columns), feedsMixer);
     }
 
     private static List<HexidTankBlockEntity> resolve(Level level, List<BlockPos> columns) {
         List<HexidTankBlockEntity> tanks = new ArrayList<>(columns.size());
         for (BlockPos pos : columns) {
-            if (level.getBlockEntity(pos) instanceof HexidTankBlockEntity tank
-                && !tank.isRemnantStore()) {
+            if (level.getBlockEntity(pos) instanceof HexidTankBlockEntity tank) {
                 tanks.add(tank);
             }
         }
         return tanks;
+    }
+
+    private static boolean carriesSuspension(List<HexidTankBlockEntity> tanks) {
+        for (HexidTankBlockEntity tank : tanks) {
+            if (tank.isRemnantStore()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static List<HexidTankBlockEntity> vessels(List<HexidTankBlockEntity> tanks, boolean suspension) {
+        List<HexidTankBlockEntity> kept = new ArrayList<>(tanks.size());
+        for (HexidTankBlockEntity tank : tanks) {
+            if (suspension ? !tank.holdsFluid() : !tank.isRemnantStore()) {
+                kept.add(tank);
+            }
+        }
+        return kept;
+    }
+
+    public static @Nullable String clashReason(Level level, BlockPos pos) {
+        if (level == null || level.isClientSide || !isPipe(level, pos)) {
+            return null;
+        }
+        Reach reach = walk(level, pos);
+        return clashReason(resolve(level, reach.columns()), reach.feedsMixer());
+    }
+
+    private static @Nullable String clashReason(List<HexidTankBlockEntity> tanks, boolean feedsMixer) {
+        boolean fluid = false;
+        Set<RemnantType> kinds = null;
+        for (HexidTankBlockEntity tank : tanks) {
+            if (tank.isRemnantStore()) {
+                Set<RemnantType> here = tank.remnants().types();
+                if (kinds != null && !kinds.equals(here)) {
+                    return CLASH_MIXED_VESSEL;
+                }
+                kinds = here;
+            } else if (tank.holdsFluid()) {
+                fluid = true;
+            }
+        }
+        if (fluid && kinds != null) {
+            return CLASH_MIXED_VESSEL;
+        }
+        if (feedsMixer && kinds != null && kinds.size() > 1) {
+            return CLASH_MIXTURE_INPUT;
+        }
+        return null;
     }
 
     private static boolean advance(List<HexidTankBlockEntity> tanks) {
@@ -162,6 +260,81 @@ public final class HexidPipeNetwork {
         }
         for (int i = 0; i < count; i++) {
             tanks.get(i).store(amount[i], media[i]);
+        }
+        return true;
+    }
+
+    private static boolean advanceSuspension(List<HexidTankBlockEntity> tanks) {
+        int count = tanks.size();
+        if (count < 2) {
+            return false;
+        }
+
+        double[] held = new double[count];
+        double[] target = new double[count];
+        double totalHeld = 0;
+        double totalCapacity = 0;
+        for (int i = 0; i < count; i++) {
+            held[i] = tanks.get(i).remnants().total();
+            target[i] = tanks.get(i).remnantCapacity();
+            totalHeld += held[i];
+            totalCapacity += target[i];
+        }
+        if (totalHeld <= 0 || totalCapacity <= 0) {
+            return false;
+        }
+
+        double surplus = 0;
+        for (int i = 0; i < count; i++) {
+            target[i] = totalHeld * target[i] / totalCapacity;
+            surplus += Math.max(0, held[i] - target[i]);
+        }
+        double moving = Math.min(REM_FLOW_PER_STEP, surplus);
+        if (moving < TankRemnants.MIN_DRAMS) {
+            return false;
+        }
+
+        TankRemnants pooled = TankRemnants.EMPTY;
+        for (int i = 0; i < count; i++) {
+            double over = held[i] - target[i];
+            if (over <= 0) {
+                continue;
+            }
+            pooled = pooled.plusAll(tanks.get(i).drawMixture(moving * over / surplus));
+        }
+        if (pooled.isEmpty()) {
+            return false;
+        }
+
+        double deficit = 0;
+        int last = -1;
+        for (int i = 0; i < count; i++) {
+            if (target[i] > held[i]) {
+                deficit += target[i] - held[i];
+                last = i;
+            }
+        }
+        TankRemnants source = pooled;
+        for (int i = 0; i < count && !pooled.isEmpty(); i++) {
+            if (target[i] <= held[i]) {
+                continue;
+            }
+            TankRemnants share = i == last ? pooled : source.portion((target[i] - held[i]) / deficit);
+            if (share.total() > pooled.total()) {
+                share = pooled;
+            }
+            double poured = tanks.get(i).pourMixture(share);
+            if (poured <= 0) {
+                continue;
+            }
+            pooled = pooled.minusAll(
+                poured >= share.total() ? share : share.portion(poured / share.total()));
+        }
+        for (int i = 0; i < count && !pooled.isEmpty(); i++) {
+            double poured = tanks.get(i).pourMixture(pooled);
+            if (poured > 0) {
+                pooled = pooled.portion(1.0 - poured / pooled.total());
+            }
         }
         return true;
     }

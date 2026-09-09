@@ -10,6 +10,7 @@ import com.bluup.hexwright.common.aspects.AspectMappings
 import com.bluup.hexwright.common.staff_assembly.calc.IngredientCategory
 import com.bluup.hexwright.server.crucible.EssencePouchData
 import com.bluup.hexwright.server.item.EndlessPouchItem
+import com.bluup.hexwright.server.journal.InvestigationProgress
 import com.bluup.hexwright.server.network.EssenceNetwork
 import com.lowdragmc.lowdraglib.gui.modular.IUIHolder
 import com.lowdragmc.lowdraglib.gui.modular.ModularUI
@@ -38,6 +39,8 @@ import net.minecraft.network.protocol.Packet
 import net.minecraft.network.protocol.game.ClientGamePacketListener
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket
 import net.minecraft.resources.ResourceLocation
+import net.minecraft.server.level.ServerLevel
+import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.Container
 import net.minecraft.world.ContainerHelper
 import net.minecraft.world.WorldlyContainer
@@ -96,6 +99,8 @@ class CrucibleBlockEntity(
     private var fuelTicksRemaining = 0
 
     private var fuelTicksTotal = 0
+
+    private var lastOpener: java.util.UUID? = null
 
     override fun getContainerSize(): Int = CONTAINER_SIZE
 
@@ -162,6 +167,7 @@ class CrucibleBlockEntity(
         } else {
             Items.AIR
         }
+        lastOpener = if (tag.hasUUID("LastOpener")) tag.getUUID("LastOpener") else null
     }
 
     override fun saveAdditional(tag: CompoundTag) {
@@ -173,6 +179,7 @@ class CrucibleBlockEntity(
         if (burningItem != Items.AIR) {
             tag.putString("BurningItem", BuiltInRegistries.ITEM.getKey(burningItem).toString())
         }
+        lastOpener?.let { tag.putUUID("LastOpener", it) }
     }
 
     override fun getUpdateTag(): CompoundTag = saveWithoutMetadata()
@@ -258,6 +265,19 @@ class CrucibleBlockEntity(
         return true
     }
 
+    fun noteOpenedBy(player: ServerPlayer) {
+        if (lastOpener != player.uuid) {
+            lastOpener = player.uuid
+            setChanged()
+        }
+    }
+
+    private fun recordJournalEssence(aspect: IngredientCategory, amount: Double) {
+        val owner = lastOpener ?: return
+        val server = (level as? ServerLevel)?.server ?: return
+        InvestigationProgress.recordCrucibleEssence(server, owner, aspect, amount)
+    }
+
     fun serverTick() {
         val level = this.level ?: return
         var syncNeeded = false
@@ -307,6 +327,7 @@ class CrucibleBlockEntity(
                         val pouch = pouchStack()
                         for (aspect in profile.data().categories()) {
                             EssencePouchData.add(pouch, aspect, profile.essenceYield())
+                            recordJournalEssence(aspect, profile.essenceYield())
                         }
                         EssenceNetwork.pulseFlow(level, worldPosition, items[POUCH_SLOT], true)
 

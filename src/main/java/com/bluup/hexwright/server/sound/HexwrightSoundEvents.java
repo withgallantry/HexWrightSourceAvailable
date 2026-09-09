@@ -23,6 +23,7 @@ public final class HexwrightSoundEvents {
     private static final ResourceLocation RESONANCE_TOWER_ACTIVATE_ID = Hexwright.id("resonance_tower_activate");
     private static final ResourceLocation AREA_CAST_ACTIVATE_ID = Hexwright.id("area_cast_activate");
     private static final ResourceLocation RECIPE_UNLOCK_ID = Hexwright.id("recipe_unlock");
+    private static final ResourceLocation JOURNAL_CLICK_ID = Hexwright.id("journal_click");
 
     private static SoundEvent staffCoreProjectileFire = SoundEvents.BLAZE_SHOOT;
     private static SoundEvent portalOpenClose = SoundEvents.PORTAL_TRIGGER;
@@ -39,6 +40,7 @@ public final class HexwrightSoundEvents {
     private static SoundEvent resonanceTowerActivate = SoundEvents.BEACON_ACTIVATE;
     private static SoundEvent areaCastActivate = SoundEvents.AMETHYST_BLOCK_CHIME;
     private static SoundEvent recipeUnlock = SoundEvents.ENCHANTMENT_TABLE_USE;
+    private static SoundEvent journalClick = SoundEvents.BOOK_PAGE_TURN;
     private static boolean registered;
 
     private HexwrightSoundEvents() {
@@ -64,6 +66,7 @@ public final class HexwrightSoundEvents {
         resonanceTowerActivate = registerOrReuse(RESONANCE_TOWER_ACTIVATE_ID, resonanceTowerActivate);
         areaCastActivate = registerOrReuse(AREA_CAST_ACTIVATE_ID, areaCastActivate);
         recipeUnlock = registerOrReuse(RECIPE_UNLOCK_ID, recipeUnlock);
+        journalClick = registerOrReuse(JOURNAL_CLICK_ID, journalClick);
         com.bluup.hexwright.server.boss.ancient.AncientSounds.register();
         com.bluup.hexwright.server.boss.storm.WitherStormSounds.register();
         registered = true;
@@ -145,5 +148,9 @@ public final class HexwrightSoundEvents {
 
     public static SoundEvent recipeUnlock() {
         return recipeUnlock;
+    }
+
+    public static SoundEvent journalClick() {
+        return journalClick;
     }
 }

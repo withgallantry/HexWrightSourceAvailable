@@ -33,6 +33,9 @@ import net.minecraft.world.level.gameevent.GameEvent;
 import net.minecraft.world.phys.BlockHitResult;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.EnumSet;
+import java.util.Set;
+
 public class HexidTankBlock extends Block implements EntityBlock {
 
     public static final EnumProperty<TankPart> PART = EnumProperty.create("part", TankPart.class);
@@ -243,6 +246,10 @@ public class HexidTankBlock extends Block implements EntityBlock {
             say(player, "hexwright.hexid_tank.not_empty");
             return false;
         }
+        if (plumbedToSomethingElse(level, pos, tank, contents.type())) {
+            say(player, "hexwright.hexid_tank.network_clash");
+            return false;
+        }
         if (!tank.canAcceptRemnants(contents.type())) {
             if (tank.remnants().kinds() > 1) {
                 say(player, "hexwright.hexid_tank.holds_mixture");
@@ -264,6 +271,21 @@ public class HexidTankBlock extends Block implements EntityBlock {
         level.playSound(null, pos, SoundEvents.BOTTLE_EMPTY, SoundSource.BLOCKS, 0.8f, 1.1f);
         say(player, "hexwright.hexid_tank.poured", (int) Math.round(poured), contents.type().label());
         return true;
+    }
+
+    private static boolean plumbedToSomethingElse(Level level, BlockPos pos,
+                                                  HexidTankBlockEntity tank, RemnantType type) {
+        Set<RemnantType> after = EnumSet.of(type);
+        after.addAll(tank.remnants().types());
+        for (HexidTankBlockEntity other : HexidPipeNetwork.sharing(level, pos)) {
+            if (other == tank) {
+                continue;
+            }
+            if (other.holdsFluid() || (other.isRemnantStore() && !other.remnants().types().equals(after))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static boolean drawIntoBottle(Level level, BlockPos pos, Player player, ItemStack bottle,

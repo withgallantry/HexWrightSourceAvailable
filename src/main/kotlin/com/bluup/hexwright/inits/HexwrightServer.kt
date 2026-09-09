@@ -86,6 +86,11 @@ object HexwrightServer : ModInitializer {
         com.bluup.hexwright.server.progression.RecipeTablets.validate(
             com.bluup.hexwright.server.block.WorktableRecipes.RECIPES.mapTo(HashSet()) { it.nameKey }
         )
+        com.bluup.hexwright.server.journal.Investigations.validate()
+        com.bluup.hexwright.server.journal.LoreEntries.validate()
+        com.bluup.hexwright.server.journal.InvestigationProgress.register()
+        com.bluup.hexwright.server.journal.StarterJournal.register()
+        com.bluup.hexwright.server.journal.JournalDebugCommand.register()
         HexwrightEntities.register()
         com.bluup.hexwright.server.boss.HexwrightBossEntities.register()
         com.bluup.hexwright.server.boss.HexwrightBossEntities.registerAttributes()
@@ -95,6 +100,7 @@ object HexwrightServer : ModInitializer {
         UIFactory.register(PentaboxUIFactory.INSTANCE)
         UIFactory.register(HexiconUIFactory.INSTANCE)
         UIFactory.register(PocketCasterUIFactory.INSTANCE)
+        UIFactory.register(com.bluup.hexwright.server.journal.JournalUIFactory.INSTANCE)
         UIFactory.register(com.bluup.hexwright.server.reliquary.SatchelUIFactory.INSTANCE)
 
         ResourceManagerHelper.get(PackType.SERVER_DATA).registerReloadListener(AspectMappingLoader())
@@ -102,6 +108,7 @@ object HexwrightServer : ModInitializer {
             HexwrightNetworking.sendAspectSync(player)
             HexwrightNetworking.sendMasterySync(player)
             HexwrightNetworking.sendRecipeUnlockSync(player)
+            HexwrightNetworking.sendInvestigationSync(player)
             HexwrightNetworking.sendResonanceNames(player)
         }
         ServerLifecycleEvents.SERVER_STARTED.register { server ->

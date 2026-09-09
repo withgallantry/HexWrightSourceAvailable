@@ -7,6 +7,7 @@ import net.minecraft.network.protocol.game.ClientGamePacketListener
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket
 import net.minecraft.world.entity.player.Player
 import net.minecraft.world.item.ItemStack
+import net.minecraft.world.level.block.Block
 import net.minecraft.world.level.block.entity.BlockEntity
 import net.minecraft.world.level.block.state.BlockState
 
@@ -24,7 +25,7 @@ class VaultPlinthBlockEntity(
 
     fun stock(stack: ItemStack) {
         displayed = stack
-        setChanged()
+        sync()
     }
 
     fun claim(player: Player): Boolean {
@@ -36,8 +37,28 @@ class VaultPlinthBlockEntity(
         if (!player.inventory.add(given)) {
             player.drop(given, false)
         }
-        setChanged()
+        sync()
         return true
+    }
+
+    fun place(player: Player, stack: ItemStack): Boolean {
+        if (!displayed.isEmpty || stack.isEmpty) {
+            return false
+        }
+        displayed = stack.copy()
+        if (!player.isCreative) {
+            stack.count = 0
+        }
+        sync()
+        return true
+    }
+
+    private fun sync() {
+        setChanged()
+        val level = this.level ?: return
+        if (!level.isClientSide) {
+            level.sendBlockUpdated(worldPosition, blockState, blockState, Block.UPDATE_ALL)
+        }
     }
 
     override fun load(tag: CompoundTag) {

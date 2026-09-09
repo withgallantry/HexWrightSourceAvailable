@@ -88,6 +88,7 @@ class CrucibleBlock(properties: Properties) : Block(properties), EntityBlock {
 
         val be = level.getBlockEntity(pos) as? CrucibleBlockEntity ?: return InteractionResult.PASS
         val serverPlayer = player as? ServerPlayer ?: return InteractionResult.CONSUME
+        be.noteOpenedBy(serverPlayer)
         Mastery.checkEssenceMilestones(
             serverPlayer,
             EssenceNetwork.resolve(be.getItem(CrucibleBlockEntity.POUCH_SLOT), level, pos)

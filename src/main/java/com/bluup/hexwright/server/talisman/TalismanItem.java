@@ -28,6 +28,14 @@ public class TalismanItem extends Item implements IotaHolderItem {
         super(properties);
     }
 
+    public @Nullable TalismanData.Trigger fixedTrigger() {
+        return null;
+    }
+
+    public @Nullable TalismanData.Context fixedContext() {
+        return null;
+    }
+
 
     @Override
     public @Nullable CompoundTag readIotaTag(ItemStack stack) {
@@ -95,11 +103,17 @@ public class TalismanItem extends Item implements IotaHolderItem {
         Optional<TalismanData.Trigger> trigger = TalismanData.getTrigger(stack);
         Optional<TalismanData.Context> context = TalismanData.getContext(stack);
         if (trigger.isPresent() && context.isPresent()) {
-            tooltip.add(Component.translatable(
-                "tooltip.hexwright.talisman.binding",
-                Component.translatable(trigger.get().translationKey()), trigger.get().ordinal(),
-                Component.translatable(context.get().translationKey()), context.get().ordinal()
-            ).withStyle(ChatFormatting.LIGHT_PURPLE));
+            tooltip.add(fixedTrigger() != null
+                ? Component.translatable(
+                    "tooltip.hexwright.talisman.binding_fixed",
+                    Component.translatable(trigger.get().translationKey()),
+                    Component.translatable(context.get().translationKey())
+                ).withStyle(ChatFormatting.LIGHT_PURPLE)
+                : Component.translatable(
+                    "tooltip.hexwright.talisman.binding",
+                    Component.translatable(trigger.get().translationKey()), trigger.get().ordinal(),
+                    Component.translatable(context.get().translationKey()), context.get().ordinal()
+                ).withStyle(ChatFormatting.LIGHT_PURPLE));
             long cooldown = TalismanData.cooldownTicks(stack, trigger.get());
             tooltip.add(Component.translatable(
                 "tooltip.hexwright.talisman.cooldown",
@@ -108,6 +122,11 @@ public class TalismanItem extends Item implements IotaHolderItem {
         } else {
             tooltip.add(Component.translatable("tooltip.hexwright.talisman.blank")
                 .withStyle(ChatFormatting.GRAY));
+        }
+
+        if (trigger.isPresent() && context.isPresent() && !TalismanData.isArmed(stack)) {
+            tooltip.add(Component.translatable("tooltip.hexwright.talisman.uninscribed")
+                .withStyle(ChatFormatting.DARK_GRAY));
         }
 
         IotaHolderItem.appendHoverText(this, stack, tooltip, flag);

@@ -87,24 +87,25 @@ public final class VaultRegistry extends SavedData {
     }
 
     public VaultRecord create(MinecraftServer server, ServerPlayer owner,
-                              PocketCasterData.Quality grade,
+                              PocketCasterData.Quality grade, boolean artifact,
                               @Nullable String build) {
         ServerLevel vaultLevel = VaultDimension.level(server);
         if (vaultLevel == null) {
             throw new IllegalStateException("Vault dimension hexwright:vaults is not loaded");
         }
         int id = nextId++;
-        boolean estate = VaultRooms.layoutFor(grade).isEstate();
+        boolean estate = VaultRooms.layoutFor(grade, artifact).isEstate();
         String chosen = !estate ? ""
             : build != null && VaultBuilds.byId(build) != null ? build
             : VaultBuilds.roll(id).id();
         VaultRecord record = new VaultRecord(id, owner.getUUID(),
-            VaultRooms.cellOrigin(id), grade, chosen, VaultRooms.TEMPLATE_VERSION, vaultLevel.getGameTime());
+            VaultRooms.cellOrigin(id), grade, artifact, chosen,
+            VaultRooms.TEMPLATE_VERSION, vaultLevel.getGameTime());
         records.put(id, record);
         setDirty();
         generateRoom(vaultLevel, record);
         Hexwright.LOGGER.info("Created {} vault {}{} for {} at {}",
-            grade, id, chosen.isEmpty() ? "" : " (" + chosen + ")",
+            artifact ? "ARTIFACT" : grade, id, chosen.isEmpty() ? "" : " (" + chosen + ")",
             owner.getGameProfile().getName(), record.origin());
         return record;
     }

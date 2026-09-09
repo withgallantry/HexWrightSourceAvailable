@@ -95,7 +95,7 @@ public final class HexidPipePreview {
         if (!neighbour.is(HexwrightBlocks.HEXID_PIPE_BLOCK)) {
             return null;
         }
-        PipeJoint joint = HexidPipeBlock.jointWith(placement.state, side.getOpposite());
+        PipeJoint joint = HexidPipeBlock.jointWith(neighbour, placement.state, side.getOpposite());
         BlockState changed =
             neighbour.setValue(HexidPipeBlock.JOINTS.get(side.getOpposite()), joint);
         return changed == neighbour ? null : changed;

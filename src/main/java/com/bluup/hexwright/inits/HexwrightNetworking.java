@@ -68,6 +68,7 @@ public final class HexwrightNetworking {
     public static final ResourceLocation ASPECT_SYNC_S2C = Hexwright.id("aspect_sync_s2c");
     public static final ResourceLocation MASTERY_SYNC_S2C = Hexwright.id("mastery_sync_s2c");
     public static final ResourceLocation RECIPE_UNLOCK_SYNC_S2C = Hexwright.id("recipe_unlock_sync_s2c");
+    public static final ResourceLocation INVESTIGATION_SYNC_S2C = Hexwright.id("investigation_sync_s2c");
     public static final ResourceLocation RESONANCE_NAMES_SYNC_S2C = Hexwright.id("resonance_names_sync_s2c");
     public static final ResourceLocation ARTISAN_SIGNET_SIGN_C2S = Hexwright.id("artisan_signet_sign_c2s");
     public static final ResourceLocation TALISMAN_DESIGN_C2S = Hexwright.id("talisman_design_c2s");
@@ -128,6 +129,17 @@ public final class HexwrightNetworking {
             buf.writeUtf(recipe);
         }
         ServerPlayNetworking.send(player, RECIPE_UNLOCK_SYNC_S2C, buf);
+    }
+
+    public static void sendInvestigationSync(ServerPlayer player) {
+        java.util.Set<String> completed =
+            com.bluup.hexwright.server.journal.InvestigationProgress.completedFor(player);
+        FriendlyByteBuf buf = PacketByteBufs.create();
+        buf.writeVarInt(completed.size());
+        for (String id : completed) {
+            buf.writeUtf(id);
+        }
+        ServerPlayNetworking.send(player, INVESTIGATION_SYNC_S2C, buf);
     }
 
     public static void sendResonanceNames(ServerPlayer player) {
@@ -679,6 +691,15 @@ public final class HexwrightNetworking {
                 unlocked.add(buf.readUtf());
             }
             client.execute(() -> com.bluup.hexwright.client.progression.ClientRecipeUnlocks.set(unlocked));
+        });
+
+        ClientPlayNetworking.registerGlobalReceiver(INVESTIGATION_SYNC_S2C, (client, handler, buf, responseSender) -> {
+            int count = buf.readVarInt();
+            List<String> completed = new ArrayList<>(count);
+            for (int i = 0; i < count; i++) {
+                completed.add(buf.readUtf());
+            }
+            client.execute(() -> com.bluup.hexwright.client.journal.ClientInvestigations.set(completed));
         });
 
         ClientPlayNetworking.registerGlobalReceiver(RESONANCE_NAMES_SYNC_S2C, (client, handler, buf, responseSender) -> {

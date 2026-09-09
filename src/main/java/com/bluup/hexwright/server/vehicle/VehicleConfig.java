@@ -18,9 +18,17 @@ public final class VehicleConfig {
     public static final double BROOM_MEDIA_MULTIPLIER = 1.0;
     public static final long BROOM_MEDIA_CAPACITY = 24L * MediaConstants.DUST_UNIT;
     public static final long BROOM_MEDIA_CAPACITY_GRADE_BONUS = 24L * MediaConstants.DUST_UNIT;
+
+    public static final double BROOM_ARTIFACT_HORIZONTAL_SPEED_BONUS = 0.13;
+    public static final double BROOM_ARTIFACT_VERTICAL_SPEED_BONUS = 0.08;
+    public static final double BROOM_ARTIFACT_ACCELERATION_BONUS = 0.10;
+    public static final long BROOM_ARTIFACT_MEDIA_CAPACITY_BONUS = 16L * MediaConstants.DUST_UNIT;
     public static final double BROOM_RIDER_HEIGHT_OFFSET = 0.075;
     public static final double BROOM_RIDER_FORWARD_OFFSET = 0.15;
     public static final double BROOM_VISUAL_TILT_DEGREES = 15.0;
+
+    public static final double BROOM_LOAD_ONE_PASSENGER = 1.20;
+    public static final double BROOM_LOAD_TWO_PASSENGERS = 1.42;
 
     public static final double BROOM_TRAIL_OFFSET_SIDEWAYS = 0.0;
     public static final double BROOM_TRAIL_OFFSET_UP = 0.0;

@@ -91,6 +91,7 @@ public final class VaultAccess {
             return;
         }
         tag.putString(TAG_ACCESS, record.access().name());
+        tag.putBoolean(VaultKeyItem.TAG_ARTIFACT, record.artifact());
         if (record.allowed().isEmpty()) {
             tag.remove(TAG_ALLOWED);
             return;
@@ -104,6 +105,10 @@ public final class VaultAccess {
 
     private static boolean mirrorMatches(CompoundTag tag, VaultRecord record) {
         if (!record.access().name().equals(tag.getString(TAG_ACCESS))) {
+            return false;
+        }
+        if (!tag.contains(VaultKeyItem.TAG_ARTIFACT)
+            || tag.getBoolean(VaultKeyItem.TAG_ARTIFACT) != record.artifact()) {
             return false;
         }
         if (record.allowed().isEmpty()) {

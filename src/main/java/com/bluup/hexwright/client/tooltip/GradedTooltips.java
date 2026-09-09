@@ -63,7 +63,7 @@ public final class GradedTooltips {
     }
 
     public static @Nullable TooltipStyle styleOf(ItemStack stack) {
-        if (stack.getItem() instanceof ArtifactItem) {
+        if (ArtifactItem.is(stack)) {
             return TooltipStyle.ARTIFACT;
         }
         if (stack.getItem() instanceof ConfigurableStaffItem) {
@@ -117,7 +117,8 @@ public final class GradedTooltips {
             return WardingBoxData.getQuality(stack).orElse(PocketCasterData.Quality.CRUDE);
         }
         if (stack.getItem() instanceof com.bluup.hexwright.server.vault.VaultKeyItem) {
-            return com.bluup.hexwright.server.vault.VaultKeyItem.grade(stack);
+            return ArtifactItem.is(stack) ? null
+                : com.bluup.hexwright.server.vault.VaultKeyItem.grade(stack);
         }
         if (stack.getItem() instanceof com.bluup.hexwright.server.remnant.HexEngravedBottleItem) {
             return com.bluup.hexwright.server.remnant.BottleData.getQuality(stack);

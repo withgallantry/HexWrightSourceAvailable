@@ -29,6 +29,12 @@ public final class HexwrightItems {
         new HexiconItem(new Item.Properties().stacksTo(1).rarity(Rarity.RARE))
     );
 
+    public static final Item FIELD_JOURNAL = Registry.register(
+        BuiltInRegistries.ITEM,
+        Hexwright.id("field_journal"),
+        new JournalItem(new Item.Properties().stacksTo(1))
+    );
+
     public static final Item ENDLESS_POUCH = Registry.register(
         BuiltInRegistries.ITEM,
         Hexwright.id("endless_pouch"),
@@ -103,6 +109,13 @@ public final class HexwrightItems {
         BuiltInRegistries.ITEM,
         Hexwright.id("talisman"),
         new com.bluup.hexwright.server.talisman.TalismanItem(new Item.Properties().stacksTo(1).rarity(Rarity.RARE))
+    );
+
+    public static final Item TALISMAN_OF_REPRIEVE = Registry.register(
+        BuiltInRegistries.ITEM,
+        Hexwright.id("talisman_of_reprieve"),
+        new com.bluup.hexwright.server.talisman.ReprieveTalismanItem(
+            new Item.Properties().stacksTo(1).rarity(Rarity.EPIC).fireResistant())
     );
 
     public static final Item HEX_ENGRAVED_BOTTLE = Registry.register(
@@ -331,6 +344,7 @@ public final class HexwrightItems {
         ItemGroupEvents.modifyEntriesEvent(CreativeModeTabs.TOOLS_AND_UTILITIES).register(entries -> {
             entries.accept(CONFIGURABLE_STAFF);
             entries.accept(HARMONIZED_PENTABOX);
+            entries.accept(FIELD_JOURNAL);
             entries.accept(HEXICON);
             entries.accept(ENDLESS_POUCH);
             entries.accept(POCKET_CASTER);
@@ -352,10 +366,13 @@ public final class HexwrightItems {
             }
             entries.accept(BROOM);
             for (var variant : com.bluup.hexwright.server.vehicle.BroomVariant.values()) {
-                if (variant != com.bluup.hexwright.server.vehicle.BroomVariant.ETHEREAL) {
-                    entries.accept(variant.createStack(
-                        com.bluup.hexwright.server.pocketcaster.PocketCasterData.Quality.FINE));
+                if (variant == com.bluup.hexwright.server.vehicle.BroomVariant.ETHEREAL) {
+                    continue;
                 }
+                entries.accept(variant.isArtifact()
+                    ? variant.createStack()
+                    : variant.createStack(
+                        com.bluup.hexwright.server.pocketcaster.PocketCasterData.Quality.FINE));
             }
             entries.accept(CARPET);
             for (var variant : com.bluup.hexwright.server.vehicle.CarpetVariant.values()) {
@@ -381,6 +398,7 @@ public final class HexwrightItems {
             com.bluup.hexwright.server.talisman.TalismanData.setContext(showcaseTalisman,
                 com.bluup.hexwright.server.talisman.TalismanData.Context.GAZE);
             entries.accept(showcaseTalisman);
+            entries.accept(TALISMAN_OF_REPRIEVE);
             for (var quality : com.bluup.hexwright.server.pocketcaster.PocketCasterData.Quality.values()) {
                 entries.accept(com.bluup.hexwright.server.remnant.BottleData.create(quality));
             }

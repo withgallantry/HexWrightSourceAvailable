@@ -4,6 +4,7 @@ import com.bluup.hexwright.server.item.HexwrightItems;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.Level;
+import org.jetbrains.annotations.Nullable;
 
 public class BroomEntity extends VehicleEntity {
 
@@ -17,22 +18,22 @@ public class BroomEntity extends VehicleEntity {
 
     @Override
     public double getMaxHorizontalSpeed() {
-        return BroomVariant.maxHorizontalSpeed(getQuality());
+        return variant().maxHorizontalSpeed(getQuality());
     }
 
     @Override
     public double getMaxVerticalSpeed() {
-        return BroomVariant.maxVerticalSpeed(getQuality());
+        return variant().maxVerticalSpeed(getQuality());
     }
 
     @Override
     public double getMaxAcceleration() {
-        return BroomVariant.maxAcceleration(getQuality());
+        return variant().maxAcceleration(getQuality());
     }
 
     @Override
     public int getPassengerCapacity() {
-        return VehicleConfig.BROOM_PASSENGER_CAPACITY;
+        return variant().passengerCapacity();
     }
 
     @Override
@@ -42,7 +43,7 @@ public class BroomEntity extends VehicleEntity {
 
     @Override
     public long getMediaCapacity() {
-        return BroomVariant.mediaCapacity(getQuality());
+        return variant().mediaCapacity(getQuality());
     }
 
     @Override
@@ -68,6 +69,37 @@ public class BroomEntity extends VehicleEntity {
     @Override
     public double getVisualTiltDegrees() {
         return VehicleConfig.BROOM_VISUAL_TILT_DEGREES;
+    }
+
+    private BroomSeats.@Nullable Seat seat(int seatIndex) {
+        return BroomSeats.seat(variant(), seatIndex);
+    }
+
+    @Override
+    protected double seatForwardOffset(int seatIndex) {
+        BroomSeats.Seat seat = seat(seatIndex);
+        return seat == null ? super.seatForwardOffset(seatIndex) : seat.forward();
+    }
+
+    @Override
+    protected double seatSidewaysOffset(int seatIndex) {
+        BroomSeats.Seat seat = seat(seatIndex);
+        return seat == null ? 0.0 : seat.sideways();
+    }
+
+    @Override
+    protected double seatVerticalOffset(int seatIndex) {
+        BroomSeats.Seat seat = seat(seatIndex);
+        return seat == null ? 0.0 : seat.vertical();
+    }
+
+    @Override
+    public double getLoadMultiplier() {
+        int passengers = Math.max(0, this.getPassengers().size() - 1);
+        if (passengers >= 2) {
+            return VehicleConfig.BROOM_LOAD_TWO_PASSENGERS;
+        }
+        return passengers == 1 ? VehicleConfig.BROOM_LOAD_ONE_PASSENGER : 1.0;
     }
 
     @Override

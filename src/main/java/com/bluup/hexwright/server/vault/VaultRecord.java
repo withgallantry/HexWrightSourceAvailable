@@ -59,6 +59,7 @@ public final class VaultRecord {
     private final UUID owner;
     private final BlockPos origin;
     private final PocketCasterData.Quality grade;
+    private final boolean artifact;
     private final String build;
     private final int templateVersion;
     private final long createdGameTime;
@@ -70,11 +71,12 @@ public final class VaultRecord {
     private final Map<UUID, String> allowed = new LinkedHashMap<>();
 
     public VaultRecord(int id, UUID owner, BlockPos origin, PocketCasterData.Quality grade,
-                       String build, int templateVersion, long createdGameTime) {
+                       boolean artifact, String build, int templateVersion, long createdGameTime) {
         this.id = id;
         this.owner = owner;
         this.origin = origin;
         this.grade = grade;
+        this.artifact = artifact;
         this.build = build;
         this.templateVersion = templateVersion;
         this.createdGameTime = createdGameTime;
@@ -94,6 +96,10 @@ public final class VaultRecord {
 
     public PocketCasterData.Quality grade() {
         return grade;
+    }
+
+    public boolean artifact() {
+        return artifact;
     }
 
     public String build() {
@@ -143,6 +149,9 @@ public final class VaultRecord {
         tag.putUUID("Owner", owner);
         tag.put("Origin", NbtUtils.writeBlockPos(origin));
         tag.putString("Grade", grade.name());
+        if (artifact) {
+            tag.putBoolean("Artifact", true);
+        }
         if (!build.isEmpty()) {
             tag.putString("Build", build);
         }
@@ -169,12 +178,17 @@ public final class VaultRecord {
         PocketCasterData.Quality grade = tag.contains("Grade")
             ? PocketCasterData.Quality.byName(tag.getString("Grade"))
             : PocketCasterData.Quality.FINE;
+        String build = tag.getString("Build");
+        boolean artifact = tag.contains("Artifact")
+            ? tag.getBoolean("Artifact")
+            : grade == PocketCasterData.Quality.MASTERWORK && !build.isEmpty();
         VaultRecord record = new VaultRecord(
             tag.getInt("Id"),
             tag.getUUID("Owner"),
             NbtUtils.readBlockPos(tag.getCompound("Origin")),
             grade,
-            tag.getString("Build"),
+            artifact,
+            build,
             tag.getInt("Template"),
             tag.getLong("Created"));
         record.access = Access.byName(tag.getString("Access"));

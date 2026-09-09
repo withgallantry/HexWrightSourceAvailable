@@ -21,7 +21,7 @@ import java.util.List;
 
 public final class VaultRooms {
 
-    public static final int TEMPLATE_VERSION = 4;
+    public static final int TEMPLATE_VERSION = 5;
 
     public static final int GRID_WIDTH = 128;
 
@@ -37,6 +37,7 @@ public final class VaultRooms {
         CHAMBER(8, 6, 5, 24),
         HALL(12, 12, 5, 24),
         GALLERY(18, 18, 7, 24),
+        PLANE(0, 0, 0, VaultGrounds.GROUND_Y),
         ESTATE(0, 0, 0, VaultGrounds.GROUND_Y);
 
         private final int width;
@@ -55,6 +56,10 @@ public final class VaultRooms {
             return this == ESTATE;
         }
 
+        public boolean isOpenAir() {
+            return this == ESTATE || this == PLANE;
+        }
+
         public int interiorHeight() {
             return interiorHeight;
         }
@@ -68,7 +73,7 @@ public final class VaultRooms {
         }
     }
 
-    public record Plan(int width, int depth, int interiorHeight, int floorY, boolean estate) {
+    public record Plan(int width, int depth, int interiorHeight, int floorY, boolean openAir) {
 
         public int chunkSpanX() {
             return (width + 15) / 16;
@@ -87,27 +92,34 @@ public final class VaultRooms {
         }
     }
 
-    public static Layout layoutFor(PocketCasterData.Quality grade) {
+    public static Layout layoutFor(PocketCasterData.Quality grade, boolean artifact) {
+        if (artifact) {
+            return Layout.ESTATE;
+        }
         return switch (grade) {
             case CRUDE, SOUND -> Layout.CHAMBER;
             case FINE -> Layout.HALL;
             case EXQUISITE -> Layout.GALLERY;
-            case MASTERWORK -> Layout.ESTATE;
+            case MASTERWORK -> Layout.PLANE;
         };
     }
 
-    public static Plan planFor(PocketCasterData.Quality grade, String buildId) {
-        Layout layout = layoutFor(grade);
-        if (!layout.isEstate()) {
-            return new Plan(layout.width, layout.depth, layout.interiorHeight, layout.floorY, false);
-        }
-        VaultBuild build = VaultBuilds.byId(buildId);
-        int size = build == null ? VaultBuilds.fallbackGroundsSize() : build.groundsSize();
-        return new Plan(size, size, 0, VaultGrounds.GROUND_Y, true);
+    public static Layout layoutOf(VaultRecord record) {
+        return layoutFor(record.grade(), record.artifact());
     }
 
     public static Plan planOf(VaultRecord record) {
-        return planFor(record.grade(), record.build());
+        Layout layout = layoutOf(record);
+        if (layout == Layout.ESTATE) {
+            VaultBuild build = VaultBuilds.byId(record.build());
+            int size = build == null ? VaultBuilds.fallbackGroundsSize() : build.groundsSize();
+            return new Plan(size, size, 0, VaultGrounds.GROUND_Y, true);
+        }
+        if (layout == Layout.PLANE) {
+            return new Plan(VaultGrounds.PLANE_SIZE, VaultGrounds.PLANE_SIZE, 0,
+                VaultGrounds.GROUND_Y, true);
+        }
+        return new Plan(layout.width, layout.depth, layout.interiorHeight, layout.floorY, false);
     }
 
     private VaultRooms() {
@@ -186,8 +198,8 @@ public final class VaultRooms {
     public static AABB habitableBounds(VaultRecord record) {
         Plan plan = planOf(record);
         BlockPos min = roomOrigin(record);
-        double lowY = (plan.estate() ? VaultGrounds.BASE_Y : plan.floorY()) - 1;
-        double highY = plan.estate()
+        double lowY = (plan.openAir() ? VaultGrounds.BASE_Y : plan.floorY()) - 1;
+        double highY = plan.openAir()
             ? VaultDimension.HEIGHT
             : plan.floorY() + plan.interiorHeight() + 2;
         return new AABB(
@@ -219,7 +231,7 @@ public final class VaultRooms {
     public static Vec3 interiorArrival(VaultRecord record) {
         Plan plan = planOf(record);
         BlockPos min = roomOrigin(record);
-        if (plan.estate()) {
+        if (plan.openAir()) {
             return new Vec3(min.getX() + plan.width() / 2.0,
                 plan.floorY() + 1,
                 min.getZ() + PORTAL_INSET + 3.5);
@@ -232,18 +244,22 @@ public final class VaultRooms {
     public static BlockPos intactProbe(VaultRecord record) {
         Plan plan = planOf(record);
         BlockPos min = roomOrigin(record);
-        int y = plan.estate() ? VaultGrounds.BASE_Y : plan.floorY();
+        int y = plan.openAir() ? VaultGrounds.BASE_Y : plan.floorY();
         return new BlockPos(min.getX() + plan.width() / 2, y, min.getZ() + plan.depth() / 2);
     }
 
 
     public static void generate(ServerLevel vaultLevel, VaultRecord record) {
-        Plan plan = planOf(record);
-        if (plan.estate()) {
+        Layout layout = layoutOf(record);
+        if (layout == Layout.ESTATE) {
             VaultGrounds.generate(vaultLevel, record);
             return;
         }
-        generateRoom(vaultLevel, record, plan);
+        if (layout == Layout.PLANE) {
+            VaultGrounds.generatePlane(vaultLevel, record);
+            return;
+        }
+        generateRoom(vaultLevel, record, planOf(record));
     }
 
     static void generateArch(ServerLevel vaultLevel, BlockPos min, Plan plan) {

@@ -7,6 +7,7 @@ import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
 import net.fabricmc.fabric.api.event.player.UseBlockCallback;
 import net.fabricmc.fabric.api.event.player.UseEntityCallback;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.Vec3;
@@ -52,10 +53,15 @@ public final class TalismanEvents {
         });
 
         ServerLivingEntityEvents.ALLOW_DEATH.register((entity, source, damage) -> {
-            if (entity instanceof ServerPlayer player && !TalismanCasting.isCasting()) {
-                TalismanCasting.onTrigger(player, TalismanData.Trigger.DEATH,
-                    source.getEntity(), (double) damage);
+            if (!(entity instanceof ServerPlayer player) || TalismanCasting.isCasting()) {
+                return true;
             }
+            if (!source.is(DamageTypeTags.BYPASSES_INVULNERABILITY)
+                && TalismanCasting.onBrink(player, source.getEntity(), damage)) {
+                return false;
+            }
+            TalismanCasting.onTrigger(player, TalismanData.Trigger.DEATH,
+                source.getEntity(), (double) damage);
             return true;
         });
 

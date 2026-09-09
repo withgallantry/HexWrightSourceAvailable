@@ -156,19 +156,34 @@ public abstract class VehicleEntity extends Entity {
         return getRiderForwardOffset();
     }
 
+    protected double seatSidewaysOffset(int seatIndex) {
+        return 0.0;
+    }
+
+    protected double seatVerticalOffset(int seatIndex) {
+        return 0.0;
+    }
+
     public double getRenderScale() {
         return 1.0;
     }
 
     @Override
     protected void positionRider(Entity passenger, Entity.MoveFunction callback) {
-        double forwardOffset = seatForwardOffset(this.getPassengers().indexOf(passenger));
-        if (forwardOffset == 0.0) {
+        int seat = this.getPassengers().indexOf(passenger);
+        double forwardOffset = seatForwardOffset(seat);
+        double sidewaysOffset = seatSidewaysOffset(seat);
+        double verticalOffset = seatVerticalOffset(seat);
+        if (forwardOffset == 0.0 && sidewaysOffset == 0.0 && verticalOffset == 0.0) {
             super.positionRider(passenger, callback);
         } else {
             Vec3 forward = VehicleMovementMath.horizontalForward(this.getYRot());
+            Vec3 right = VehicleMovementMath.horizontalRight(forward);
             super.positionRider(passenger, (seated, x, y, z) -> callback.accept(
-                seated, x + forward.x * forwardOffset, y, z + forward.z * forwardOffset
+                seated,
+                x + forward.x * forwardOffset + right.x * sidewaysOffset,
+                y + verticalOffset,
+                z + forward.z * forwardOffset + right.z * sidewaysOffset
             ));
         }
         if (passenger instanceof LivingEntity living) {
@@ -573,6 +588,9 @@ public abstract class VehicleEntity extends Entity {
             return false;
         }
         if (!dismountedWithNoRoom && (!dismountedToGround || !packsAwayOnDismount())) {
+            return false;
+        }
+        if (!dismountedWithNoRoom && !this.getPassengers().isEmpty()) {
             return false;
         }
         ServerPlayer rider = this.level().getServer() == null

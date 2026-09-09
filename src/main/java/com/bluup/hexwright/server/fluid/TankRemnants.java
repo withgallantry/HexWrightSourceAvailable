@@ -60,6 +60,28 @@ public final class TankRemnants {
         return Collections.unmodifiableSet(drams.keySet());
     }
 
+    public int tint(int whenEmpty) {
+        double total = total();
+        if (total <= 0.0) {
+            return whenEmpty;
+        }
+        double red = 0.0;
+        double green = 0.0;
+        double blue = 0.0;
+        for (Map.Entry<RemnantType, Double> entry : drams.entrySet()) {
+            double weight = entry.getValue() / total;
+            int tint = entry.getKey().tint();
+            red += ((tint >> 16) & 0xFF) * weight;
+            green += ((tint >> 8) & 0xFF) * weight;
+            blue += (tint & 0xFF) * weight;
+        }
+        return (channel(red) << 16) | (channel(green) << 8) | channel(blue);
+    }
+
+    private static int channel(double value) {
+        return Math.max(0, Math.min(255, (int) Math.round(value)));
+    }
+
     public @Nullable RemnantType largest() {
         RemnantType best = null;
         double most = 0.0;

@@ -58,8 +58,16 @@ public final class TalismanActions {
             }
             ItemStack talisman = held.stack();
 
+            if (talisman.getItem() instanceof TalismanItem item && item.fixedTrigger() != null) {
+                throw new MishapBadLocation(player.position(), "hexwright_bound_talisman");
+            }
+
             TalismanData.Trigger trigger = TalismanData.Trigger.values()[triggerOrdinal];
             TalismanData.Context context = TalismanData.Context.values()[contextOrdinal];
+
+            if (!trigger.bindable) {
+                throw new MishapBadLocation(player.position(), "hexwright_unbindable_trigger");
+            }
 
             return new Result(new RenderedSpell() {
                 @Override

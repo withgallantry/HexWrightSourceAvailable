@@ -1,6 +1,5 @@
 package com.bluup.hexwright.server.progression;
 
-import com.bluup.hexwright.common.staff_assembly.calc.CoreRegistry;
 import com.bluup.hexwright.inits.HexwrightNetworking;
 import com.bluup.hexwright.server.crucible.EssencePouchData;
 import com.bluup.hexwright.server.pocketcaster.PocketCasterData;
@@ -9,21 +8,10 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
-import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.Map;
-import java.util.Optional;
-
 public final class Mastery {
-
-    private static final Map<String, PocketCasterData.Quality> CORE_REQUIREMENTS = Map.of(
-        "quartz_core", PocketCasterData.Quality.SOUND,
-        "scribe_core", PocketCasterData.Quality.FINE,
-        "traveller_core", PocketCasterData.Quality.EXQUISITE,
-        "echo_core", PocketCasterData.Quality.MASTERWORK
-    );
 
     private Mastery() {
     }
@@ -74,11 +62,6 @@ public final class Mastery {
             case MASTERWORK -> "message.hexwright.mastery.unlock.masterwork";
             default -> null;
         };
-    }
-
-    public static Optional<PocketCasterData.Quality> coreRequirement(Item coreItem) {
-        return CoreRegistry.lookup(coreItem)
-            .map(data -> CORE_REQUIREMENTS.get(data.id()));
     }
 
     public static void checkEssenceMilestones(ServerPlayer player, ItemStack pouch) {

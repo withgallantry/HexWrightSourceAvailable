@@ -26,6 +26,8 @@ public final class VaultGrounds {
 
     public static final int GROUND_Y = 11;
 
+    public static final int PLANE_SIZE = 64;
+
     private static final int WALL_TOP_Y = 14;
 
     private static final int LID_CLEARANCE = 8;
@@ -56,6 +58,14 @@ public final class VaultGrounds {
         path(plot, build);
         build.place(level, min, record, random);
         planting(plot, build, random);
+        VaultRooms.generateArch(level, min, VaultRooms.planOf(record));
+    }
+
+    static void generatePlane(ServerLevel level, VaultRecord record) {
+        BlockPos min = VaultRooms.roomOrigin(record);
+        Plot plot = new Plot(level, min, PLANE_SIZE);
+        groundwork(plot);
+        rampart(plot, VaultDimension.HEIGHT - 1);
         VaultRooms.generateArch(level, min, VaultRooms.planOf(record));
     }
 

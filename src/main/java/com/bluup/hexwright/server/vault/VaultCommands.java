@@ -40,15 +40,15 @@ public final class VaultCommands {
             })
             .then(Commands.literal("create")
                 .requires(source -> source.hasPermission(2))
-                .executes(context -> create(context, PocketCasterData.Quality.FINE, null))
+                .executes(context -> create(context, PocketCasterData.Quality.FINE, false, null))
                 .then(Commands.argument("grade", StringArgumentType.word())
                     .suggests(GRADES)
                     .executes(context -> create(context,
-                        PocketCasterData.Quality.byName(StringArgumentType.getString(context, "grade")), null))
+                        gradeWord(context), artifactWord(context), null))
                     .then(Commands.argument("build", StringArgumentType.word())
                         .suggests(BUILDS)
                         .executes(context -> create(context,
-                            PocketCasterData.Quality.byName(StringArgumentType.getString(context, "grade")),
+                            gradeWord(context), artifactWord(context),
                             StringArgumentType.getString(context, "build"))))))
             .then(Commands.literal("blank")
                 .requires(source -> source.hasPermission(2))
@@ -56,9 +56,9 @@ public final class VaultCommands {
                     .suggests(GRADES)
                     .executes(context -> {
                         ServerPlayer player = context.getSource().getPlayerOrException();
-                        PocketCasterData.Quality grade = PocketCasterData.Quality.byName(
-                            StringArgumentType.getString(context, "grade"));
-                        give(player, VaultKeyItem.blank(grade));
+                        give(player, artifactWord(context)
+                            ? VaultKeyItem.artifact()
+                            : VaultKeyItem.blank(gradeWord(context)));
                         return Command.SINGLE_SUCCESS;
                     })))
             .then(Commands.literal("list")
@@ -71,8 +71,9 @@ public final class VaultCommands {
                         VaultPortalSession session = VaultManager.sessionByVault(record.id());
                         String state = session == null ? "closed" : session.state().toString();
                         context.getSource().sendSuccess(() -> Component.literal(
-                            "  Vault " + record.id() + " - " + record.grade() + " "
-                                + VaultRooms.layoutFor(record.grade())
+                            "  Vault " + record.id() + " - "
+                                + (record.artifact() ? "ARTIFACT" : record.grade()) + " "
+                                + VaultRooms.layoutOf(record)
                                 + (record.build().isEmpty() ? "" : " (" + record.build() + ")")
                                 + " - " + state), false);
                     }
@@ -111,7 +112,7 @@ public final class VaultCommands {
                                 Component.translatable("hexwright.vault.unknown", id));
                             return 0;
                         }
-                        give(player, VaultKeyItem.forVault(id, record.grade()));
+                        give(player, VaultKeyItem.forVault(id, record.grade(), record.artifact()));
                         return Command.SINGLE_SUCCESS;
                     })))
             .then(Commands.literal("tp")
@@ -181,21 +182,36 @@ public final class VaultCommands {
         return builder.buildFuture();
     };
 
+    private static final String ARTIFACT_WORD = "artifact";
+
     private static final SuggestionProvider<CommandSourceStack> GRADES = (context, builder) -> {
         for (PocketCasterData.Quality grade : PocketCasterData.Quality.values()) {
             builder.suggest(grade.name().toLowerCase(Locale.ROOT));
         }
+        builder.suggest(ARTIFACT_WORD);
         return builder.buildFuture();
     };
 
+    private static boolean artifactWord(CommandContext<CommandSourceStack> context) {
+        return StringArgumentType.getString(context, "grade").equalsIgnoreCase(ARTIFACT_WORD);
+    }
+
+    private static PocketCasterData.Quality gradeWord(CommandContext<CommandSourceStack> context) {
+        return artifactWord(context)
+            ? PocketCasterData.Quality.MASTERWORK
+            : PocketCasterData.Quality.byName(StringArgumentType.getString(context, "grade"));
+    }
+
     private static int create(CommandContext<CommandSourceStack> context,
-                              PocketCasterData.Quality grade, @Nullable String build)
+                              PocketCasterData.Quality grade, boolean artifact,
+                              @Nullable String build)
         throws CommandSyntaxException {
         ServerPlayer player = context.getSource().getPlayerOrException();
-        VaultRecord record = VaultManager.createVault(player, grade, build);
-        give(player, VaultKeyItem.forVault(record.id(), record.grade()));
+        VaultRecord record = VaultManager.createVault(player, grade, artifact, build);
+        ItemStack key = VaultKeyItem.forVault(record.id(), record.grade(), record.artifact());
+        give(player, key);
         context.getSource().sendSuccess(() -> Component.translatable("hexwright.vault.created",
-            record.id(), Component.translatable(record.grade().translationKey())), true);
+            record.id(), VaultKeyItem.tierLabel(key)), true);
         return Command.SINGLE_SUCCESS;
     }
 

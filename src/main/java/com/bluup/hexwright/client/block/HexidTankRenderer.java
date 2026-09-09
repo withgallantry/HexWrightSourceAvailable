@@ -6,6 +6,7 @@ import com.bluup.hexwright.server.fluid.HexidTankBlock;
 import com.bluup.hexwright.server.fluid.HexidTankBlockEntity;
 import com.bluup.hexwright.server.fluid.HexidTankColumn;
 import com.bluup.hexwright.server.fluid.TankPart;
+import com.bluup.hexwright.server.fluid.TankRemnants;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.client.Minecraft;
@@ -36,6 +37,9 @@ public final class HexidTankRenderer implements BlockEntityRenderer<HexidTankBlo
 
     private static final int GLOW = 11;
 
+    private static final float FLUID_ALPHA = 0.86f;
+    private static final float SUSPENSION_ALPHA = 0.93f;
+
     private static final ResourceLocation WATER_STILL =
         new ResourceLocation("minecraft", "block/water_still");
 
@@ -53,19 +57,30 @@ public final class HexidTankRenderer implements BlockEntityRenderer<HexidTankBlo
             return;
         }
         HexidTankBlockEntity column = HexidTankColumn.controller(blockEntity.getLevel(), blockEntity.getBlockPos());
-        if (column == null || column.amountMb() <= 0) {
+        if (column == null) {
             return;
         }
 
         int height = column.columnHeight();
-        long capacity = HexidTank.capacityMb(height);
-        if (capacity <= 0) {
-            return;
+        boolean suspension = column.isRemnantStore();
+        float fullness;
+        if (suspension) {
+            double capacity = HexidTank.dramCapacity(height);
+            if (capacity <= 0.0) {
+                return;
+            }
+            fullness = (float) (column.remnants().total() / capacity);
+        } else {
+            long capacity = HexidTank.capacityMb(height);
+            if (column.amountMb() <= 0 || capacity <= 0) {
+                return;
+            }
+            fullness = (float) column.amountMb() / capacity;
         }
 
         int index = blockEntity.getBlockPos().getY() - column.getBlockPos().getY();
         float innerHeight = (height - 1) + (CEILING - FLOOR);
-        float surface = FLOOR + innerHeight * Mth.clamp((float) column.amountMb() / capacity, 0f, 1f);
+        float surface = FLOOR + innerHeight * Mth.clamp(fullness, 0f, 1f);
 
         BlockState state = blockEntity.getBlockState();
         TankPart part = state.hasProperty(HexidTankBlock.PART) ? state.getValue(HexidTankBlock.PART) : TankPart.SOLO;
@@ -78,8 +93,11 @@ public final class HexidTankRenderer implements BlockEntityRenderer<HexidTankBlo
             return;
         }
 
-        float density = (float) column.saturation();
-        int tint = lerpColour(WATER_TINT, HEXID_TINT, density);
+        float density = suspension ? 0f : (float) column.saturation();
+        int tint = suspension
+            ? column.remnants().tint(WATER_TINT)
+            : lerpColour(WATER_TINT, HEXID_TINT, density);
+        float alpha = suspension ? SUSPENSION_ALPHA : FLUID_ALPHA;
         int light = LightTexture.pack(
             Math.max(LightTexture.block(packedLight), Math.round(density * GLOW)),
             LightTexture.sky(packedLight));
@@ -89,15 +107,14 @@ public final class HexidTankRenderer implements BlockEntityRenderer<HexidTankBlo
             .apply(WATER_STILL);
         VertexConsumer buffer = bufferSource.getBuffer(Sheets.translucentCullBlockSheet());
 
-        draw(poseStack, buffer, sprite, from - index, to - index, tint, light, to >= surface);
+        draw(poseStack, buffer, sprite, from - index, to - index, tint, alpha, light, to >= surface);
     }
 
     private static void draw(PoseStack poseStack, VertexConsumer buffer, TextureAtlasSprite sprite,
-                             float y0, float y1, int tint, int light, boolean capped) {
+                             float y0, float y1, int tint, float a, int light, boolean capped) {
         float r = ((tint >> 16) & 0xFF) / 255f;
         float g = ((tint >> 8) & 0xFF) / 255f;
         float b = (tint & 0xFF) / 255f;
-        float a = 0.86f;
 
         Matrix4f pose = poseStack.last().pose();
         Matrix3f normal = poseStack.last().normal();

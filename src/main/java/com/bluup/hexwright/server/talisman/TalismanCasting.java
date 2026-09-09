@@ -10,6 +10,7 @@ import at.petrak.hexcasting.api.casting.iota.Iota;
 import at.petrak.hexcasting.api.casting.iota.NullIota;
 import at.petrak.hexcasting.api.casting.iota.Vec3Iota;
 import at.petrak.hexcasting.xplat.IXplatAbstractions;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -31,6 +32,9 @@ import java.util.List;
 public final class TalismanCasting {
 
     private static final double GAZE_REACH = 16.0;
+
+    private static final float REPRIEVE_HEALTH = 1.0f;
+    private static final int REPRIEVE_GRACE_TICKS = 40;
 
     private static int castDepth = 0;
 
@@ -71,6 +75,45 @@ public final class TalismanCasting {
         }
     }
 
+    public static boolean onBrink(ServerPlayer player, @Nullable Entity source, double damage) {
+        if (castDepth > 0) {
+            return false;
+        }
+        ServerLevel level = player.serverLevel();
+        for (ItemStack stack : WornTalismans.getWorn(player)) {
+            if (TalismanData.getTrigger(stack).orElse(null) != TalismanData.Trigger.BRINK) {
+                continue;
+            }
+            if (!TalismanData.isArmed(stack)) {
+                continue;
+            }
+            if (level.getGameTime() < TalismanData.getNextFire(stack)) {
+                continue;
+            }
+            TalismanData.setNextFire(stack,
+                level.getGameTime() + TalismanData.cooldownTicks(stack, TalismanData.Trigger.BRINK));
+
+            player.setHealth(REPRIEVE_HEALTH);
+            player.clearFire();
+            player.invulnerableTime = Math.max(player.invulnerableTime, REPRIEVE_GRACE_TICKS);
+
+            fire(player, level, stack, source, damage, null);
+
+            if (player.getHealth() <= 0.0f) {
+                return false;
+            }
+            announceReprieve(player, level);
+            return true;
+        }
+        return false;
+    }
+
+    private static void announceReprieve(ServerPlayer player, ServerLevel level) {
+        level.playSound(null, player.blockPosition(), SoundEvents.TOTEM_USE, SoundSource.PLAYERS, 1.0f, 1.0f);
+        level.sendParticles(ParticleTypes.TOTEM_OF_UNDYING,
+            player.getX(), player.getY(0.5), player.getZ(), 40, 0.4, 0.6, 0.4, 0.35);
+    }
+
     private static List<ItemStack> readyStacks(ServerPlayer player, TalismanData.Trigger trigger) {
         if (trigger != TalismanData.Trigger.USE) {
             return WornTalismans.getWorn(player);
@@ -99,8 +142,7 @@ public final class TalismanCasting {
 
         castDepth++;
         try {
-            CastingVM templateVm = IXplatAbstractions.INSTANCE.getStaffcastVM(player, InteractionHand.MAIN_HAND);
-            CastingImage seededImage = templateVm.getImage().copy(
+            CastingImage seededImage = new CastingImage(
                 List.of(seed),
                 0,
                 List.of(),
@@ -114,9 +156,6 @@ public final class TalismanCasting {
         } finally {
             castDepth--;
         }
-
-        level.playSound(null, player.blockPosition(),
-            SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.PLAYERS, 0.5f, 1.6f);
     }
 
     private static Iota buildContextIota(ServerPlayer player, TalismanData.Context context,

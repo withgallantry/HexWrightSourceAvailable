@@ -382,6 +382,18 @@ public final class HexwrightBlocks {
         new Item.Properties()
     );
 
+    public static final AlembixBlock ALEMBIX_BLOCK = new AlembixBlock(
+        soft(Blocks.COPPER_BLOCK)
+            .noOcclusion()
+    );
+
+    public static final Item ALEMBIX_ITEM = new BlockItem(
+        ALEMBIX_BLOCK,
+        new Item.Properties()
+    );
+
+    public static BlockEntityType<AlembixBlockEntity> ALEMBIX_BLOCK_ENTITY;
+
     public static void register() {
         Registry.register(BuiltInRegistries.BLOCK, Hexwright.id("staff_assembly"), STAFF_ASSEMBLY_BLOCK);
         Registry.register(BuiltInRegistries.ITEM, Hexwright.id("staff_assembly"), STAFF_ASSEMBLY_ITEM);
@@ -443,6 +455,8 @@ public final class HexwrightBlocks {
         Registry.register(BuiltInRegistries.ITEM, Hexwright.id("hexid_tank"), HEXID_TANK_ITEM);
         Registry.register(BuiltInRegistries.BLOCK, Hexwright.id("hexid_pipe"), HEXID_PIPE_BLOCK);
         Registry.register(BuiltInRegistries.ITEM, Hexwright.id("hexid_pipe"), HEXID_PIPE_ITEM);
+        Registry.register(BuiltInRegistries.BLOCK, Hexwright.id("alembix"), ALEMBIX_BLOCK);
+        Registry.register(BuiltInRegistries.ITEM, Hexwright.id("alembix"), ALEMBIX_ITEM);
 
         VaultDecorBlocks.register();
 
@@ -465,6 +479,7 @@ public final class HexwrightBlocks {
             entries.accept(EXCHANGE_BRIDGE_ITEM);
             entries.accept(HEXID_TANK_ITEM);
             entries.accept(HEXID_PIPE_ITEM);
+            entries.accept(ALEMBIX_ITEM);
         });
 
         ItemGroupEvents.modifyEntriesEvent(CreativeModeTabs.NATURAL_BLOCKS).register(entries -> {
@@ -616,6 +631,12 @@ public final class HexwrightBlocks {
             Hexwright.id("hexid_tank"),
             FabricBlockEntityTypeBuilder.create(
                 com.bluup.hexwright.server.fluid.HexidTankBlockEntity::new, HEXID_TANK_BLOCK).build()
+        );
+
+        ALEMBIX_BLOCK_ENTITY = Registry.register(
+            BuiltInRegistries.BLOCK_ENTITY_TYPE,
+            Hexwright.id("alembix"),
+            FabricBlockEntityTypeBuilder.create(AlembixBlockEntity::new, ALEMBIX_BLOCK).build()
         );
     }
 

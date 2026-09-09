@@ -13,6 +13,7 @@ import com.bluup.hexwright.server.crucible.EssencePouchData
 import com.bluup.hexwright.server.item.EndlessPouchItem
 import com.bluup.hexwright.server.network.EssenceNetwork
 import com.bluup.hexwright.server.pocketcaster.PocketCasterData
+import com.bluup.hexwright.server.progression.HexwrightCriteria
 import com.bluup.hexwright.server.progression.MakersMark
 import com.bluup.hexwright.server.progression.Mastery
 import com.bluup.hexwright.server.progression.RecipeUnlocks
@@ -372,6 +373,8 @@ class WorktableBlockEntity(
         deliverResult(result)
         if (craft.graded) {
             Mastery.recordCraft(player, quality, result)
+        } else {
+            HexwrightCriteria.QUALITY_CRAFTED.trigger(player, quality, result)
         }
 
         judgementKey = ""

@@ -117,6 +117,42 @@ object WorktableRecipes {
         InfusionStep(IngredientCategory.THREAD, 28.0, 32, 0.065f)
     )
 
+
+    val BROOM_SPLINTERED_SWEEPER_STEPS = listOf(
+        InfusionStep(IngredientCategory.SPATIAL, 22.0, 66, 0.135f),
+        InfusionStep(IngredientCategory.ORGANIC, 18.0, 56, 0.115f),
+        InfusionStep(IngredientCategory.METALLIC, 16.0, 46, 0.095f),
+        InfusionStep(IngredientCategory.ARCANE, 12.0, 38, 0.08f)
+    )
+
+    val BROOM_BRISTLEBACK_STEPS = listOf(
+        InfusionStep(IngredientCategory.SPATIAL, 26.0, 62, 0.125f),
+        InfusionStep(IngredientCategory.ORGANIC, 24.0, 52, 0.105f),
+        InfusionStep(IngredientCategory.METALLIC, 20.0, 44, 0.09f),
+        InfusionStep(IngredientCategory.ARCANE, 18.0, 36, 0.075f)
+    )
+
+    val BROOM_CROOKED_COMBER_STEPS = listOf(
+        InfusionStep(IngredientCategory.SPATIAL, 28.0, 62, 0.125f),
+        InfusionStep(IngredientCategory.ORGANIC, 24.0, 52, 0.105f),
+        InfusionStep(IngredientCategory.THREAD, 20.0, 44, 0.09f),
+        InfusionStep(IngredientCategory.ARCANE, 18.0, 36, 0.075f)
+    )
+
+    val BROOM_WHISPERWIND_STEPS = listOf(
+        InfusionStep(IngredientCategory.SPATIAL, 32.0, 58, 0.12f),
+        InfusionStep(IngredientCategory.ARCANE, 28.0, 50, 0.10f),
+        InfusionStep(IngredientCategory.ORGANIC, 24.0, 42, 0.085f),
+        InfusionStep(IngredientCategory.THREAD, 20.0, 34, 0.07f)
+    )
+
+    val BROOM_GLEAMGLIDE_STEPS = listOf(
+        InfusionStep(IngredientCategory.SPATIAL, 36.0, 54, 0.11f),
+        InfusionStep(IngredientCategory.RADIANT, 34.0, 46, 0.095f),
+        InfusionStep(IngredientCategory.ARCANE, 30.0, 38, 0.078f),
+        InfusionStep(IngredientCategory.PRESTIGE, 28.0, 30, 0.062f)
+    )
+
     val CARPET_PURPLE_STEPS = listOf(
         InfusionStep(IngredientCategory.THREAD, 26.0, 64, 0.13f),
         InfusionStep(IngredientCategory.ORGANIC, 18.0, 54, 0.11f),
@@ -373,6 +409,31 @@ object WorktableRecipes {
             BROOM_SWEET_ENCHANTRESS_STEPS,
             requiredMastery = BroomVariant.SWEET_ENCHANTRESS.requiredMastery()
         ) { quality -> BroomVariant.SWEET_ENCHANTRESS.createStack(quality) },
+        WorktableRecipe(
+            BroomVariant.SPLINTERED_SWEEPER.nameKey(),
+            BROOM_SPLINTERED_SWEEPER_STEPS,
+            requiredMastery = BroomVariant.SPLINTERED_SWEEPER.requiredMastery()
+        ) { quality -> BroomVariant.SPLINTERED_SWEEPER.createStack(quality) },
+        WorktableRecipe(
+            BroomVariant.BRISTLEBACK.nameKey(),
+            BROOM_BRISTLEBACK_STEPS,
+            requiredMastery = BroomVariant.BRISTLEBACK.requiredMastery()
+        ) { quality -> BroomVariant.BRISTLEBACK.createStack(quality) },
+        WorktableRecipe(
+            BroomVariant.CROOKED_COMBER.nameKey(),
+            BROOM_CROOKED_COMBER_STEPS,
+            requiredMastery = BroomVariant.CROOKED_COMBER.requiredMastery()
+        ) { quality -> BroomVariant.CROOKED_COMBER.createStack(quality) },
+        WorktableRecipe(
+            BroomVariant.WHISPERWIND.nameKey(),
+            BROOM_WHISPERWIND_STEPS,
+            requiredMastery = BroomVariant.WHISPERWIND.requiredMastery()
+        ) { quality -> BroomVariant.WHISPERWIND.createStack(quality) },
+        WorktableRecipe(
+            BroomVariant.GLEAMGLIDE.nameKey(),
+            BROOM_GLEAMGLIDE_STEPS,
+            requiredMastery = BroomVariant.GLEAMGLIDE.requiredMastery()
+        ) { quality -> BroomVariant.GLEAMGLIDE.createStack(quality) },
         WorktableRecipe(
             CarpetVariant.PURPLE.nameKey(),
             CARPET_PURPLE_STEPS,

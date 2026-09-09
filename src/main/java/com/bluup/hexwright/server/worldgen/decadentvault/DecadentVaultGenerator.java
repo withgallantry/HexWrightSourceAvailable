@@ -197,7 +197,7 @@ final class DecadentVaultGenerator {
         Collections.shuffle(spots, new java.util.Random(random.nextLong()));
 
         List<ItemStack> plinthed = new ArrayList<>(List.of(
-            VaultKeyItem.blank(PocketCasterData.Quality.MASTERWORK),
+            VaultKeyItem.artifact(),
             MasterworkRewards.staffCore(random),
             MasterworkRewards.broom(random)));
         if (random.nextFloat() < UNIQUE_DROP_CHANCE) {

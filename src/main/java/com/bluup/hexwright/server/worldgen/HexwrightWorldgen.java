@@ -5,6 +5,8 @@ import com.bluup.hexwright.server.worldgen.dungeon.DungeonPiece;
 import com.bluup.hexwright.server.worldgen.dungeon.DungeonStructure;
 import com.bluup.hexwright.server.worldgen.arena.ArenaPiece;
 import com.bluup.hexwright.server.worldgen.arena.ArenaStructure;
+import com.bluup.hexwright.server.worldgen.bindstone.BindstonePillarPiece;
+import com.bluup.hexwright.server.worldgen.bindstone.BindstonePillarStructure;
 import com.bluup.hexwright.server.worldgen.ruinedportal.RuinedPortalPiece;
 import com.bluup.hexwright.server.worldgen.ruinedportal.RuinedPortalStructure;
 import net.fabricmc.fabric.api.biome.v1.BiomeModifications;
@@ -14,7 +16,6 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.level.levelgen.GenerationStep;
-import net.minecraft.world.level.levelgen.feature.configurations.NoneFeatureConfiguration;
 import net.minecraft.world.level.levelgen.placement.PlacementModifierType;
 import net.minecraft.world.level.levelgen.structure.StructureType;
 import net.minecraft.world.level.levelgen.structure.pieces.StructurePieceType;
@@ -35,6 +36,10 @@ public final class HexwrightWorldgen {
 
     public static StructurePieceType RUINED_PORTAL_PIECE;
 
+    public static StructureType<BindstonePillarStructure> BINDSTONE_PILLAR;
+
+    public static StructurePieceType BINDSTONE_PILLAR_PIECE;
+
     public static final ResourceKey<net.minecraft.world.level.levelgen.structure.Structure> DEEP_DUNGEON_KEY =
         ResourceKey.create(Registries.STRUCTURE, Hexwright.id("deep_dungeon"));
 
@@ -47,9 +52,6 @@ public final class HexwrightWorldgen {
     private static final ResourceKey<net.minecraft.world.level.levelgen.placement.PlacedFeature> CRYSTALITE_NETHER_ORE =
         ResourceKey.create(Registries.PLACED_FEATURE, Hexwright.id("crystalite_nether_ore"));
 
-    private static final ResourceKey<net.minecraft.world.level.levelgen.placement.PlacedFeature> BINDSTONE_PILLAR =
-        ResourceKey.create(Registries.PLACED_FEATURE, Hexwright.id("bindstone_pillar"));
-
     private HexwrightWorldgen() {
     }
 
@@ -58,12 +60,6 @@ public final class HexwrightWorldgen {
             BuiltInRegistries.PLACEMENT_MODIFIER_TYPE,
             Hexwright.id("near_lava"),
             () -> NearLavaFilter.CODEC
-        );
-
-        Registry.register(
-            BuiltInRegistries.FEATURE,
-            Hexwright.id("bindstone_pillar"),
-            new BindstonePillarFeature(NoneFeatureConfiguration.CODEC)
         );
 
         DEEP_DUNGEON = Registry.register(
@@ -99,6 +95,17 @@ public final class HexwrightWorldgen {
             (StructurePieceType.ContextlessType) RuinedPortalPiece::new
         );
 
+        BINDSTONE_PILLAR = Registry.register(
+            BuiltInRegistries.STRUCTURE_TYPE,
+            Hexwright.id("bindstone_pillar"),
+            () -> BindstonePillarStructure.CODEC
+        );
+        BINDSTONE_PILLAR_PIECE = Registry.register(
+            BuiltInRegistries.STRUCTURE_PIECE,
+            Hexwright.id("bindstone_pillar"),
+            (StructurePieceType.ContextlessType) BindstonePillarPiece::new
+        );
+
         BiomeModifications.addFeature(
             BiomeSelectors.foundInOverworld(),
             GenerationStep.Decoration.UNDERGROUND_ORES,
@@ -108,11 +115,6 @@ public final class HexwrightWorldgen {
             BiomeSelectors.foundInTheNether(),
             GenerationStep.Decoration.UNDERGROUND_ORES,
             CRYSTALITE_NETHER_ORE
-        );
-        BiomeModifications.addFeature(
-            BiomeSelectors.foundInOverworld(),
-            GenerationStep.Decoration.UNDERGROUND_DECORATION,
-            BINDSTONE_PILLAR
         );
     }
 }

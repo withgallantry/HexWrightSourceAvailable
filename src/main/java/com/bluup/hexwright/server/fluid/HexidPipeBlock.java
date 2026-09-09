@@ -9,7 +9,9 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
@@ -26,6 +28,7 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.EnumMap;
@@ -43,6 +46,8 @@ public class HexidPipeBlock extends Block {
     public static final EnumProperty<PipeJoint> DOWN = EnumProperty.create("down", PipeJoint.class);
 
     public static final DirectionProperty FACING = BlockStateProperties.HORIZONTAL_FACING;
+
+    public static final EnumProperty<PipeRun> RUN = EnumProperty.create("run", PipeRun.class);
 
     public static final Map<Direction, EnumProperty<PipeJoint>> JOINTS = new EnumMap<>(Direction.class);
 
@@ -80,13 +85,14 @@ public class HexidPipeBlock extends Block {
             .setValue(WEST, PipeJoint.NONE)
             .setValue(UP, PipeJoint.NONE)
             .setValue(DOWN, PipeJoint.NONE)
-            .setValue(FACING, Direction.NORTH));
+            .setValue(FACING, Direction.NORTH)
+            .setValue(RUN, PipeRun.FREE));
         this.shapes = buildShapes();
     }
 
     @Override
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
-        builder.add(NORTH, EAST, SOUTH, WEST, UP, DOWN, FACING);
+        builder.add(NORTH, EAST, SOUTH, WEST, UP, DOWN, FACING, RUN);
     }
 
 
@@ -160,19 +166,50 @@ public class HexidPipeBlock extends Block {
 
     @Override
     public BlockState getStateForPlacement(BlockPlaceContext context) {
-        BlockState state = defaultBlockState().setValue(FACING, context.getHorizontalDirection());
+        Player player = context.getPlayer();
+        PipeRun run = player != null && player.isShiftKeyDown()
+            ? PipeRun.along(context.getNearestLookingDirection().getAxis())
+            : PipeRun.FREE;
+        BlockState state = defaultBlockState()
+            .setValue(FACING, context.getHorizontalDirection())
+            .setValue(RUN, run);
         for (Direction side : Direction.values()) {
             BlockPos neighbour = context.getClickedPos().relative(side);
             state = state.setValue(JOINTS.get(side),
-                jointWith(context.getLevel().getBlockState(neighbour), side));
+                jointWith(state, context.getLevel().getBlockState(neighbour), side));
         }
         return state;
     }
 
     @Override
+    public void setPlacedBy(Level level, BlockPos pos, BlockState state,
+                            @Nullable LivingEntity placer, ItemStack stack) {
+        super.setPlacedBy(level, pos, state, placer, stack);
+        if (level.isClientSide) {
+            return;
+        }
+        String clash = HexidPipeNetwork.clashReason(level, pos);
+        if (clash != null) {
+            breakClash(level, pos, placer, clash);
+            return;
+        }
+        if (state.getValue(RUN).isStraight() && placer instanceof Player player) {
+            say(player, "hexwright.hexid_pipe.straight");
+        }
+    }
+
+    private static void breakClash(Level level, BlockPos pos, @Nullable LivingEntity placer,
+                                   String reason) {
+        level.destroyBlock(pos, true);
+        if (placer instanceof Player player) {
+            say(player, reason);
+        }
+    }
+
+    @Override
     public BlockState updateShape(BlockState state, Direction direction, BlockState neighbour,
                                   LevelAccessor level, BlockPos pos, BlockPos neighbourPos) {
-        PipeJoint joint = jointWith(neighbour, direction);
+        PipeJoint joint = jointWith(state, neighbour, direction);
         if (joint == state.getValue(JOINTS.get(direction))) {
             return state;
         }
@@ -182,12 +219,21 @@ public class HexidPipeBlock extends Block {
 
     @Override
     public void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
-        HexidPipeNetwork.settle(level, pos);
+        String clash = HexidPipeNetwork.settle(level, pos);
+        if (clash != null) {
+            breakClash(level, pos, null, clash);
+        }
     }
 
-    public static PipeJoint jointWith(BlockState neighbour, Direction towards) {
+    public static PipeJoint jointWith(BlockState self, BlockState neighbour, Direction towards) {
+        if (!runOf(self).allows(towards)) {
+            return PipeJoint.NONE;
+        }
         if (neighbour.is(HexwrightBlocks.HEXID_PIPE_BLOCK)) {
-            return PipeJoint.PIPE;
+            return runOf(neighbour).allows(towards) ? PipeJoint.PIPE : PipeJoint.NONE;
+        }
+        if (neighbour.is(HexwrightBlocks.ALEMBIX_BLOCK)) {
+            return towards == Direction.UP ? PipeJoint.NONE : PipeJoint.TANK;
         }
         if (!HexidTankColumn.isTank(neighbour)) {
             return PipeJoint.NONE;
@@ -195,6 +241,10 @@ public class HexidPipeBlock extends Block {
         TankPart part = neighbour.getValue(HexidTankBlock.PART);
         boolean joins = towards == Direction.DOWN ? part.lidded() : part.footed();
         return joins ? PipeJoint.TANK : PipeJoint.NONE;
+    }
+
+    private static PipeRun runOf(BlockState state) {
+        return state.hasProperty(RUN) ? state.getValue(RUN) : PipeRun.FREE;
     }
 
     @Override
@@ -225,6 +275,10 @@ public class HexidPipeBlock extends Block {
             say(player, "hexwright.hexid_pipe.status.dry");
             return;
         }
+        if (HexidPipeNetwork.isSuspension(tanks)) {
+            reportSuspension(player, tanks);
+            return;
+        }
         long amount = 0;
         long capacity = 0;
         long media = 0;
@@ -244,6 +298,22 @@ public class HexidPipeBlock extends Block {
         }
     }
 
+    private static void reportSuspension(Player player, List<HexidTankBlockEntity> tanks) {
+        double held = 0;
+        double capacity = 0;
+        int columns = 0;
+        for (HexidTankBlockEntity tank : tanks) {
+            if (tank.holdsFluid()) {
+                continue;
+            }
+            held += tank.remnants().total();
+            capacity += tank.remnantCapacity();
+            columns++;
+        }
+        say(player, "hexwright.hexid_pipe.status.suspension",
+            columns, count(Math.round(held)), count(Math.round(capacity)));
+    }
+
     private static String count(long value) {
         return String.format("%,d", value);
     }
@@ -256,7 +326,8 @@ public class HexidPipeBlock extends Block {
 
     @Override
     public BlockState rotate(BlockState state, Rotation rotation) {
-        BlockState turned = state.setValue(FACING, rotation.rotate(state.getValue(FACING)));
+        BlockState turned = state.setValue(FACING, rotation.rotate(state.getValue(FACING)))
+            .setValue(RUN, state.getValue(RUN).rotate(rotation));
         for (Direction side : Direction.Plane.HORIZONTAL) {
             turned = turned.setValue(JOINTS.get(rotation.rotate(side)), state.getValue(JOINTS.get(side)));
         }

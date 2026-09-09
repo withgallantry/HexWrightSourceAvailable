@@ -1,6 +1,8 @@
 package com.bluup.hexwright.server.block
 
 import net.minecraft.core.BlockPos
+import net.minecraft.sounds.SoundEvents
+import net.minecraft.sounds.SoundSource
 import net.minecraft.world.InteractionHand
 import net.minecraft.world.InteractionResult
 import net.minecraft.world.entity.player.Player
@@ -43,6 +45,18 @@ class VaultPlinthBlock(properties: Properties) : Block(properties), EntityBlock 
             return InteractionResult.SUCCESS
         }
         val plinth = level.getBlockEntity(pos) as? VaultPlinthBlockEntity ?: return InteractionResult.PASS
-        return if (plinth.claim(player)) InteractionResult.CONSUME else InteractionResult.PASS
+        val handled = if (plinth.displayed.isEmpty) {
+            plinth.place(player, player.getItemInHand(hand))
+        } else {
+            plinth.claim(player)
+        }
+        if (!handled) {
+            return InteractionResult.PASS
+        }
+        level.playSound(
+            null, pos, SoundEvents.ITEM_FRAME_ADD_ITEM, SoundSource.BLOCKS, 0.7f,
+            if (plinth.displayed.isEmpty) 0.9f else 1.2f
+        )
+        return InteractionResult.CONSUME
     }
 }

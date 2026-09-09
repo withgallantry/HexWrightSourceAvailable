@@ -145,6 +145,7 @@ public final class HexwrightClient implements ClientModInitializer {
         com.bluup.hexwright.client.block.PlacedBottleRenderer.register();
         com.bluup.hexwright.client.block.HexidTankRenderer.register();
         com.bluup.hexwright.client.block.HexidPipePreview.register();
+        com.bluup.hexwright.client.render.TranslucentBlockOutline.register();
         com.bluup.hexwright.client.render.emissive.EmissiveItemModels.register();
         com.bluup.hexwright.client.render.emissive.BlockGlow.register();
         com.bluup.hexwright.client.render.emissive.EmissiveBloom.register();
@@ -169,6 +170,7 @@ public final class HexwrightClient implements ClientModInitializer {
         BlockRenderLayerMap.INSTANCE.putBlock(HexwrightBlocks.WORKTABLE_BLOCK, RenderType.cutout());
         BlockRenderLayerMap.INSTANCE.putBlock(HexwrightBlocks.HEXID_TANK_BLOCK, RenderType.cutout());
         BlockRenderLayerMap.INSTANCE.putBlock(HexwrightBlocks.HEXID_PIPE_BLOCK, RenderType.cutout());
+        BlockRenderLayerMap.INSTANCE.putBlock(HexwrightBlocks.ALEMBIX_BLOCK, RenderType.translucent());
         BlockRenderLayerMap.INSTANCE.putBlock(HexwrightBlocks.STAFF_ASSEMBLY_BLOCK, RenderType.cutout());
         BlockRenderLayerMap.INSTANCE.putBlock(HexwrightBlocks.RESONANCE_TOWER_BLOCK, RenderType.cutout());
         BlockRenderLayerMap.INSTANCE.putBlock(HexwrightBlocks.MANIFOLD_VAULT_BLOCK, RenderType.cutout());

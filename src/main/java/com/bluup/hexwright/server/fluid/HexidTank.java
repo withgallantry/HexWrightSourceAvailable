@@ -13,7 +13,7 @@ public final class HexidTank {
 
     public static final int MAX_MEDIA_PER_MB = (int) MediaConstants.DUST_UNIT;
 
-    public static final double DRAMS_PER_BLOCK = 1000.0;
+    public static final double DRAMS_PER_BLOCK = 2000.0;
 
     public static long capacityMb(int height) {
         return Math.max(0, height) * PER_BLOCK_MB;

@@ -95,8 +95,8 @@ public final class VaultManager {
 
 
     public static VaultRecord createVault(ServerPlayer owner, PocketCasterData.Quality grade,
-                                          @Nullable String build) {
-        return VaultRegistry.get(owner.server).create(owner.server, owner, grade, build);
+                                          boolean artifact, @Nullable String build) {
+        return VaultRegistry.get(owner.server).create(owner.server, owner, grade, artifact, build);
     }
 
     public static @Nullable VaultRecord getVault(MinecraftServer server, int vaultId) {
@@ -627,8 +627,9 @@ public final class VaultManager {
                 .orElse(session.opener().toString());
             VaultRecord record = getVault(server, session.vaultId());
             lines.add("Vault " + session.vaultId()
-                + (record == null ? "" : " (" + record.grade() + " / "
-                    + VaultRooms.layoutFor(record.grade())
+                + (record == null ? "" : " ("
+                    + (record.artifact() ? "ARTIFACT" : record.grade()) + " / "
+                    + VaultRooms.layoutOf(record)
                     + (record.build().isEmpty() ? "" : ": " + record.build()) + ")"));
             lines.add("  State: " + session.state());
             lines.add("  Opened by: " + openerName);

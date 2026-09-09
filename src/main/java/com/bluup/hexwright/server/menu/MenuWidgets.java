@@ -3,9 +3,13 @@ package com.bluup.hexwright.server.menu;
 import com.bluup.hexwright.Hexwright;
 import com.lowdragmc.lowdraglib.gui.texture.ColorRectTexture;
 import com.lowdragmc.lowdraglib.gui.texture.IGuiTexture;
+import com.lowdragmc.lowdraglib.gui.util.ClickData;
+import com.lowdragmc.lowdraglib.gui.widget.ButtonWidget;
 import com.lowdragmc.lowdraglib.gui.widget.SlotWidget;
 import com.lowdragmc.lowdraglib.gui.widget.Widget;
 import com.lowdragmc.lowdraglib.gui.widget.WidgetGroup;
+import net.fabricmc.api.EnvType;
+import net.fabricmc.api.Environment;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.Container;
 import net.minecraft.world.inventory.Slot;
@@ -18,6 +22,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.BiFunction;
+import java.util.function.Consumer;
 
 public final class MenuWidgets {
 
@@ -156,6 +161,28 @@ public final class MenuWidgets {
                 replacement.setCanTakeItems(true);
                 replacement.setLocationInfo(true, slot < 9);
             }
+        }
+    }
+
+    public static final class SilentButtonWidget extends ButtonWidget {
+
+        public SilentButtonWidget(int x, int y, int width, int height, Consumer<ClickData> onPressed) {
+            super(x, y, width, height, onPressed);
+        }
+
+        @Override
+        @Environment(EnvType.CLIENT)
+        public boolean mouseClicked(double mouseX, double mouseY, int button) {
+            if (!isMouseOverElement(mouseX, mouseY)) {
+                return false;
+            }
+            isClicked = true;
+            ClickData clickData = new ClickData();
+            writeClientAction(1, clickData::writeToBuf);
+            if (onPressCallback != null) {
+                onPressCallback.accept(clickData);
+            }
+            return true;
         }
     }
 }

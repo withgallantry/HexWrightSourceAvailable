@@ -7,12 +7,7 @@ import com.bluup.hexwright.common.staff_assembly.calc.StaffCalculationResult;
 import com.bluup.hexwright.common.staff_assembly.calc.StaffCalculator;
 import com.bluup.hexwright.server.block.HexwrightBlocks;
 import com.bluup.hexwright.server.item.ConfigurableStaffItem;
-import com.bluup.hexwright.server.pocketcaster.PocketCasterData;
-import com.bluup.hexwright.server.progression.Mastery;
 import com.bluup.hexwright.server.staff_assembly.StaffAssemblyData;
-import net.minecraft.ChatFormatting;
-import net.minecraft.network.chat.Component;
-import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Container;
 import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.entity.player.Inventory;
@@ -24,7 +19,6 @@ import net.minecraft.world.item.ItemStack;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 public final class StaffAssemblyMenu extends AbstractContainerMenu {
 
@@ -187,22 +181,6 @@ public final class StaffAssemblyMenu extends AbstractContainerMenu {
         }
 
         StaffAssemblyData.setStats(staff, result);
-
-        ItemStack coreChoice = this.slots.get(CORE_SLOT).getItem();
-        if (!coreChoice.isEmpty() && player instanceof ServerPlayer masteryPlayer) {
-            Optional<PocketCasterData.Quality> needed = Mastery.coreRequirement(coreChoice.getItem());
-            if (needed.isPresent() && !Mastery.hasMastery(masteryPlayer, needed.get())) {
-                masteryPlayer.displayClientMessage(
-                    Component.translatable(
-                        "message.hexwright.mastery.core_locked",
-                        coreChoice.getHoverName(),
-                        Component.translatable(needed.get().translationKey())
-                    ).withStyle(ChatFormatting.YELLOW),
-                    false
-                );
-                return false;
-            }
-        }
 
         StaffAssemblyData.setCoreItem(staff, this.slots.get(CORE_SLOT).getItem());
 
