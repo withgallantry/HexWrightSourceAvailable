@@ -2,6 +2,7 @@ package com.bluup.hexwright.server.remnant;
 
 import com.bluup.hexwright.common.remnant.Remnant;
 import com.bluup.hexwright.common.remnant.RemnantType;
+import com.bluup.hexwright.server.fluid.TankRemnants;
 import com.bluup.hexwright.server.item.HexwrightItems;
 import com.bluup.hexwright.server.pocketcaster.PocketCasterData;
 import net.minecraft.nbt.CompoundTag;
@@ -12,6 +13,8 @@ public final class BottleData {
 
     public static final String ROOT_TAG = "hexwright_bottle";
     private static final String TAG_QUALITY = "Quality";
+    private static final String TAG_MIX = "Mix";
+
     private static final String TAG_REMNANT = "Remnant";
     private static final String TAG_DRAMS = "Drams";
 
@@ -46,70 +49,112 @@ public final class BottleData {
         return capacity(getQuality(stack));
     }
 
-    public static @Nullable Remnant getContents(ItemStack stack) {
+    public static TankRemnants getMixture(ItemStack stack) {
         CompoundTag root = stack.getTagElement(ROOT_TAG);
-        if (root == null || !root.contains(TAG_REMNANT)) {
-            return null;
+        return root == null ? TankRemnants.EMPTY : read(root);
+    }
+
+    private static TankRemnants read(CompoundTag root) {
+        if (root.contains(TAG_MIX)) {
+            return TankRemnants.load(root.get(TAG_MIX));
+        }
+        if (!root.contains(TAG_REMNANT)) {
+            return TankRemnants.EMPTY;
         }
         RemnantType type = RemnantType.byName(root.getString(TAG_REMNANT));
-        if (type == null) {
-            return null;
-        }
         double drams = root.getDouble(TAG_DRAMS);
-        return drams <= 0.0 ? null : new Remnant(type, drams);
+        return type == null || drams <= 0.0
+            ? TankRemnants.EMPTY
+            : TankRemnants.EMPTY.plus(new Remnant(type, drams));
+    }
+
+    private static void write(ItemStack stack, TankRemnants mix) {
+        CompoundTag root = stack.getOrCreateTagElement(ROOT_TAG);
+        root.remove(TAG_REMNANT);
+        root.remove(TAG_DRAMS);
+        if (mix.isEmpty()) {
+            root.remove(TAG_MIX);
+        } else {
+            root.put(TAG_MIX, mix.save());
+        }
+    }
+
+    public static @Nullable Remnant getContents(ItemStack stack) {
+        TankRemnants mix = getMixture(stack);
+        return mix.kinds() == 1 ? mix.contents().get(0) : null;
+    }
+
+    public static double heldDrams(ItemStack stack) {
+        return getMixture(stack).total();
     }
 
     public static boolean isEmpty(ItemStack stack) {
-        return getContents(stack) == null;
+        return getMixture(stack).isEmpty();
     }
 
     public static boolean isFull(ItemStack stack) {
-        Remnant contents = getContents(stack);
-        return contents != null && contents.drams() >= capacity(stack) - 0.001;
+        double held = heldDrams(stack);
+        return held > 0.0 && held >= capacity(stack) - 0.001;
+    }
+
+    public static double headroom(ItemStack stack) {
+        return Math.max(0.0, capacity(stack) - heldDrams(stack));
     }
 
     public static double fillFraction(ItemStack stack) {
-        Remnant contents = getContents(stack);
-        if (contents == null) {
-            return 0.0;
-        }
         int capacity = capacity(stack);
-        return capacity <= 0 ? 0.0 : Math.min(1.0, contents.drams() / capacity);
+        return capacity <= 0 ? 0.0 : Math.min(1.0, heldDrams(stack) / capacity);
     }
 
     public static boolean canAccept(ItemStack stack, @Nullable Remnant remnant) {
         if (remnant == null || remnant.isEmpty()) {
             return false;
         }
-        Remnant contents = getContents(stack);
-        if (contents == null) {
+        TankRemnants mix = getMixture(stack);
+        if (mix.isEmpty()) {
             return true;
         }
-        return contents.type() == remnant.type() && !isFull(stack);
+        return mix.has(remnant.type()) && !isFull(stack);
     }
 
     public static double pour(ItemStack stack, Remnant remnant) {
         if (!canAccept(stack, remnant)) {
             return 0.0;
         }
-        Remnant contents = getContents(stack);
-        double held = contents == null ? 0.0 : contents.drams();
-        double room = capacity(stack) - held;
-        double poured = Math.min(room, remnant.drams());
-        if (poured <= 0.0) {
+        double poured = Math.min(headroom(stack), remnant.drams());
+        if (poured < TankRemnants.MIN_DRAMS) {
             return 0.0;
         }
-        CompoundTag root = stack.getOrCreateTagElement(ROOT_TAG);
-        root.putString(TAG_REMNANT, remnant.type().name());
-        root.putDouble(TAG_DRAMS, held + poured);
+        write(stack, getMixture(stack).plus(remnant.withDrams(poured)));
         return poured;
     }
 
+    public static double pourMixture(ItemStack stack, TankRemnants blend) {
+        TankRemnants fits = blend.cappedTo(headroom(stack));
+        if (fits.isEmpty()) {
+            return 0.0;
+        }
+        write(stack, getMixture(stack).plusAll(fits));
+        return fits.total();
+    }
+
+    public static TankRemnants acceptableFrom(ItemStack stack, TankRemnants available) {
+        TankRemnants mix = getMixture(stack);
+        if (mix.isEmpty()) {
+            return available;
+        }
+        TankRemnants shared = TankRemnants.EMPTY;
+        for (Remnant part : available.contents()) {
+            if (mix.has(part.type())) {
+                shared = shared.plus(part);
+            }
+        }
+        return shared;
+    }
+
     public static void empty(ItemStack stack) {
-        CompoundTag root = stack.getTagElement(ROOT_TAG);
-        if (root != null) {
-            root.remove(TAG_REMNANT);
-            root.remove(TAG_DRAMS);
+        if (stack.getTagElement(ROOT_TAG) != null) {
+            write(stack, TankRemnants.EMPTY);
         }
     }
 

@@ -29,7 +29,8 @@ public final class HexidPipeNetwork {
 
     private static boolean settling;
 
-    private record Reach(BlockPos driver, List<BlockPos> columns, boolean feedsMixer) {
+    private record Reach(BlockPos driver, List<BlockPos> columns, List<BlockPos> liquefactriums,
+                         boolean feedsMixer) {
     }
 
     public static final String CLASH_MIXED_VESSEL = "hexwright.hexid_pipe.clash";
@@ -100,6 +101,19 @@ public final class HexidPipeNetwork {
         return resolve(level, walk(level, pos).columns());
     }
 
+    public static List<LiquefactriumBlockEntity> liquefactriumsOn(Level level, BlockPos pos) {
+        if (level == null || !isPipe(level, pos)) {
+            return List.of();
+        }
+        List<LiquefactriumBlockEntity> found = new ArrayList<>();
+        for (BlockPos liquefactrium : walk(level, pos).liquefactriums()) {
+            if (level.getBlockEntity(liquefactrium) instanceof LiquefactriumBlockEntity be) {
+                found.add(be);
+            }
+        }
+        return found;
+    }
+
     public static boolean isSuspension(List<HexidTankBlockEntity> tanks) {
         return carriesSuspension(tanks);
     }
@@ -128,6 +142,7 @@ public final class HexidPipeNetwork {
     private static Reach walk(Level level, BlockPos start) {
         Set<BlockPos> seen = new HashSet<>();
         Set<BlockPos> columns = new LinkedHashSet<>();
+        Set<BlockPos> liquefactriums = new LinkedHashSet<>();
         Deque<BlockPos> queue = new ArrayDeque<>();
         BlockPos driver = start;
         boolean feedsMixer = false;
@@ -154,13 +169,15 @@ public final class HexidPipeNetwork {
                 } else if (joint == PipeJoint.TANK) {
                     if (state.is(HexwrightBlocks.ALEMBIX_BLOCK)) {
                         feedsMixer |= side.getAxis().isHorizontal();
+                    } else if (state.is(HexwrightBlocks.LIQUEFACTRIUM_BLOCK)) {
+                        liquefactriums.add(next.immutable());
                     } else if (HexidTankColumn.isTank(state)) {
                         columns.add(HexidTankColumn.controllerPos(level, next));
                     }
                 }
             }
         }
-        return new Reach(driver, List.copyOf(columns), feedsMixer);
+        return new Reach(driver, List.copyOf(columns), List.copyOf(liquefactriums), feedsMixer);
     }
 
     private static List<HexidTankBlockEntity> resolve(Level level, List<BlockPos> columns) {

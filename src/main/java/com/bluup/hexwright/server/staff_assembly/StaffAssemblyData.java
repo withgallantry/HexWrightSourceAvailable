@@ -8,6 +8,7 @@ import com.bluup.hexwright.common.staff_assembly.calc.ComponentResult;
 import com.bluup.hexwright.common.staff_assembly.calc.EfficiencyRating;
 import com.bluup.hexwright.common.staff_assembly.calc.PersistedStaffStats;
 import com.bluup.hexwright.common.staff_assembly.calc.StaffCalculationResult;
+import com.bluup.hexwright.common.staff_assembly.calc.StaffCalculator;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
@@ -203,6 +204,10 @@ public final class StaffAssemblyData {
         return getAssemblyOrEmpty(stack).getDouble(TAG_MEDIA_RESERVE);
     }
 
+    public static final double MAX_MEDIA_DISCOUNT = 0.25;
+
+    private static final double MEDIA_DISCOUNT_EXPONENT = 2.0;
+
     public static double getMediaDiscount(ItemStack stack) {
         return getMediaDiscount(getCatalystOutput(stack));
     }
@@ -216,22 +221,12 @@ public final class StaffAssemblyData {
     }
 
     public static double getMediaDiscount(double catalystOutput) {
-        if (catalystOutput <= 0.0) {
+        double cap = StaffCalculator.CATALYST_CONFIG.maxOutput();
+        if (catalystOutput <= 0.0 || cap <= 0.0) {
             return 0.0;
         }
-        if (catalystOutput <= 30.0) {
-            return 0.10;
-        }
-        if (catalystOutput <= 60.0) {
-            return 0.20;
-        }
-        if (catalystOutput <= 90.0) {
-            return 0.30;
-        }
-
-        double capped = Math.min(catalystOutput, 120.0);
-        double progress = (capped - 90.0) / 30.0;
-        return 0.30 + progress * 0.10;
+        double progress = Math.min(catalystOutput / cap, 1.0);
+        return MAX_MEDIA_DISCOUNT * Math.pow(progress, MEDIA_DISCOUNT_EXPONENT);
     }
 
     public static double getEfficiency(ItemStack stack) {

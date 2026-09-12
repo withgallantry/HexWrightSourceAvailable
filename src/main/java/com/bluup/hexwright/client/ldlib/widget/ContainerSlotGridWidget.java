@@ -8,10 +8,17 @@ import com.lowdragmc.lowdraglib.gui.editor.annotation.NumberRange;
 import com.lowdragmc.lowdraglib.gui.editor.ui.Editor;
 import com.lowdragmc.lowdraglib.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib.gui.widget.SlotWidget;
+import com.lowdragmc.lowdraglib.gui.widget.Widget;
 import com.lowdragmc.lowdraglib.gui.widget.WidgetGroup;
 import com.lowdragmc.lowdraglib.utils.Position;
 import com.lowdragmc.lowdraglib.utils.Size;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.Container;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 @LDLRegister(name = "container_slot_grid", group = "widget.custom")
 public class ContainerSlotGridWidget extends WidgetGroup {
@@ -47,6 +54,34 @@ public class ContainerSlotGridWidget extends WidgetGroup {
 
     @Override
     public void initTemplate() {
+    }
+
+    @Override
+    public void deserializeInnerNBT(CompoundTag nbt) {
+        super.deserializeInnerNBT(nbt);
+        Map<String, IGuiTexture> storedBackgrounds = new HashMap<>();
+        List<Widget> nonSlots = new ArrayList<>();
+        for (Widget widget : widgets) {
+            if (widget instanceof SlotWidget slotWidget) {
+                storedBackgrounds.put(slotWidget.getId(), slotWidget.getBackgroundTexture());
+            } else {
+                nonSlots.add(widget);
+            }
+        }
+        rebuildSlots();
+        if (allowCustomBackground) {
+            for (Widget widget : widgets) {
+                if (widget instanceof SlotWidget slotWidget) {
+                    IGuiTexture stored = storedBackgrounds.get(slotWidget.getId());
+                    if (stored != null) {
+                        slotWidget.setBackground(stored);
+                    }
+                }
+            }
+        }
+        for (Widget nonSlot : nonSlots) {
+            addWidget(nonSlot);
+        }
     }
 
     @Override

@@ -76,7 +76,7 @@ public class StoneTabletItem extends Item {
         if (ClientRecipeUnlocks.isDiscovered(recipe)) {
             tooltip.add(Component.translatable("tooltip.hexwright.stone_tablet.known").withStyle(ChatFormatting.DARK_GRAY));
         } else {
-            tooltip.add(Component.translatable("tooltip.hexwright.stone_tablet.study").withStyle(ChatFormatting.DARK_GRAY, ChatFormatting.ITALIC));
+            tooltip.add(Component.translatable("tooltip.hexwright.stone_tablet.study", Component.keybind("key.use")).withStyle(ChatFormatting.DARK_GRAY, ChatFormatting.ITALIC));
         }
     }
 

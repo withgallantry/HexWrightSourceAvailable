@@ -758,7 +758,7 @@ class StaffAssemblyBlockEntity(
 
     private fun percent(value: Double): String = String.format(Locale.ROOT, "%.0f%%", value * 100.0)
 
-    private fun formatNumber(value: Double): String = value.roundToInt().toString()
+    private fun formatNumber(value: Double): String = StaffCalculator.displayed(value).toString()
 
     private fun computeResult(): StaffCalculationResult {
         val core = this.items[StaffAssemblyMenu.CORE_SLOT]

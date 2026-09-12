@@ -54,7 +54,8 @@ public class FieldTunerItem extends Item {
                 );
             } else {
                 player.displayClientMessage(
-                    Component.translatable("message.hexwright.field_tuner.already_tuned").withStyle(ChatFormatting.GRAY), true
+                    Component.translatable("message.hexwright.field_tuner.already_tuned",
+                        Component.keybind("key.sneak"), Component.keybind("key.use")).withStyle(ChatFormatting.GRAY), true
                 );
             }
             return;
@@ -271,7 +272,7 @@ public class FieldTunerItem extends Item {
             tooltip.add(Component.translatable("tooltip.hexwright.field_tuner.progress", count, GROUP_SIZE)
                 .withStyle(ChatFormatting.AQUA));
         }
-        tooltip.add(Component.translatable("tooltip.hexwright.field_tuner.hint")
+        tooltip.add(Component.translatable("tooltip.hexwright.field_tuner.hint", Component.keybind("key.use"))
             .withStyle(ChatFormatting.GRAY, ChatFormatting.ITALIC));
     }
 }

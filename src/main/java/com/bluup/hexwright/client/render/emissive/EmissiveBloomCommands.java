@@ -87,6 +87,9 @@ final class EmissiveBloomCommands {
                             .executes(ctx -> setBlockGlowMipmap(ctx.getSource(), true)))
                         .then(ClientCommandManager.literal("off")
                             .executes(ctx -> setBlockGlowMipmap(ctx.getSource(), false)))))
+                .then(ClientCommandManager.literal("items")
+                    .then(ClientCommandManager.literal("trace")
+                        .executes(ctx -> traceItemGlow(ctx.getSource()))))
                 .then(ClientCommandManager.literal("debug")
                     .then(ClientCommandManager.argument("mode", IntegerArgumentType.integer(0, 3))
                         .executes(EmissiveBloomCommands::setDebugMode)))));
@@ -165,6 +168,12 @@ final class EmissiveBloomCommands {
     }
 
 
+
+    private static int traceItemGlow(FabricClientCommandSource source) {
+        EmissiveItemTrace.request();
+        feedback(source, "Item glow trace armed - the next frame is logged to the client log.");
+        return SINGLE_SUCCESS;
+    }
 
     private static int traceBlockGlow(FabricClientCommandSource source) {
         BlockGlowTrace.request();

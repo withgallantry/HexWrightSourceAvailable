@@ -60,6 +60,11 @@ public final class EmissiveBakedModel implements BakedModel {
         return glowModelId != null;
     }
 
+    @Nullable
+    ResourceLocation glowModelId() {
+        return glowModelId;
+    }
+
     public boolean thresholded() {
         return thresholded;
     }

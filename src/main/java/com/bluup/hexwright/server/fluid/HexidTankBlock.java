@@ -231,10 +231,16 @@ public class HexidTankBlock extends Block implements EntityBlock {
                                   ItemStack held, HexidTankBlockEntity tank) {
         ItemStack one = held.copy();
         one.setCount(1);
-        Remnant contents = BottleData.getContents(one);
-        boolean changed = contents == null
-            ? drawIntoBottle(level, pos, player, one, tank)
-            : pourFromBottle(level, pos, player, one, contents, tank);
+        TankRemnants contents = BottleData.getMixture(one);
+        boolean changed;
+        if (contents.isEmpty()) {
+            changed = drawIntoBottle(level, pos, player, one, tank);
+        } else if (contents.kinds() > 1) {
+            say(player, "hexwright.hexid_tank.bottle_mixture");
+            changed = false;
+        } else {
+            changed = pourFromBottle(level, pos, player, one, contents.contents().get(0), tank);
+        }
         if (changed) {
             player.setItemInHand(hand, ItemUtils.createFilledResult(held, player, one));
         }
@@ -290,23 +296,27 @@ public class HexidTankBlock extends Block implements EntityBlock {
 
     private static boolean drawIntoBottle(Level level, BlockPos pos, Player player, ItemStack bottle,
                                           HexidTankBlockEntity tank) {
-        RemnantType type = tank.remnants().largest();
-        if (type == null) {
+        if (tank.remnants().isEmpty()) {
             say(player, "hexwright.hexid_tank.no_remnants");
             return false;
         }
-        double taken = tank.drawRemnant(type, Math.min(BottleData.capacity(bottle),
-            tank.remnants().drams(type)));
-        if (taken <= 0.0) {
+        TankRemnants taken = tank.drawMixture(Math.min(BottleData.capacity(bottle),
+            tank.remnants().total()));
+        if (taken.isEmpty()) {
             say(player, "hexwright.hexid_tank.no_remnants");
             return false;
         }
-        double poured = BottleData.pour(bottle, new Remnant(type, taken));
-        if (poured < taken) {
-            tank.addRemnant(new Remnant(type, taken - poured));
+        double poured = BottleData.pourMixture(bottle, taken);
+        if (poured < taken.total()) {
+            tank.pourMixture(taken.portion(1.0 - poured / taken.total()));
         }
         level.playSound(null, pos, SoundEvents.BOTTLE_FILL, SoundSource.BLOCKS, 0.8f, 1.1f);
-        say(player, "hexwright.hexid_tank.drawn", (int) Math.round(poured), type.label());
+        if (taken.kinds() == 1) {
+            say(player, "hexwright.hexid_tank.drawn", (int) Math.round(poured),
+                taken.largest().label());
+        } else {
+            say(player, "hexwright.hexid_tank.drawn_blend", (int) Math.round(poured), taken.kinds());
+        }
         return true;
     }
 

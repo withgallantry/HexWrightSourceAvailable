@@ -5,6 +5,7 @@ import com.bluup.hexwright.server.fluid.HexidTank
 import com.bluup.hexwright.server.fluid.HexidTankBlockEntity
 import com.bluup.hexwright.server.fluid.HexidPipeNetwork
 import com.bluup.hexwright.server.fluid.HexidTankColumn
+import com.bluup.hexwright.server.fluid.LiquefactriumBlockEntity
 import com.bluup.hexwright.server.fluid.TankRemnants
 import com.bluup.hexwright.server.menu.MenuWidgets
 import com.bluup.hexwright.server.menu.UiTemplates
@@ -108,6 +109,19 @@ class AlembixBlockEntity(
     fun outputColumns(): List<HexidTankBlockEntity> =
         columnsAt(Direction.UP).filter { it.canAcceptRemnants() }
 
+    fun outputLiquefactriums(): List<LiquefactriumBlockEntity> {
+        val level = this.level ?: return emptyList()
+        val above = worldPosition.above()
+        val standing = level.getBlockEntity(above) as? LiquefactriumBlockEntity
+        val found = when {
+            standing != null -> listOf(standing)
+            level.getBlockState(above).`is`(HexwrightBlocks.HEXID_PIPE_BLOCK) ->
+                HexidPipeNetwork.liquefactriumsOn(level, above)
+            else -> emptyList()
+        }
+        return found.filter { it.bottleHeadroom() >= TankRemnants.MIN_DRAMS }
+    }
+
     private fun refreshFaces() {
         val now = level?.gameTime ?: return
         if (facesReadAt != Long.MIN_VALUE && now - facesReadAt < FACE_CACHE_TICKS) {
@@ -169,10 +183,15 @@ class AlembixBlockEntity(
         }
 
         val sinks = outputColumns()
-        if (sinks.isEmpty()) {
+        val liquefactriums = if (sinks.isEmpty()) outputLiquefactriums() else emptyList()
+        if (sinks.isEmpty() && liquefactriums.isEmpty()) {
             return
         }
-        var batch = minOf(STEP_DRAMS, sinks.sumOf { it.remnantHeadroom() })
+        var batch = if (sinks.isEmpty()) {
+            minOf(LiquefactriumBlockEntity.STEP_DRAMS, liquefactriums.sumOf { it.bottleHeadroom() })
+        } else {
+            minOf(STEP_DRAMS, sinks.sumOf { it.remnantHeadroom() })
+        }
 
         val sources = arrayOfNulls<List<HexidTankBlockEntity>>(INPUTS)
         for (index in 0 until INPUTS) {
@@ -196,7 +215,11 @@ class AlembixBlockEntity(
             val columns = sources[index] ?: continue
             blend = blend.plusAll(drawFrom(columns, batch * ratio[index] / TOTAL))
         }
-        pourInto(sinks, blend)
+        if (sinks.isEmpty()) {
+            pourIntoBottles(liquefactriums, blend)
+        } else {
+            pourInto(sinks, blend)
+        }
     }
 
     private fun drawFrom(columns: List<HexidTankBlockEntity>, rems: Double): TankRemnants {
@@ -216,6 +239,17 @@ class AlembixBlockEntity(
         for (column in columns) {
             if (left.isEmpty) break
             val poured = column.pourMixture(left)
+            if (poured <= 0.0) continue
+            left = if (poured >= left.total()) TankRemnants.EMPTY
+            else left.portion(1.0 - poured / left.total())
+        }
+    }
+
+    private fun pourIntoBottles(liquefactriums: List<LiquefactriumBlockEntity>, blend: TankRemnants) {
+        var left = blend
+        for (liquefactrium in liquefactriums) {
+            if (left.isEmpty) break
+            val poured = liquefactrium.takePour(left)
             if (poured <= 0.0) continue
             left = if (poured >= left.total()) TankRemnants.EMPTY
             else left.portion(1.0 - poured / left.total())

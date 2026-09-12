@@ -2,6 +2,7 @@ package com.bluup.hexwright.mixin;
 
 import com.bluup.hexwright.client.render.IrisCompat;
 import com.bluup.hexwright.client.render.emissive.EmissiveItemModels;
+import com.bluup.hexwright.client.render.emissive.EmissiveItemTrace;
 import com.bluup.hexwright.client.staff_assembly.StaffTipFlash;
 import com.llamalad7.mixinextras.sugar.Local;
 import com.mojang.blaze3d.vertex.PoseStack;
@@ -37,6 +38,7 @@ public abstract class ItemRendererEmissiveMixin {
         }
         boolean handPose = displayContext == ItemDisplayContext.FIRST_PERSON_RIGHT_HAND
             || displayContext == ItemDisplayContext.FIRST_PERSON_LEFT_HAND;
+        EmissiveItemTrace.note(stack, displayContext, model, handPose);
         EmissiveItemModels.renderGlow(model, poseStack, bufferSource, overlay, itemLayer, handPose);
         StaffTipFlash.onStaffRendered(stack, displayContext, poseStack, bufferSource, itemLayer);
     }

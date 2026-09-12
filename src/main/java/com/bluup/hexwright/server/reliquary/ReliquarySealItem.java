@@ -65,7 +65,7 @@ public class ReliquarySealItem extends Item {
         super.appendHoverText(stack, level, tooltip, flag);
         BlockPos pos = attunedPos(stack);
         if (pos == null) {
-            tooltip.add(Component.translatable("tooltip.hexwright.reliquary_seal.unattuned")
+            tooltip.add(Component.translatable("tooltip.hexwright.reliquary_seal.unattuned", Component.keybind("key.use"))
                 .withStyle(ChatFormatting.GRAY));
         } else {
             String dimension = attunedDimension(stack);

@@ -394,6 +394,20 @@ public final class HexwrightBlocks {
 
     public static BlockEntityType<AlembixBlockEntity> ALEMBIX_BLOCK_ENTITY;
 
+    public static final com.bluup.hexwright.server.fluid.LiquefactriumBlock LIQUEFACTRIUM_BLOCK =
+        new com.bluup.hexwright.server.fluid.LiquefactriumBlock(
+            soft(Blocks.COPPER_BLOCK)
+                .noOcclusion()
+        );
+
+    public static final Item LIQUEFACTRIUM_ITEM = new BlockItem(
+        LIQUEFACTRIUM_BLOCK,
+        new Item.Properties()
+    );
+
+    public static BlockEntityType<com.bluup.hexwright.server.fluid.LiquefactriumBlockEntity>
+        LIQUEFACTRIUM_BLOCK_ENTITY;
+
     public static void register() {
         Registry.register(BuiltInRegistries.BLOCK, Hexwright.id("staff_assembly"), STAFF_ASSEMBLY_BLOCK);
         Registry.register(BuiltInRegistries.ITEM, Hexwright.id("staff_assembly"), STAFF_ASSEMBLY_ITEM);
@@ -457,6 +471,8 @@ public final class HexwrightBlocks {
         Registry.register(BuiltInRegistries.ITEM, Hexwright.id("hexid_pipe"), HEXID_PIPE_ITEM);
         Registry.register(BuiltInRegistries.BLOCK, Hexwright.id("alembix"), ALEMBIX_BLOCK);
         Registry.register(BuiltInRegistries.ITEM, Hexwright.id("alembix"), ALEMBIX_ITEM);
+        Registry.register(BuiltInRegistries.BLOCK, Hexwright.id("liquefactrium"), LIQUEFACTRIUM_BLOCK);
+        Registry.register(BuiltInRegistries.ITEM, Hexwright.id("liquefactrium"), LIQUEFACTRIUM_ITEM);
 
         VaultDecorBlocks.register();
 
@@ -480,6 +496,7 @@ public final class HexwrightBlocks {
             entries.accept(HEXID_TANK_ITEM);
             entries.accept(HEXID_PIPE_ITEM);
             entries.accept(ALEMBIX_ITEM);
+            entries.accept(LIQUEFACTRIUM_ITEM);
         });
 
         ItemGroupEvents.modifyEntriesEvent(CreativeModeTabs.NATURAL_BLOCKS).register(entries -> {
@@ -637,6 +654,14 @@ public final class HexwrightBlocks {
             BuiltInRegistries.BLOCK_ENTITY_TYPE,
             Hexwright.id("alembix"),
             FabricBlockEntityTypeBuilder.create(AlembixBlockEntity::new, ALEMBIX_BLOCK).build()
+        );
+
+        LIQUEFACTRIUM_BLOCK_ENTITY = Registry.register(
+            BuiltInRegistries.BLOCK_ENTITY_TYPE,
+            Hexwright.id("liquefactrium"),
+            FabricBlockEntityTypeBuilder.create(
+                com.bluup.hexwright.server.fluid.LiquefactriumBlockEntity::new,
+                LIQUEFACTRIUM_BLOCK).build()
         );
     }
 

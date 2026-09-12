@@ -42,7 +42,7 @@ public class ResonantKeyItem extends Item {
         super.appendHoverText(stack, level, tooltip, flag);
         BlockPos pos = attunedPos(stack);
         if (pos == null) {
-            tooltip.add(Component.translatable("tooltip.hexwright.resonant_key.unattuned")
+            tooltip.add(Component.translatable("tooltip.hexwright.resonant_key.unattuned", Component.keybind("key.use"))
                 .withStyle(ChatFormatting.GRAY));
         } else {
             String name = ResonanceNameCache.nameOf(networkKey(stack));

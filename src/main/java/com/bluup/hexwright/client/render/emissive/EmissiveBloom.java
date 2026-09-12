@@ -75,7 +75,34 @@ public final class EmissiveBloom {
         return capturing;
     }
 
+    static String haloDisposition(boolean handPose) {
+        if (!capturing) {
+            EmissiveBloomConfig config = EmissiveBloomConfigManager.get();
+            if (!config.enabled || config.intensity <= 0.0f) {
+                return "not captured - halo disabled in the config";
+            }
+            if (IrisCompat.isShaderPackActive() && config.disableWhenShaderPackActive) {
+                return "not captured - halo switched off under shader packs";
+            }
+            if (!EmissiveBloomShaders.shadersReady()) {
+                return "not captured - the halo's shaders are not loaded";
+            }
+            return "not captured - the pass never armed this frame";
+        }
+        if (PortalViewRenderer.isRenderingView()) {
+            return "not captured - inside a portal view";
+        }
+        if (IrisCompat.isRenderingShadowPass()) {
+            return "not captured - Iris shadow pass";
+        }
+        return !worldPassDone && !handPose
+            ? "deferred to the end of the world pass"
+            : "captured immediately";
+    }
+
     private static void beginWorldPass() {
+        EmissiveItemTrace.nextFrame();
+
         capturing = false;
         anythingCaptured = false;
         worldPassDone = false;

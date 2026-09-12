@@ -235,6 +235,10 @@ public class HexidPipeBlock extends Block {
         if (neighbour.is(HexwrightBlocks.ALEMBIX_BLOCK)) {
             return towards == Direction.UP ? PipeJoint.NONE : PipeJoint.TANK;
         }
+        if (neighbour.is(HexwrightBlocks.LIQUEFACTRIUM_BLOCK)) {
+            return LiquefactriumBlock.joins(neighbour, towards.getOpposite())
+                ? PipeJoint.TANK : PipeJoint.NONE;
+        }
         if (!HexidTankColumn.isTank(neighbour)) {
             return PipeJoint.NONE;
         }

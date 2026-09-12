@@ -143,6 +143,7 @@ public final class HexwrightClient implements ClientModInitializer {
         com.bluup.hexwright.client.block.RuinedPortalFrameRenderer.register();
         com.bluup.hexwright.client.block.VaultPlinthRenderer.register();
         com.bluup.hexwright.client.block.PlacedBottleRenderer.register();
+        com.bluup.hexwright.client.block.LiquefactriumRenderer.register();
         com.bluup.hexwright.client.block.HexidTankRenderer.register();
         com.bluup.hexwright.client.block.HexidPipePreview.register();
         com.bluup.hexwright.client.render.TranslucentBlockOutline.register();
@@ -171,6 +172,7 @@ public final class HexwrightClient implements ClientModInitializer {
         BlockRenderLayerMap.INSTANCE.putBlock(HexwrightBlocks.HEXID_TANK_BLOCK, RenderType.cutout());
         BlockRenderLayerMap.INSTANCE.putBlock(HexwrightBlocks.HEXID_PIPE_BLOCK, RenderType.cutout());
         BlockRenderLayerMap.INSTANCE.putBlock(HexwrightBlocks.ALEMBIX_BLOCK, RenderType.translucent());
+        BlockRenderLayerMap.INSTANCE.putBlock(HexwrightBlocks.LIQUEFACTRIUM_BLOCK, RenderType.cutout());
         BlockRenderLayerMap.INSTANCE.putBlock(HexwrightBlocks.STAFF_ASSEMBLY_BLOCK, RenderType.cutout());
         BlockRenderLayerMap.INSTANCE.putBlock(HexwrightBlocks.RESONANCE_TOWER_BLOCK, RenderType.cutout());
         BlockRenderLayerMap.INSTANCE.putBlock(HexwrightBlocks.MANIFOLD_VAULT_BLOCK, RenderType.cutout());
@@ -388,11 +390,8 @@ public final class HexwrightClient implements ClientModInitializer {
             if (tintIndex != 0) {
                 return 0xFFFFFFFF;
             }
-            var contents = com.bluup.hexwright.server.remnant.BottleData.getContents(stack);
-            if (contents == null) {
-                return 0xFFFFFFFF;
-            }
-            return contents.type().tint();
+            var mix = com.bluup.hexwright.server.remnant.BottleData.getMixture(stack);
+            return mix.isEmpty() ? 0xFFFFFFFF : mix.tint(0xFFFFFF) | 0xFF000000;
         }, HexwrightItems.HEX_ENGRAVED_BOTTLE);
 
         ItemProperties.register(HexwrightItems.HEX_ENGRAVED_BOTTLE, Hexwright.id("bottle"),

@@ -66,7 +66,7 @@ public final class StaffCalculator {
         double quality = overallEfficiency * attunementUsage;
         EfficiencyRating qualityRating = EfficiencyRating.fromEfficiency(quality);
 
-        boolean craftable = errors.isEmpty() && totalAttunement <= MAX_ATTUNEMENT;
+        boolean craftable = errors.isEmpty() && displayed(totalAttunement) <= displayed(MAX_ATTUNEMENT);
 
         return new StaffCalculationResult(core, wrap, focus, catalyst, coreAttunement, totalAttunement, overallEfficiency, efficiencyRating, quality, qualityRating, craftable, errors);
     }
@@ -117,6 +117,10 @@ public final class StaffCalculator {
 
     private static final String OVER_BUDGET_SUFFIX = " is over budget.";
 
+    public static long displayed(double value) {
+        return Math.round(value);
+    }
+
     private static void addOverBudgetErrors(List<String> errors, ComponentResult wrap, ComponentResult focus, ComponentResult catalyst) {
         addOverBudgetError(errors, "Wrap", wrap, WRAP_CONFIG);
         addOverBudgetError(errors, "Focus", focus, FOCUS_CONFIG);
@@ -124,7 +128,7 @@ public final class StaffCalculator {
     }
 
     private static void addOverBudgetError(List<String> errors, String label, ComponentResult component, ComponentConfig config) {
-        if (config.usableValueCap() > 0 && component.statValue() > config.usableValueCap()) {
+        if (config.usableValueCap() > 0 && displayed(component.statValue()) > displayed(config.usableValueCap())) {
             errors.add(label + OVER_BUDGET_SUFFIX);
         }
     }
@@ -164,7 +168,7 @@ public final class StaffCalculator {
         }
         addOverBudgetErrors(errors, wrap, focus, catalyst);
 
-        boolean craftable = errors.isEmpty() && totalAttunement <= MAX_ATTUNEMENT;
+        boolean craftable = errors.isEmpty() && displayed(totalAttunement) <= displayed(MAX_ATTUNEMENT);
 
         return new StaffCalculationResult(live.core(), wrap, focus, catalyst, coreAttunement, totalAttunement, overallEfficiency, efficiencyRating, quality, qualityRating, craftable, errors);
     }

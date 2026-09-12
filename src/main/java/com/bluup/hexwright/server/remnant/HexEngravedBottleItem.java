@@ -6,6 +6,7 @@ import at.petrak.hexcasting.api.item.IotaHolderItem;
 import com.bluup.hexwright.server.block.HexwrightBlocks;
 import com.bluup.hexwright.server.block.PlacedBottleBlock;
 import com.bluup.hexwright.common.remnant.Remnant;
+import com.bluup.hexwright.server.fluid.TankRemnants;
 import com.bluup.hexwright.server.progression.MakersMark;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
@@ -92,8 +93,8 @@ public class HexEngravedBottleItem extends Item implements IotaHolderItem {
 
     @Override
     public ItemStack finishUsingItem(ItemStack stack, Level level, LivingEntity user) {
-        Remnant contents = BottleData.getContents(stack);
-        if (contents != null && !level.isClientSide && user instanceof Player player) {
+        TankRemnants contents = BottleData.getMixture(stack);
+        if (!contents.isEmpty() && !level.isClientSide && user instanceof Player player) {
             RemnantDrinking.drink(player, contents);
             level.playSound(null, player.blockPosition(), SoundEvents.AMETHYST_BLOCK_CHIME,
                 SoundSource.PLAYERS, 0.7f, 1.4f);
@@ -139,11 +140,15 @@ public class HexEngravedBottleItem extends Item implements IotaHolderItem {
 
     @Override
     public Component getName(ItemStack stack) {
-        Remnant contents = BottleData.getContents(stack);
-        if (contents == null) {
+        TankRemnants mix = BottleData.getMixture(stack);
+        if (mix.isEmpty()) {
             return super.getName(stack);
         }
-        return Component.translatable("item.hexwright.hex_engraved_bottle.filled", contents.type().label());
+        if (mix.kinds() == 1) {
+            return Component.translatable("item.hexwright.hex_engraved_bottle.filled",
+                mix.contents().get(0).type().label());
+        }
+        return Component.translatable("item.hexwright.hex_engraved_bottle.blend", mix.kinds());
     }
 
     @Override
@@ -151,16 +156,25 @@ public class HexEngravedBottleItem extends Item implements IotaHolderItem {
         super.appendHoverText(stack, level, tooltip, flag);
         MakersMark.appendTooltip(stack, tooltip);
 
-        Remnant contents = BottleData.getContents(stack);
-        if (contents == null) {
+        TankRemnants mix = BottleData.getMixture(stack);
+        if (mix.isEmpty()) {
             tooltip.add(Component.translatable("tooltip.hexwright.hex_engraved_bottle.empty",
                 BottleData.capacity(stack)).withStyle(ChatFormatting.GRAY));
             return;
         }
 
-        tooltip.add(Component.translatable("tooltip.hexwright.hex_engraved_bottle.contents",
-                contents.type().label(), contents.wholeDrams(), BottleData.capacity(stack))
-            .withStyle(contents.type().textColour()));
-        tooltip.add(RemnantDrinking.describe(contents).withStyle(ChatFormatting.GRAY));
+        if (mix.kinds() > 1) {
+            tooltip.add(Component.translatable("tooltip.hexwright.hex_engraved_bottle.blend",
+                (int) Math.round(mix.total()), BottleData.capacity(stack)).withStyle(ChatFormatting.GRAY));
+        }
+        for (Remnant part : mix.contents()) {
+            tooltip.add(mix.kinds() > 1
+                ? Component.translatable("tooltip.hexwright.hex_engraved_bottle.part",
+                    part.type().label(), part.wholeDrams()).withStyle(part.type().textColour())
+                : Component.translatable("tooltip.hexwright.hex_engraved_bottle.contents",
+                    part.type().label(), part.wholeDrams(), BottleData.capacity(stack))
+                    .withStyle(part.type().textColour()));
+            tooltip.add(RemnantDrinking.describe(part).withStyle(ChatFormatting.GRAY));
+        }
     }
 }

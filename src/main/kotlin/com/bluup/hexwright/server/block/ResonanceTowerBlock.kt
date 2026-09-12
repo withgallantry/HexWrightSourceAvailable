@@ -138,7 +138,7 @@ class ResonanceTowerBlock(properties: Properties) : Block(properties), EntityBlo
                     )
                 } else {
                     serverPlayer.displayClientMessage(
-                        Component.translatable("message.hexwright.tower.empty").withStyle(ChatFormatting.GRAY), true
+                        Component.translatable("message.hexwright.tower.empty", Component.keybind("key.use")).withStyle(ChatFormatting.GRAY), true
                     )
                 }
             }
@@ -152,7 +152,7 @@ class ResonanceTowerBlock(properties: Properties) : Block(properties), EntityBlo
                         be.radius().toInt()
                     ).withStyle(ChatFormatting.AQUA)
                 } else {
-                    Component.translatable("message.hexwright.tower.empty_named", networkName)
+                    Component.translatable("message.hexwright.tower.empty_named", networkName, Component.keybind("key.use"))
                         .withStyle(ChatFormatting.GRAY)
                 }
                 serverPlayer.displayClientMessage(status, true)

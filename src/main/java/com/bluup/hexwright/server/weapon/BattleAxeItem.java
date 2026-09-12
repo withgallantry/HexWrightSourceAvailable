@@ -143,7 +143,7 @@ public class BattleAxeItem extends BerserkWeaponItem {
     @Override
     protected Component swingTooltip() {
         return Component.translatable("tooltip.hexwright.battle_axe.cleave",
-            blocks(this.cleaveReach), (int) Cleave.ARC_DEGREES);
+            Component.keybind("key.use"), blocks(this.cleaveReach), (int) Cleave.ARC_DEGREES);
     }
 
     @Override

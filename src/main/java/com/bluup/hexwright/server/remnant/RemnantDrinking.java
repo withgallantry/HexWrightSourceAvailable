@@ -2,6 +2,7 @@ package com.bluup.hexwright.server.remnant;
 
 import com.bluup.hexwright.common.remnant.Remnant;
 import com.bluup.hexwright.common.remnant.RemnantType;
+import com.bluup.hexwright.server.fluid.TankRemnants;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.level.ServerPlayer;
@@ -52,6 +53,12 @@ public final class RemnantDrinking {
 
         if (player instanceof ServerPlayer serverPlayer) {
             RemnantBuffs.grant(serverPlayer, type, durationTicks(remnant), remnant.drams());
+        }
+    }
+
+    public static void drink(Player player, TankRemnants blend) {
+        for (Remnant part : blend.contents()) {
+            drink(player, part);
         }
     }
 

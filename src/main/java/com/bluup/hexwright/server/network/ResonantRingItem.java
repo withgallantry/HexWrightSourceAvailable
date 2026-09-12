@@ -71,7 +71,7 @@ public class ResonantRingItem extends Item implements IotaHolderItem {
 
         BlockPos pos = attunedPos(stack);
         if (pos == null) {
-            tooltip.add(Component.translatable("tooltip.hexwright.resonant_ring.unattuned")
+            tooltip.add(Component.translatable("tooltip.hexwright.resonant_ring.unattuned", Component.keybind("key.use"))
                 .withStyle(ChatFormatting.GRAY));
         } else {
             String name = ResonanceNameCache.nameOf(networkKey(stack));

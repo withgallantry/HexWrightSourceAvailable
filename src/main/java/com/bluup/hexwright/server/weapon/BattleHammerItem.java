@@ -144,7 +144,8 @@ public class BattleHammerItem extends BerserkWeaponItem {
 
     @Override
     protected Component swingTooltip() {
-        return Component.translatable("tooltip.hexwright.battle_hammer.slam", blocks(this.slamRadius));
+        return Component.translatable("tooltip.hexwright.battle_hammer.slam",
+            Component.keybind("key.use"), blocks(this.slamRadius));
     }
 
     @Nullable
