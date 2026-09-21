@@ -125,6 +125,18 @@ public interface AnimatedWeapon {
         }
     }
 
+    static boolean ownsAttackSwing(Player player) {
+        return player.getMainHandItem().getItem() instanceof AnimatedWeapon weapon
+            && weapon.strikeClip(player, 0) != null;
+    }
+
+    static boolean ownsSwingPacket(ServerPlayer player, InteractionHand hand, MeleeSwingState state) {
+        return hand == InteractionHand.MAIN_HAND
+            && ownsAttackSwing(player)
+            && !((MiningClickState) player.gameMode).hexwright$isMiningClick()
+            && !state.interactedThisTick(player.server.getTickCount());
+    }
+
     static void onConnectionTick(ServerPlayer player, MeleeSwingState state) {
         if (!state.hasHeldSwing()) {
             return;

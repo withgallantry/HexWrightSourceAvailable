@@ -19,6 +19,8 @@ import net.minecraft.world.item.ItemStack
 
 object WorktableRecipes {
 
+    private const val PIPES_PER_CRAFT = 8
+
     data class InfusionStep(
         val aspect: IngredientCategory,
         val amount: Double,
@@ -328,6 +330,20 @@ object WorktableRecipes {
         InfusionStep(IngredientCategory.ECHO, 14.0, 34, 0.07f)
     )
 
+    val HEXID_TANK_STEPS = listOf(
+        InfusionStep(IngredientCategory.CRYSTAL, 14.0, 60, 0.12f),
+        InfusionStep(IngredientCategory.METALLIC, 12.0, 50, 0.10f),
+        InfusionStep(IngredientCategory.ARCANE, 10.0, 42, 0.085f),
+        InfusionStep(IngredientCategory.SPATIAL, 6.0, 34, 0.07f)
+    )
+
+    val HEXID_PIPE_STEPS = listOf(
+        InfusionStep(IngredientCategory.METALLIC, 12.0, 60, 0.12f),
+        InfusionStep(IngredientCategory.CRYSTAL, 6.0, 50, 0.10f),
+        InfusionStep(IngredientCategory.ARCANE, 4.0, 42, 0.085f),
+        InfusionStep(IngredientCategory.SPATIAL, 2.0, 34, 0.07f)
+    )
+
     data class WorktableRecipe(
         val nameKey: String,
         val steps: List<InfusionStep>,
@@ -563,7 +579,19 @@ object WorktableRecipes {
             SEALED_SATCHEL_STEPS,
             requiredMastery = PocketCasterData.Quality.FINE,
             graded = false
-        ) { ItemStack(HexwrightItems.SEALED_SATCHEL) }
+        ) { ItemStack(HexwrightItems.SEALED_SATCHEL) },
+        WorktableRecipe(
+            "block.hexwright.hexid_tank",
+            HEXID_TANK_STEPS,
+            requiredMastery = null,
+            graded = false
+        ) { ItemStack(HexwrightBlocks.HEXID_TANK_ITEM) },
+        WorktableRecipe(
+            "block.hexwright.hexid_pipe",
+            HEXID_PIPE_STEPS,
+            requiredMastery = null,
+            graded = false
+        ) { ItemStack(HexwrightBlocks.HEXID_PIPE_ITEM, PIPES_PER_CRAFT) }
     )
 
     fun allOutputItems(): Set<Item> {

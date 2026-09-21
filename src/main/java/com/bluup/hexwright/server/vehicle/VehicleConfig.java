@@ -47,6 +47,7 @@ public final class VehicleConfig {
     public static final double CARPET_MEDIA_MULTIPLIER = 1.0;
     public static final long CARPET_MEDIA_CAPACITY = 40L * MediaConstants.DUST_UNIT;
     public static final int CARPET_CHEST_SIZE = 27;
+    public static final double CARPET_CHEST_REACH_SQR = 8.0 * 8.0;
     public static final double CARPET_RIDER_HEIGHT_OFFSET = 0.0;
 
     public static final double CARPET_PILOT_FORWARD_OFFSET = -0.25;

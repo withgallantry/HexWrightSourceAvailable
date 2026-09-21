@@ -53,6 +53,8 @@ final class DecadentVaultGenerator {
 
     private static final float UNIQUE_DROP_CHANCE = 0.3f;
 
+    private static final float MAGE_ATTIRE_CHANCE = 0.3f;
+
     private DecadentVaultGenerator() {
     }
 
@@ -206,6 +208,9 @@ final class DecadentVaultGenerator {
 
         List<List<ItemStack>> geared = new ArrayList<>();
         geared.add(MasterworkRewards.armourSet(random));
+        if (random.nextFloat() < MAGE_ATTIRE_CHANCE) {
+            geared.add(MageAttire.roll(random));
+        }
         int haulStands = 2 + random.nextInt(2);
         for (int i = 0; i < haulStands; i++) {
             geared.add(random.nextBoolean()

@@ -1,6 +1,7 @@
 package com.bluup.hexwright.client.staff_assembly;
 
 import com.bluup.hexwright.Hexwright;
+import com.bluup.hexwright.HexwrightDebug;
 import com.bluup.hexwright.client.render.emissive.EmissiveModelScan;
 import com.bluup.hexwright.common.staff_assembly.StaffPart;
 import com.bluup.hexwright.common.staff_assembly.StaffPartCategory;
@@ -79,7 +80,7 @@ public final class StaffTipAnchors implements SimpleSynchronousResourceReloadLis
         }
 
         anchors = Map.copyOf(loaded);
-        Hexwright.LOGGER.info("Resolved tip anchors for {} staff models", anchors.size());
+        HexwrightDebug.log(HexwrightDebug.CONTENT, "Resolved tip anchors for {} staff models", anchors.size());
     }
 
     @Nullable

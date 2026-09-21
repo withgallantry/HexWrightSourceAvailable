@@ -9,6 +9,7 @@ import at.petrak.hexcasting.api.misc.MediaConstants
 import at.petrak.hexcasting.api.pigment.FrozenPigment
 import at.petrak.hexcasting.xplat.IXplatAbstractions
 import com.bluup.hexwright.Hexwright
+import com.bluup.hexwright.HexwrightDebug
 import com.bluup.hexwright.server.menu.MenuWidgets
 import com.bluup.hexwright.server.menu.UiTemplates
 import com.bluup.hexwright.client.wardingbox.WardingBoxVisualClient
@@ -338,7 +339,8 @@ class WardingBoxBlockEntity(
         val recut = PerWorldPatterns.rescramble(hex, serverLevel) ?: return
         spellTag = IotaType.serialize(ListIota(recut))
         spellSize = recut.size
-        Hexwright.LOGGER.info(
+        HexwrightDebug.log(
+            HexwrightDebug.CONTENT,
             "Re-cut the Great Spell inscribed in the dungeon trap at {} to this world's drawing",
             worldPosition
         )

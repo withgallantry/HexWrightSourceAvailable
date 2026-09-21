@@ -169,20 +169,17 @@ public class HexidTankBlock extends Block implements EntityBlock {
             say(player, "hexwright.hexid_tank.holds_remnants");
             return;
         }
-        boolean hexid = tank.isHexid();
-        if (hexid && tank.mediaPerMb() != HexidFluids.MEDIA_PER_MB) {
-            say(player, "hexwright.hexid_tank.not_water",
-                String.format("%.0f", HexidFluids.SATURATION * 100.0));
+        if (tank.isHexid()) {
+            say(player, "hexwright.hexid_tank.no_bucket");
             return;
         }
         if (tank.amountMb() < HexidTank.BUCKET_MB) {
             say(player, "hexwright.hexid_tank.too_shallow");
             return;
         }
-        long drawn = hexid ? HexidFluids.MEDIA_PER_BUCKET : 0;
-        tank.store(tank.amountMb() - HexidTank.BUCKET_MB, tank.totalMedia() - drawn);
+        tank.store(tank.amountMb() - HexidTank.BUCKET_MB, tank.totalMedia());
         player.setItemInHand(hand, ItemUtils.createFilledResult(held, player,
-            new ItemStack(hexid ? HexidFluids.HEXID_BUCKET : Items.WATER_BUCKET)));
+            new ItemStack(Items.WATER_BUCKET)));
         level.playSound(null, pos, SoundEvents.BUCKET_FILL, SoundSource.BLOCKS, 1.0f, 1.0f);
         level.gameEvent(player, GameEvent.FLUID_PICKUP, pos);
         report(player, tank);

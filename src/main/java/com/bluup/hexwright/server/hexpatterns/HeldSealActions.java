@@ -9,6 +9,7 @@ import at.petrak.hexcasting.api.casting.castables.ConstMediaAction;
 import at.petrak.hexcasting.api.casting.castables.SpellAction;
 import at.petrak.hexcasting.api.casting.eval.CastingEnvironment;
 import at.petrak.hexcasting.api.casting.eval.vm.CastingImage;
+import at.petrak.hexcasting.api.casting.iota.EntityIota;
 import at.petrak.hexcasting.api.casting.iota.Iota;
 import at.petrak.hexcasting.api.casting.iota.ListIota;
 import at.petrak.hexcasting.api.casting.math.HexDir;
@@ -60,7 +61,7 @@ public final class HeldSealActions {
         }
 
         if (seal.isEmpty()) {
-            ServerPlayer caster = env.getCaster();
+            ServerPlayer caster = actingPlayer(env);
             if (caster != null) {
                 for (ItemStack worn : WornAccessories.allWorn(caster)) {
                     if (worn.getItem() instanceof ReliquarySealItem) {
@@ -87,6 +88,13 @@ public final class HeldSealActions {
             throw new MishapBadLocation(env.mishapSprayPos(), "hexwright_held_unbound");
         }
         return key;
+    }
+
+    private static @Nullable ServerPlayer actingPlayer(CastingEnvironment env) {
+        if (env instanceof ChestCastEnv chestEnv) {
+            return chestEnv.opener();
+        }
+        return env.getCaster();
     }
 
     private static void grantOrDrop(ServerPlayer player, ItemStack stack) {
@@ -139,13 +147,18 @@ public final class HeldSealActions {
             int slot = OperatorUtils.getPositiveIntUnderInclusive(args, 1, ReliquaryStore.SLOTS - 1, getArgc());
             env.assertEntityInRange(offering);
             String key = resolveHeldSeal(env);
-            ServerPlayer caster = env.getCaster();
+            ServerPlayer caster = actingPlayer(env);
             return new Result(new RenderedSpell() {
                 @Override
                 public void cast(CastingEnvironment castEnv) {
-                    ReliquaryStore store = ReliquaryStore.get(castEnv.getWorld().getServer());
-                    ItemStack evicted = store.placeAt(key, slot, offering.getItem());
+                    ItemStack payload = offering.getItem().copy();
+                    if (payload.isEmpty()) {
+                        return;
+                    }
+                    offering.setItem(ItemStack.EMPTY);
                     offering.discard();
+                    ReliquaryStore store = ReliquaryStore.get(castEnv.getWorld().getServer());
+                    ItemStack evicted = store.placeAt(key, slot, payload);
                     grantEviction(caster, evicted);
                 }
 
@@ -182,14 +195,21 @@ public final class HeldSealActions {
                 throw new MishapNotEnoughMedia(getMediaCost());
             }
             ItemStack gathered = ReliquaryStore.get(env.getWorld().getServer()).withdraw(key, wanted, wanted.getCount(), position);
-            if (!(env instanceof ChestCastEnv)) {
-                ServerPlayer caster = env.getCaster();
+            ServerPlayer caster = actingPlayer(env);
+            if (!(env instanceof ChestCastEnv) || caster == null) {
                 if (caster != null) {
                     grantOrDrop(caster, gathered);
                 }
                 return List.of();
             }
-            return List.of(ItemStackIota.createFiltered(gathered));
+            if (gathered.isEmpty()) {
+                return List.of();
+            }
+            ItemEntity materialised = new ItemEntity(caster.level(),
+                caster.getX(), caster.getY() + 0.5, caster.getZ(), gathered);
+            materialised.setPickUpDelay(10);
+            caster.level().addFreshEntity(materialised);
+            return List.of(new EntityIota(materialised));
         }
     };
 }

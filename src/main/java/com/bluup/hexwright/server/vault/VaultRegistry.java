@@ -1,6 +1,7 @@
 package com.bluup.hexwright.server.vault;
 
 import com.bluup.hexwright.Hexwright;
+import com.bluup.hexwright.HexwrightDebug;
 import com.bluup.hexwright.server.pocketcaster.PocketCasterData;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
@@ -104,7 +105,7 @@ public final class VaultRegistry extends SavedData {
         records.put(id, record);
         setDirty();
         generateRoom(vaultLevel, record);
-        Hexwright.LOGGER.info("Created {} vault {}{} for {} at {}",
+        HexwrightDebug.log(HexwrightDebug.VAULT, "Created {} vault {}{} for {} at {}",
             artifact ? "ARTIFACT" : grade, id, chosen.isEmpty() ? "" : " (" + chosen + ")",
             owner.getGameProfile().getName(), record.origin());
         return record;

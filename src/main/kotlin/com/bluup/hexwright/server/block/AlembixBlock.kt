@@ -46,10 +46,16 @@ class AlembixBlock(properties: Properties) : Block(properties), EntityBlock {
         state: BlockState,
         type: BlockEntityType<T>
     ): BlockEntityTicker<T>? {
-        if (level.isClientSide || type != HexwrightBlocks.ALEMBIX_BLOCK_ENTITY) {
+        if (type != HexwrightBlocks.ALEMBIX_BLOCK_ENTITY) {
             return null
         }
-        val ticker = BlockEntityTicker<AlembixBlockEntity> { _, _, _, be -> be.serverTick() }
+        val ticker = BlockEntityTicker<AlembixBlockEntity> { tickLevel, _, _, be ->
+            if (tickLevel.isClientSide) {
+                be.clientTick()
+            } else {
+                be.serverTick()
+            }
+        }
         @Suppress("UNCHECKED_CAST")
         return ticker as BlockEntityTicker<T>
     }

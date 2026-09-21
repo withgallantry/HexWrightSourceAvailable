@@ -1,12 +1,22 @@
 package com.bluup.hexwright.compat.accessories;
 
+import at.petrak.hexcasting.common.items.ItemLens;
+import at.petrak.hexcasting.common.lib.HexAttributes;
+import com.bluup.hexwright.Hexwright;
 import com.bluup.hexwright.server.item.HexwrightItems;
 import com.bluup.hexwright.server.accessory.WornAccessories;
+import com.bluup.hexwright.server.pentabox.PentaboxData;
+import com.bluup.hexwright.server.wardingbox.WardersSpectaclesItem;
 import io.wispforest.accessories.api.Accessory;
 import io.wispforest.accessories.api.AccessoriesAPI;
 import io.wispforest.accessories.api.AccessoriesCapability;
 import io.wispforest.accessories.api.AccessoriesContainer;
+import io.wispforest.accessories.api.attributes.AccessoryAttributeBuilder;
+import io.wispforest.accessories.api.events.CanEquipCallback;
 import io.wispforest.accessories.api.slot.SlotEntryReference;
+import io.wispforest.accessories.api.slot.SlotReference;
+import net.fabricmc.fabric.api.util.TriState;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
@@ -25,13 +35,32 @@ public final class AccessoriesCompat {
         WornAccessories.register(AccessoriesCompat::wornOn);
         WornAccessories.register(new SlotHandler());
 
+        CanEquipCallback.EVENT.register((stack, reference) ->
+            PentaboxData.isLinkedStack(stack) ? TriState.FALSE : TriState.DEFAULT);
+
         AccessoriesAPI.registerAccessory(HexwrightItems.TALISMAN, new Accessory() {
             @Override
             public boolean canEquipFromUse(ItemStack stack) {
                 return false;
             }
         });
+
+        AccessoriesAPI.registerAccessory(HexwrightItems.WARDERS_SPECTACLES, new Accessory() {
+            @Override
+            public void getDynamicModifiers(ItemStack stack, SlotReference reference, AccessoryAttributeBuilder builder) {
+                if (!WardersSpectaclesItem.hasScryingLens(stack)) {
+                    return;
+                }
+                builder.addExclusive(HexAttributes.SCRY_SIGHT, SCRYING_SIGHT_ID,
+                    ItemLens.SCRY_SIGHT.getAmount(), ItemLens.SCRY_SIGHT.getOperation());
+                builder.addExclusive(HexAttributes.GRID_ZOOM, SCRYING_ZOOM_ID,
+                    ItemLens.GRID_ZOOM.getAmount(), ItemLens.GRID_ZOOM.getOperation());
+            }
+        });
     }
+
+    private static final ResourceLocation SCRYING_SIGHT_ID = Hexwright.id("spectacles_scry_sight");
+    private static final ResourceLocation SCRYING_ZOOM_ID = Hexwright.id("spectacles_grid_zoom");
 
     private static List<ItemStack> wornOn(LivingEntity entity) {
         Optional<AccessoriesCapability> capability = AccessoriesCapability.getOptionally(entity);

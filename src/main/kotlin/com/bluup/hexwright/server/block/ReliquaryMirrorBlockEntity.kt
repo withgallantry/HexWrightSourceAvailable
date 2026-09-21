@@ -5,6 +5,7 @@ import com.bluup.hexwright.server.menu.MenuWidgets
 import com.bluup.hexwright.server.menu.UiTemplates
 import com.bluup.hexwright.server.reliquary.HexDisplayContainer
 import com.bluup.hexwright.server.reliquary.ReliquarySealItem
+import com.bluup.hexwright.server.reliquary.ChestCastEnv
 import com.bluup.hexwright.server.reliquary.ReliquaryStore
 import com.bluup.hexwright.server.reliquary.ReliquaryWindow
 import com.bluup.hexwright.server.reliquary.SatchelItem
@@ -41,7 +42,6 @@ import net.minecraft.world.level.block.entity.BlockEntity
 import net.minecraft.world.level.block.entity.ChestLidController
 import net.minecraft.world.level.block.entity.LidBlockEntity
 import net.minecraft.world.level.block.state.BlockState
-import java.util.function.Supplier
 
 class ReliquaryMirrorBlockEntity(
     pos: BlockPos,
@@ -132,6 +132,8 @@ class ReliquaryMirrorBlockEntity(
     override fun getContainerSize(): Int = CONTAINER_SIZE
     override fun isEmpty(): Boolean = items.all { it.isEmpty }
     override fun getItem(slot: Int): ItemStack = items[slot]
+
+    override fun getMaxStackSize(): Int = 1
 
     override fun removeItem(slot: Int, amount: Int): ItemStack {
         val result = ContainerHelper.removeItem(items, slot, amount)
@@ -233,7 +235,14 @@ class ReliquaryMirrorBlockEntity(
         if (level == null || level.isClientSide || entityPlayer !is ServerPlayer) {
             return ReliquaryWindow.hoardView(true, emptyList(), null)
         }
-        val heldSlot = Supplier<ItemStack> { items[HELD_SLOT] }
+        val heldSlot = object : ChestCastEnv.HeldSlot {
+            override fun get(): ItemStack = items[HELD_SLOT]
+
+            override fun set(stack: ItemStack) {
+                items[HELD_SLOT] = stack
+                setChanged()
+            }
+        }
 
         fun focus(key: String?, slot: Int, hook: SatchelItem.Hook): ItemStack =
             effectiveHookFocus(entityPlayer, key, slot, hook)

@@ -9,6 +9,7 @@ import at.petrak.hexcasting.api.casting.iota.Iota;
 import at.petrak.hexcasting.api.casting.iota.ListIota;
 import at.petrak.hexcasting.api.casting.math.HexDir;
 import at.petrak.hexcasting.api.casting.math.HexPattern;
+import at.petrak.hexcasting.api.casting.mishaps.MishapBadOffhandItem;
 import at.petrak.hexcasting.api.casting.mishaps.MishapInvalidIota;
 import at.petrak.hexcasting.api.casting.mishaps.MishapNotEnoughMedia;
 import at.petrak.hexcasting.api.misc.MediaConstants;
@@ -17,14 +18,17 @@ import com.bluup.hexwright.Hexwright;
 import com.bluup.hexwright.common.remnant.Remnant;
 import com.bluup.hexwright.common.remnant.RemnantSnapshot;
 import com.bluup.hexwright.common.remnant.RemnantType;
+import com.bluup.hexwright.server.fluid.TankRemnants;
 import com.bluup.hexwright.server.hexpatterns.HexwrightConstMediaAction;
 import net.minecraft.core.Registry;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
+import ram.talia.moreiotas.api.casting.iota.ItemStackIota;
 import ram.talia.moreiotas.api.casting.iota.StringIota;
 
 import java.util.ArrayList;
@@ -40,6 +44,8 @@ public final class RemnantActions {
     }
 
     public static void register() {
+        RemnantDrawState.register();
+
         Registry<ActionRegistryEntry> registry = IXplatAbstractions.INSTANCE.getActionRegistry();
 
         Registry.register(registry, Hexwright.id("remnant_purification"),
@@ -51,6 +57,12 @@ public final class RemnantActions {
         Registry.register(registry, Hexwright.id("remnants_reflection"),
             new ActionRegistryEntry(
                 HexPattern.fromAngles("wqwqwqwqweawwawwaw", HexDir.SOUTH_WEST), REMNANTS_REFLECTION));
+        Registry.register(registry, Hexwright.id("remnant_decanting"),
+            new ActionRegistryEntry(
+                HexPattern.fromAngles("wqwqwqwqweawwaweqqqqeq", HexDir.SOUTH_WEST), REMNANT_DECANTING));
+        Registry.register(registry, Hexwright.id("vessel_purification"),
+            new ActionRegistryEntry(
+                HexPattern.fromAngles("wqwqwqwqweawwawwawaw", HexDir.SOUTH_WEST), VESSEL_PURIFICATION));
     }
 
     private static final ConstMediaAction REMNANTS_REFLECTION = new HexwrightConstMediaAction() {
@@ -74,6 +86,76 @@ public final class RemnantActions {
                 names.add(StringIota.makeUnchecked(remnant.type().name()));
             }
             return List.of(new ListIota(names));
+        }
+    };
+
+    private static final ConstMediaAction VESSEL_PURIFICATION = new HexwrightConstMediaAction() {
+        @Override
+        public int getArgc() {
+            return 1;
+        }
+
+        @Override
+        public long getMediaCost() {
+            return 0;
+        }
+
+        @Override
+        public List<Iota> execute(List<? extends Iota> args, CastingEnvironment env) {
+            if (!(args.get(0) instanceof ItemStackIota stackIota)
+                || !RemnantVessels.isVessel(stackIota.getItemStack())) {
+                throw MishapInvalidIota.ofType(args.get(0), 0, "hexwright.bottle_item");
+            }
+
+            TankRemnants mix = BottleData.getMixture(stackIota.getItemStack());
+            if (mix.kinds() > 1) {
+                throw MishapInvalidIota.ofType(args.get(0), 0, "hexwright.bottle_single");
+            }
+            if (mix.isEmpty()) {
+                return List.of(StringIota.makeUnchecked(""), new DoubleIota(0.0));
+            }
+
+            Remnant held = mix.contents().get(0);
+            return List.of(
+                StringIota.makeUnchecked(held.type().name()),
+                new DoubleIota(held.drams()));
+        }
+    };
+
+    private static final ConstMediaAction REMNANT_DECANTING = new HexwrightConstMediaAction() {
+        @Override
+        public int getArgc() {
+            return 1;
+        }
+
+        @Override
+        public long getMediaCost() {
+            return 0;
+        }
+
+        @Override
+        public List<Iota> execute(List<? extends Iota> args, CastingEnvironment env) {
+            double wanted = OperatorUtils.getPositiveDouble(args, 0, getArgc());
+
+            CastingEnvironment.HeldItemInfo found =
+                env.getHeldItemToOperateOn(stack -> RemnantVessels.isVessel(stack)
+                    && BottleData.getMixture(stack).kinds() == 1);
+            if (found == null) {
+                CastingEnvironment.HeldItemInfo anyBottle =
+                    env.getHeldItemToOperateOn(RemnantVessels::isVessel);
+                ItemStack blamed = anyBottle == null ? ItemStack.EMPTY : anyBottle.stack();
+                TankRemnants mix = BottleData.getMixture(blamed);
+                throw MishapBadOffhandItem.of(blamed, mix.kinds() > 1
+                    ? "hexwright.bottle_blend"
+                    : "hexwright.bottle_filled");
+            }
+
+            ItemStack bottle = found.stack();
+            Remnant drawn = BottleData.draw(bottle, wanted);
+            if (drawn == null || drawn.isEmpty()) {
+                throw MishapBadOffhandItem.of(bottle, "hexwright.bottle_filled");
+            }
+            return List.of(RemnantIota.mint(drawn, env.getWorld().getServer()));
         }
     };
 
@@ -140,6 +222,9 @@ public final class RemnantActions {
             RemnantSnapshot snapshot = remnantsIota.getSnapshot();
 
             Remnant chosen = select(args, snapshot);
+            if (chosen.isEmpty()) {
+                return List.of(RemnantIota.empty());
+            }
 
             long now = env.getWorld().getServer().overworld().getGameTime();
             double potency = snapshot.potencyAt(now);
@@ -157,16 +242,13 @@ public final class RemnantActions {
             }
 
             draws.markDrawn(snapshot, now);
-            return List.of(new RemnantIota(chosen.withDrams(chosen.drams() * potency)));
+            return List.of(RemnantIota.mint(
+                chosen.withDrams(chosen.drams() * potency), env.getWorld().getServer()));
         }
 
         private Remnant select(List<? extends Iota> args, RemnantSnapshot snapshot) {
             List<Remnant> remnants = snapshot.remnants();
             Iota selector = args.get(1);
-
-            if (remnants.isEmpty()) {
-                throw MishapInvalidIota.ofType(args.get(0), 1, "hexwright.remnants");
-            }
 
             if (selector instanceof StringIota name) {
                 RemnantType wanted = RemnantType.byName(name.getString().trim());
@@ -177,7 +259,11 @@ public final class RemnantActions {
                         }
                     }
                 }
-                throw MishapInvalidIota.ofType(selector, 0, "hexwright.remnant_name");
+                return Remnant.EMPTY;
+            }
+
+            if (remnants.isEmpty()) {
+                throw MishapInvalidIota.ofType(args.get(0), 1, "hexwright.remnants");
             }
 
             if (selector instanceof DoubleIota) {

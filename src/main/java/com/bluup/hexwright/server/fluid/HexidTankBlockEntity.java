@@ -5,7 +5,6 @@ import at.petrak.hexcasting.xplat.IXplatAbstractions;
 import com.bluup.hexwright.common.remnant.Remnant;
 import com.bluup.hexwright.common.remnant.RemnantType;
 import com.bluup.hexwright.server.block.HexwrightBlocks;
-import com.bluup.hexwright.server.remnant.RemnantIota;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.protocol.Packet;
@@ -97,10 +96,6 @@ public class HexidTankBlockEntity extends BlockEntity {
         }
         storeRemnants(remnants.plus(remnant.withDrams(poured)));
         return poured;
-    }
-
-    public double addRemnant(RemnantIota iota) {
-        return addRemnant(iota.getRemnant());
     }
 
     public double drawRemnant(RemnantType type, double drams) {

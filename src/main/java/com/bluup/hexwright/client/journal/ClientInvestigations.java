@@ -28,4 +28,15 @@ public final class ClientInvestigations {
     public static int version() {
         return version;
     }
+
+    private static volatile Set<String> artifacts = Set.of();
+
+    public static void setArtifacts(Collection<String> ids) {
+        artifacts = Set.copyOf(ids);
+        version++;
+    }
+
+    public static Set<String> artifacts() {
+        return artifacts;
+    }
 }

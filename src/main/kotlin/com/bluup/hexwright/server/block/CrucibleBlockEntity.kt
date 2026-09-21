@@ -154,7 +154,7 @@ class CrucibleBlockEntity(
         slot in processSlots && canPlaceItem(slot, stack)
 
     override fun canTakeItemThroughFace(slot: Int, stack: ItemStack, side: Direction): Boolean =
-        slot in processSlots && side == Direction.DOWN
+        side == Direction.DOWN && slot == ITEM_SLOT && !isBurnableInput(stack)
 
     override fun load(tag: CompoundTag) {
         super.load(tag)
@@ -214,9 +214,12 @@ class CrucibleBlockEntity(
     private fun canProcessNow(): Boolean {
         val pouch = pouchStack().item
         if (pouch !is EndlessPouchItem) return false
-        val stack = processingStack()
+        return isBurnableInput(processingStack())
+    }
+
+    private fun isBurnableInput(stack: ItemStack): Boolean {
         if (stack.isEmpty) return false
-        val profile = processingProfile() ?: return false
+        val profile = AspectMappings.profileFor(stack.item).orElse(null) ?: return false
         return profile.data().categories().isNotEmpty() && profile.essenceYield() > 0
     }
 

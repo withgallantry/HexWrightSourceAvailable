@@ -4,7 +4,7 @@ import at.petrak.hexcasting.api.casting.eval.CastingEnvironment;
 import at.petrak.hexcasting.api.casting.eval.env.StaffCastEnv;
 import at.petrak.hexcasting.api.pigment.FrozenPigment;
 import at.petrak.hexcasting.xplat.IXplatAbstractions;
-import com.bluup.hexwright.Hexwright;
+import com.bluup.hexwright.HexwrightDebug;
 import com.bluup.hexwright.inits.HexwrightNetworking;
 import com.bluup.hexwright.server.pocketcaster.PocketCasterCastEnv;
 import com.bluup.hexwright.server.talisman.TalismanCastEnv;
@@ -35,7 +35,7 @@ public final class StaffCastFlare {
 
     public static void onSpellPerformed(CastingEnvironment env) {
         ServerPlayer caster = flaringCaster(env);
-        Hexwright.LOGGER.info("[tip flare] spell in {} -> caster {}",
+        HexwrightDebug.log(HexwrightDebug.CASTING, "[tip flare] spell in {} -> caster {}",
             env.getClass().getName(), caster == null ? "REFUSED" : caster.getGameProfile().getName());
         if (caster != null) {
             pending(caster).spellThisTick = true;
@@ -95,7 +95,7 @@ public final class StaffCastFlare {
     }
 
     private static void send(ServerPlayer caster, float intensity) {
-        Hexwright.LOGGER.info("[tip flare] sending {} to {}",
+        HexwrightDebug.log(HexwrightDebug.CASTING, "[tip flare] sending {} to {}",
             intensity == BRIGHT ? "BRIGHT" : "DIM (" + intensity + ")",
             caster.getGameProfile().getName());
 

@@ -20,6 +20,9 @@ public final class PentaboxFilter {
         if (item instanceof PentaboxItem) {
             return false;
         }
+        if (PentaboxData.isLinkedStack(stack)) {
+            return false;
+        }
         return item instanceof ItemStaff
             || item instanceof IotaHolderItem
             || item instanceof HexHolderItem

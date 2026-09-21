@@ -24,7 +24,7 @@ public final class TalismanData {
         MISHAP(120L, INPUT_FLOOR),
         USE(20L, INPUT_FLOOR),
         HURT(40L, CROWD_FLOOR),
-        WOUND(100L, INPUT_FLOOR),
+        WOUND(100L, CROWD_FLOOR),
         DEATH(20L, INPUT_FLOOR),
         BREAK(20L, INPUT_FLOOR),
         MINE(40L, INPUT_FLOOR),

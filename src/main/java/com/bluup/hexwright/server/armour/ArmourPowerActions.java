@@ -115,7 +115,7 @@ public final class ArmourPowerActions {
                     cast(castEnv);
                     return image;
                 }
-            }, MediaConstants.DUST_UNIT / 10, List.of(ParticleSpray.burst(env.getCastingEntity().position(), 0.5, 10)), 1L);
+            }, MediaConstants.DUST_UNIT / 10, List.of(ParticleSpray.burst(env.mishapSprayPos(), 0.5, 10)), 1L);
         }
     };
 }

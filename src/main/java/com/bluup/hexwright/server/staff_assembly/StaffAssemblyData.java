@@ -1,7 +1,12 @@
 package com.bluup.hexwright.server.staff_assembly;
 
 import at.petrak.hexcasting.api.utils.NBTHelper;
+import at.petrak.hexcasting.api.casting.iota.Iota;
+import at.petrak.hexcasting.api.casting.iota.IotaType;
+import at.petrak.hexcasting.api.casting.iota.ListIota;
+import at.petrak.hexcasting.api.casting.iota.PatternIota;
 import at.petrak.hexcasting.api.casting.math.HexPattern;
+import at.petrak.hexcasting.common.lib.hex.HexIotaTypes;
 import at.petrak.hexcasting.common.lib.HexAttributes;
 import com.bluup.hexwright.common.staff_assembly.StaffPartCategory;
 import com.bluup.hexwright.common.staff_assembly.calc.ComponentResult;
@@ -9,11 +14,13 @@ import com.bluup.hexwright.common.staff_assembly.calc.EfficiencyRating;
 import com.bluup.hexwright.common.staff_assembly.calc.PersistedStaffStats;
 import com.bluup.hexwright.common.staff_assembly.calc.StaffCalculationResult;
 import com.bluup.hexwright.common.staff_assembly.calc.StaffCalculator;
+import com.bluup.hexwright.server.hexpatterns.StoredHex;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.ai.attributes.Attribute;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.item.Item;
@@ -27,6 +34,7 @@ import java.util.UUID;
 public final class StaffAssemblyData {
     public static final String TAG_ASSEMBLY_ROOT = "hexwright_staff_assembly";
     private static final String TAG_AREA_CAST = "area_cast";
+    private static final String TAG_BOUND_HEX = "bound_hex";
     private static final String TAG_AREA_WIDTH = "area_width";
     private static final String TAG_MEDIA_RESERVE = "media_reserve";
 
@@ -136,43 +144,55 @@ public final class StaffAssemblyData {
         return coreItem;
     }
 
-    public static void setAreaCastPatterns(ItemStack stack, List<HexPattern> patterns) {
+    public static void setBoundHex(ItemStack stack, @Nullable List<Iota> hex) {
         CompoundTag assembly = NBTHelper.getOrCreateCompound(stack, TAG_ASSEMBLY_ROOT);
-        if (patterns == null || patterns.isEmpty()) {
-            assembly.remove(TAG_AREA_CAST);
+        assembly.remove(TAG_AREA_CAST);
+        if (hex == null || hex.isEmpty()) {
+            assembly.remove(TAG_BOUND_HEX);
             return;
         }
-
-        ListTag listTag = new ListTag();
-        for (HexPattern pattern : patterns) {
-            listTag.add(pattern.serializeToNBT());
-        }
-
-        assembly.put(TAG_AREA_CAST, listTag);
+        assembly.put(TAG_BOUND_HEX, IotaType.serialize(new ListIota(hex)));
     }
 
-    public static List<HexPattern> getAreaCastPatterns(ItemStack stack) {
+    public static @Nullable CompoundTag getBoundHexTag(ItemStack stack) {
         CompoundTag assembly = getAssemblyOrEmpty(stack);
+        if (assembly.contains(TAG_BOUND_HEX, Tag.TAG_COMPOUND)) {
+            return assembly.getCompound(TAG_BOUND_HEX);
+        }
         if (!assembly.contains(TAG_AREA_CAST, Tag.TAG_LIST)) {
-            return List.of();
+            return null;
         }
 
-        ListTag listTag = assembly.getList(TAG_AREA_CAST, Tag.TAG_COMPOUND);
-        if (listTag.isEmpty()) {
+        List<Iota> patterns = new java.util.ArrayList<>();
+        for (Tag entry : assembly.getList(TAG_AREA_CAST, Tag.TAG_COMPOUND)) {
+            if (entry instanceof CompoundTag patternTag && HexPattern.isPattern(patternTag)) {
+                patterns.add(new PatternIota(HexPattern.fromNBT(patternTag)));
+            }
+        }
+        return patterns.isEmpty() ? null : IotaType.serialize(new ListIota(patterns));
+    }
+
+    public static List<Iota> getBoundHex(ItemStack stack, ServerLevel level) {
+        return boundHexFromTag(getBoundHexTag(stack), level);
+    }
+
+    public static List<Iota> boundHexFromTag(@Nullable CompoundTag tag, ServerLevel level) {
+        if (tag == null) {
             return List.of();
         }
+        List<Iota> hex = StoredHex.decode(IotaType.deserialize(tag, level));
+        return hex == null ? List.of() : hex;
+    }
 
-        List<HexPattern> out = new java.util.ArrayList<>(listTag.size());
-        for (Tag entry : listTag) {
-            if (!(entry instanceof CompoundTag patternTag)) {
-                continue;
-            }
-            if (!HexPattern.isPattern(patternTag)) {
-                continue;
-            }
-            out.add(HexPattern.fromNBT(patternTag));
+    public static int getBoundHexSize(ItemStack stack) {
+        CompoundTag tag = getBoundHexTag(stack);
+        if (tag == null) {
+            return 0;
         }
-        return out;
+        if (IotaType.getTypeFromTag(tag) != HexIotaTypes.LIST) {
+            return 1;
+        }
+        return tag.getList(HexIotaTypes.KEY_DATA, Tag.TAG_COMPOUND).size();
     }
 
     public static double getAreaWidth(ItemStack stack) {

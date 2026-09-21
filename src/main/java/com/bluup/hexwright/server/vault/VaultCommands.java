@@ -1,5 +1,6 @@
 package com.bluup.hexwright.server.vault;
 
+import com.bluup.hexwright.server.command.CommandGate;
 import com.bluup.hexwright.server.pocketcaster.PocketCasterData;
 import com.bluup.hexwright.server.portal.PortalWindow;
 import com.bluup.hexwright.server.worldgen.decadentvault.DecadentVaultRegistry;
@@ -32,6 +33,7 @@ public final class VaultCommands {
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(Commands.literal("vault")
+            .requires(CommandGate::creative)
             .executes(context -> {
                 for (String line : HELP) {
                     context.getSource().sendSuccess(() -> Component.literal(line), false);

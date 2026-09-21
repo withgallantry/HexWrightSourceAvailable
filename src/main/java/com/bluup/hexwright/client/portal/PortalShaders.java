@@ -1,6 +1,7 @@
 package com.bluup.hexwright.client.portal;
 
 import com.bluup.hexwright.Hexwright;
+import com.bluup.hexwright.HexwrightDebug;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import net.fabricmc.fabric.api.resource.ResourceManagerHelper;
 import net.fabricmc.fabric.api.resource.SimpleSynchronousResourceReloadListener;
@@ -51,7 +52,7 @@ public final class PortalShaders implements SimpleSynchronousResourceReloadListe
         try {
             shader = new ShaderInstance(Minecraft.getInstance().getResourceManager(),
                 SHADER_NAME, DefaultVertexFormat.POSITION_TEX);
-            Hexwright.LOGGER.info("Loaded portal pane shader");
+            HexwrightDebug.log(HexwrightDebug.RENDER, "Loaded portal pane shader");
         } catch (IOException | RuntimeException e) {
             Hexwright.LOGGER.error("Failed to load portal pane shader; portal windows will not render", e);
             shader = null;

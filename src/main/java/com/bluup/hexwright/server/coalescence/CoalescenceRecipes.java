@@ -1,6 +1,7 @@
 package com.bluup.hexwright.server.coalescence;
 
 import com.bluup.hexwright.Hexwright;
+import com.bluup.hexwright.HexwrightDebug;
 import com.bluup.hexwright.common.aspects.AspectMappings;
 import com.bluup.hexwright.common.staff_assembly.calc.IngredientCategory;
 import com.google.gson.Gson;

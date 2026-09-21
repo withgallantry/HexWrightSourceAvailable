@@ -118,10 +118,19 @@ public class GreatBowItem extends BowItem implements IotaHolderItem {
         }
         int cooldown = runningCooldown(stack, bow.hexCooldownTicks());
         long remaining = rechargeRemaining(stack, level, cooldown);
-        if (remaining <= 0L) {
+        return Math.max(sweepOf(remaining, cooldown, partialTick),
+            bow.powerRechargeFraction(stack, level, partialTick));
+    }
+
+    protected float powerRechargeFraction(ItemStack stack, Level level, float partialTick) {
+        return 0.0F;
+    }
+
+    protected static float sweepOf(long remaining, int total, float partialTick) {
+        if (remaining <= 0L || total <= 0) {
             return 0.0F;
         }
-        return Math.min(1.0F, Math.max(0.0F, (remaining - partialTick) / cooldown));
+        return Math.min(1.0F, Math.max(0.0F, (remaining - partialTick) / total));
     }
 
 

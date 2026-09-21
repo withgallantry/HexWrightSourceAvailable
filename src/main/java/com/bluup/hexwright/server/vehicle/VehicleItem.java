@@ -3,6 +3,7 @@ package com.bluup.hexwright.server.vehicle;
 import at.petrak.hexcasting.api.casting.iota.Iota;
 import at.petrak.hexcasting.api.item.IotaHolderItem;
 import at.petrak.hexcasting.api.item.MediaHolderItem;
+import com.bluup.hexwright.server.pentabox.PentaboxData;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
@@ -110,9 +111,11 @@ public abstract class VehicleItem extends Item implements IotaHolderItem, MediaH
         }
 
         if (!player.getAbilities().instabuild) {
-            stack.shrink(1);
+            if (!PentaboxData.withdrawProjection(player, hand)) {
+                stack.shrink(1);
+            }
         }
-        return InteractionResultHolder.sidedSuccess(stack, false);
+        return InteractionResultHolder.sidedSuccess(player.getItemInHand(hand), false);
     }
 
     private boolean placeWhereItFits(

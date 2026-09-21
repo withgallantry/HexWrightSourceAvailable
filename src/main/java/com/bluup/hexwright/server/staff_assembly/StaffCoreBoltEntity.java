@@ -1,12 +1,14 @@
 package com.bluup.hexwright.server.staff_assembly;
 
+import at.petrak.hexcasting.api.casting.iota.Iota;
+import at.petrak.hexcasting.api.casting.iota.IotaType;
 import at.petrak.hexcasting.api.casting.iota.ListIota;
+import at.petrak.hexcasting.api.casting.iota.PatternIota;
 import at.petrak.hexcasting.api.casting.math.HexPattern;
 import com.bluup.hexwright.inits.HexwrightNetworking;
 import com.bluup.hexwright.server.item.HexwrightItems;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -20,25 +22,27 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public class StaffCoreBoltEntity extends ThrowableItemProjectile {
     private static final int MAX_LIFE_TICKS = 60;
+    private static final String TAG_BOUND_HEX = "BoundHex";
     private static final String TAG_BOUND_PATTERNS = "BoundPatterns";
     private static final String TAG_IMPACT_AMBIT = "ImpactAmbit";
 
-    private List<HexPattern> boundPatterns = List.of();
+    private @Nullable CompoundTag boundHex;
     private double impactAmbit = StaffCoreData.ECHO_MIN_IMPACT_AMBIT;
 
     public StaffCoreBoltEntity(EntityType<? extends StaffCoreBoltEntity> type, Level level) {
         super(type, level);
     }
 
-    public StaffCoreBoltEntity(Level level, LivingEntity owner, List<HexPattern> boundPatterns, double impactAmbit) {
+    public StaffCoreBoltEntity(Level level, LivingEntity owner, @Nullable CompoundTag boundHex, double impactAmbit) {
         super(HexwrightEntities.STAFF_CORE_BOLT, owner, level);
-        this.boundPatterns = boundPatterns;
+        this.boundHex = boundHex == null ? null : boundHex.copy();
         this.impactAmbit = impactAmbit;
     }
 
@@ -76,7 +80,7 @@ public class StaffCoreBoltEntity extends ThrowableItemProjectile {
         ServerLevel level = caster.serverLevel();
         AABB scanBox = new AABB(impact, impact).inflate(impactAmbit);
         ListIota payload = StaffPowers.buildImpactPayload(level, impact, scanBox, List.of(this, caster));
-        StaffPowers.executeWithSeed(caster, boundPatterns, payload, scanBox);
+        StaffPowers.executeWithSeed(caster, StaffAssemblyData.boundHexFromTag(boundHex, level), payload, scanBox);
 
         double spread = impactAmbit * 0.45;
         int particleCount = (int) Math.round(16.0 * impactAmbit / StaffCoreData.ECHO_MIN_IMPACT_AMBIT);
@@ -88,26 +92,26 @@ public class StaffCoreBoltEntity extends ThrowableItemProjectile {
     @Override
     public void addAdditionalSaveData(CompoundTag tag) {
         super.addAdditionalSaveData(tag);
-        ListTag patternsTag = new ListTag();
-        for (HexPattern pattern : boundPatterns) {
-            patternsTag.add(pattern.serializeToNBT());
+        if (boundHex != null) {
+            tag.put(TAG_BOUND_HEX, boundHex.copy());
         }
-        tag.put(TAG_BOUND_PATTERNS, patternsTag);
         tag.putDouble(TAG_IMPACT_AMBIT, impactAmbit);
     }
 
     @Override
     public void readAdditionalSaveData(CompoundTag tag) {
         super.readAdditionalSaveData(tag);
-        List<HexPattern> loaded = new ArrayList<>();
-        if (tag.contains(TAG_BOUND_PATTERNS, Tag.TAG_LIST)) {
+        if (tag.contains(TAG_BOUND_HEX, Tag.TAG_COMPOUND)) {
+            this.boundHex = tag.getCompound(TAG_BOUND_HEX).copy();
+        } else if (tag.contains(TAG_BOUND_PATTERNS, Tag.TAG_LIST)) {
+            List<Iota> patterns = new ArrayList<>();
             for (Tag entry : tag.getList(TAG_BOUND_PATTERNS, Tag.TAG_COMPOUND)) {
                 if (entry instanceof CompoundTag patternTag && HexPattern.isPattern(patternTag)) {
-                    loaded.add(HexPattern.fromNBT(patternTag));
+                    patterns.add(new PatternIota(HexPattern.fromNBT(patternTag)));
                 }
             }
+            this.boundHex = patterns.isEmpty() ? null : IotaType.serialize(new ListIota(patterns));
         }
-        this.boundPatterns = loaded;
         if (tag.contains(TAG_IMPACT_AMBIT, Tag.TAG_DOUBLE)) {
             this.impactAmbit = tag.getDouble(TAG_IMPACT_AMBIT);
         }

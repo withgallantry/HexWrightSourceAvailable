@@ -32,6 +32,11 @@ public class PentaboxContainer extends SimpleContainer {
     }
 
     @Override
+    public int getMaxStackSize() {
+        return 1;
+    }
+
+    @Override
     public void setChanged() {
         super.setChanged();
         if (initializing || pentabox.isEmpty()) {

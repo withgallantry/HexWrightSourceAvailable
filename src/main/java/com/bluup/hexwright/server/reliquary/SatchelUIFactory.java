@@ -99,7 +99,17 @@ public final class SatchelUIFactory extends UIFactory<SatchelUIFactory.Holder> {
         List<ItemStack> openResult = List.of();
         HexDisplayContainer.Trigger trigger = null;
         if (!clientSide && entityPlayer instanceof ServerPlayer serverPlayer) {
-            Supplier<ItemStack> heldSlot = () -> SatchelItem.getHeld(serverPlayer.getItemInHand(holder.hand));
+            ChestCastEnv.HeldSlot heldSlot = new ChestCastEnv.HeldSlot() {
+                @Override
+                public ItemStack get() {
+                    return SatchelItem.getHeld(serverPlayer.getItemInHand(holder.hand));
+                }
+
+                @Override
+                public void set(ItemStack stack) {
+                    SatchelItem.setHeld(serverPlayer.getItemInHand(holder.hand), stack);
+                }
+            };
             String key = SatchelItem.storeKey(satchel);
             ItemStack openFocus = effectiveHookFocus(serverPlayer, satchel, key, SatchelItem.Hook.OPEN);
             openResult = ReliquaryWindow.runOpen(serverPlayer, holder.hand, openFocus, heldSlot);

@@ -1,6 +1,6 @@
 package com.bluup.hexwright.client.render.emissive;
 
-import com.bluup.hexwright.Hexwright;
+import com.bluup.hexwright.HexwrightDebug;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -127,7 +127,7 @@ public record EmissiveModelScan(
         brightnessSources.keySet().removeAll(glowByBaseId.keySet());
 
         if (!baseByGlowId.isEmpty() || !brightnessSources.isEmpty()) {
-            Hexwright.LOGGER.info(
+            HexwrightDebug.log(HexwrightDebug.RENDER,
                 "Emissive models: {} carry a glowmask, {} glow by brightness, {} name their glowing parts",
                 baseByGlowId.size(), brightnessSources.size(), partTwinByBase.size());
         }

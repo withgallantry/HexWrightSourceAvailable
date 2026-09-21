@@ -2,6 +2,7 @@ package com.bluup.hexwright.client.staff_assembly;
 
 import com.mojang.brigadier.arguments.FloatArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
+import com.bluup.hexwright.client.command.ClientCommandGate;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
@@ -18,6 +19,7 @@ public final class StaffTipCommands {
     public static void register() {
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) ->
             dispatcher.register(ClientCommandManager.literal("hexwrighttip")
+                .requires(ClientCommandGate::creative)
                 .then(ClientCommandManager.literal("on").executes(ctx -> setEnabled(ctx.getSource(), true)))
                 .then(ClientCommandManager.literal("off").executes(ctx -> setEnabled(ctx.getSource(), false)))
                 .then(ClientCommandManager.literal("toggle")

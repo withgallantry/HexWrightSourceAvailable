@@ -5,9 +5,9 @@ import java.util.UUID;
 
 public record RemnantSnapshot(List<Remnant> remnants, long capturedAt, UUID id) {
 
-    public static final long GRACE_TICKS = 6_000L;
+    public static final long GRACE_TICKS = RemnantDecay.GRACE_TICKS;
 
-    public static final long DECAY_TICKS = 72_000L;
+    public static final long DECAY_TICKS = RemnantDecay.DECAY_TICKS;
 
     public RemnantSnapshot {
         remnants = List.copyOf(remnants);
@@ -27,15 +27,7 @@ public record RemnantSnapshot(List<Remnant> remnants, long capturedAt, UUID id) 
     }
 
     public double potencyAt(long now) {
-        long age = now - capturedAt;
-        if (age <= GRACE_TICKS) {
-            return 1.0;
-        }
-        long past = age - GRACE_TICKS;
-        if (past >= DECAY_TICKS) {
-            return 0.0;
-        }
-        return 1.0 - ((double) past / (double) DECAY_TICKS);
+        return RemnantDecay.potency(capturedAt, now);
     }
 
     public boolean isSpent(long now) {

@@ -1,6 +1,7 @@
 package com.bluup.hexwright.client.weapon;
 
 import com.bluup.hexwright.Hexwright;
+import com.bluup.hexwright.HexwrightDebug;
 import com.bluup.hexwright.server.weapon.AnimatedWeapon;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -109,7 +110,7 @@ public final class WeaponModelAnchors implements SimpleSynchronousResourceReload
                 Vector3f fromFile = savedOffset(saved, itemId);
                 Vector3f offset = fromFile != null ? fromFile : new Vector3f(weapon.trailAnchorOffset());
                 if (fromFile != null) {
-                    Hexwright.LOGGER.info("Trail offset for {} taken from {}: {}",
+                    HexwrightDebug.log(HexwrightDebug.CONTENT, "Trail offset for {} taken from {}: {}",
                         itemId, OFFSET_FILE, offset);
                 }
                 loaded.put(item, new Anchor(centre, offset));

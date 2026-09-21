@@ -1,6 +1,7 @@
 package com.bluup.hexwright.server.progression;
 
 import com.bluup.hexwright.Hexwright;
+import com.bluup.hexwright.HexwrightDebug;
 import com.google.gson.Gson;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.resources.ResourceLocation;
@@ -44,7 +45,7 @@ public final class RecipeTablets {
     public record LootDrop(String id, ResourceLocation table, float chance, int rolls, List<LootEntry> entries) {
     }
 
-    public record Config(Set<String> gatedRecipes, List<LootDrop> drops) {
+    public record Config(Set<String> gatedRecipes, Set<String> siteRecipes, List<LootDrop> drops) {
     }
 
     public static synchronized Config get() {
@@ -73,6 +74,15 @@ public final class RecipeTablets {
         return get().gatedRecipes().contains(recipeNameKey);
     }
 
+    public static boolean requiresSite(String recipeNameKey) {
+        return get().siteRecipes().contains(recipeNameKey);
+    }
+
+    public static boolean requiresDiscovery(String recipeNameKey) {
+        Config config = get();
+        return config.gatedRecipes().contains(recipeNameKey) || config.siteRecipes().contains(recipeNameKey);
+    }
+
     public static void validate(Set<String> knownRecipeKeys) {
         if (knownRecipeKeys.isEmpty()) {
             return;
@@ -80,6 +90,7 @@ public final class RecipeTablets {
         Config config = get();
 
         Set<String> unknownGates = new LinkedHashSet<>(config.gatedRecipes());
+        unknownGates.addAll(config.siteRecipes());
         unknownGates.removeAll(knownRecipeKeys);
         if (!unknownGates.isEmpty()) {
             Hexwright.LOGGER.warn(
@@ -104,6 +115,7 @@ public final class RecipeTablets {
         Set<String> unobtainable = new LinkedHashSet<>(config.gatedRecipes());
         unobtainable.retainAll(knownRecipeKeys);
         unobtainable.removeAll(dropped);
+        unobtainable.removeAll(config.siteRecipes());
         if (!unobtainable.isEmpty()) {
             Hexwright.LOGGER.warn(
                 "{} gated recipe(s) have no tablet in any loot table and cannot be discovered: {}",
@@ -133,9 +145,9 @@ public final class RecipeTablets {
                 return empty();
             }
             Config parsed = parse(GSON.fromJson(reader, Document.class));
-            Hexwright.LOGGER.info(
-                "Loaded Stone Tablet config from {}: {} gated recipe(s), {} loot source(s)",
-                source, parsed.gatedRecipes().size(), parsed.drops().size()
+            HexwrightDebug.log(HexwrightDebug.CONTENT,
+                "Loaded Stone Tablet config from {}: {} gated, {} site recipe(s), {} loot source(s)",
+                source, parsed.gatedRecipes().size(), parsed.siteRecipes().size(), parsed.drops().size()
             );
             return parsed;
         } catch (Throwable t) {
@@ -157,14 +169,9 @@ public final class RecipeTablets {
             return empty();
         }
 
-        Set<String> gated = new LinkedHashSet<>();
-        if (document.recipes != null) {
-            for (String recipe : document.recipes) {
-                if (recipe != null && !recipe.isBlank()) {
-                    gated.add(recipe);
-                }
-            }
-        }
+        Set<String> gated = names(document.recipes);
+        Set<String> sites = names(document.site_recipes);
+        sites.removeAll(gated);
 
         List<LootDrop> drops = new ArrayList<>();
         Set<String> seenIds = new HashSet<>();
@@ -177,7 +184,23 @@ public final class RecipeTablets {
             }
         }
 
-        return new Config(Collections.unmodifiableSet(gated), Collections.unmodifiableList(drops));
+        return new Config(
+            Collections.unmodifiableSet(gated),
+            Collections.unmodifiableSet(sites),
+            Collections.unmodifiableList(drops)
+        );
+    }
+
+    private static Set<String> names(List<String> raw) {
+        Set<String> names = new LinkedHashSet<>();
+        if (raw != null) {
+            for (String name : raw) {
+                if (name != null && !name.isBlank()) {
+                    names.add(name);
+                }
+            }
+        }
+        return names;
     }
 
     private static LootDrop parseDrop(Loot loot, Set<String> seenIds) {
@@ -221,11 +244,12 @@ public final class RecipeTablets {
     }
 
     private static Config empty() {
-        return new Config(Set.of(), List.of());
+        return new Config(Set.of(), Set.of(), List.of());
     }
 
     private static final class Document {
         List<String> recipes;
+        List<String> site_recipes;
         List<Loot> loot;
     }
 

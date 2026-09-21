@@ -1,6 +1,7 @@
 package com.bluup.hexwright.server.block
 
 import com.bluup.hexwright.Hexwright
+import com.bluup.hexwright.client.block.AlembixVesselVisualClient
 import com.bluup.hexwright.server.fluid.HexidTank
 import com.bluup.hexwright.server.fluid.HexidTankBlockEntity
 import com.bluup.hexwright.server.fluid.HexidPipeNetwork
@@ -72,6 +73,8 @@ class AlembixBlockEntity(
         private const val PANEL_COLOR = 0xFF1B1F26.toInt()
 
         private const val EMPTY_TINT = 0x555F6B
+
+        const val NO_TINT = -1
 
         private const val FACE_CACHE_TICKS = 10L
 
@@ -147,6 +150,11 @@ class AlembixBlockEntity(
     fun canDrawFrom(index: Int): Boolean {
         refreshFaces()
         return facePlumbed[index] && (faceHolds[index]?.kinds() ?: 0) <= 1
+    }
+
+    fun inputTint(index: Int): Int {
+        val held = inputRemnants(index)
+        return if (held.isEmpty) NO_TINT else held.tint(EMPTY_TINT)
     }
 
     fun inputLabel(index: Int): Component {
@@ -254,6 +262,21 @@ class AlembixBlockEntity(
             left = if (poured >= left.total()) TankRemnants.EMPTY
             else left.portion(1.0 - poured / left.total())
         }
+    }
+
+
+    fun clientTick() {
+        val level = this.level ?: return
+        AlembixVesselVisualClient.setInputs(
+            level, worldPosition, IntArray(INPUTS) { inputTint(it) })
+    }
+
+    override fun setRemoved() {
+        val level = this.level
+        if (level != null && level.isClientSide) {
+            AlembixVesselVisualClient.stop(worldPosition)
+        }
+        super.setRemoved()
     }
 
 

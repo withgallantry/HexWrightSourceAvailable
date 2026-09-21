@@ -1,17 +1,21 @@
 package com.bluup.hexwright.common.remnant;
 
-public record Remnant(RemnantType type, double drams) {
+import org.jetbrains.annotations.Nullable;
+
+public record Remnant(@Nullable RemnantType type, double drams) {
+
+    public static final Remnant EMPTY = new Remnant(null, 0.0);
 
     public Remnant {
         drams = Math.max(0.0, drams);
     }
 
     public boolean isEmpty() {
-        return drams <= 0.0;
+        return type == null || drams <= 0.0;
     }
 
     public Remnant withDrams(double newDrams) {
-        return new Remnant(type, newDrams);
+        return type == null ? EMPTY : new Remnant(type, newDrams);
     }
 
     public int wholeDrams() {

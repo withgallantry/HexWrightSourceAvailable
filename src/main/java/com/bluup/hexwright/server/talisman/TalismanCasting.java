@@ -108,6 +108,23 @@ public final class TalismanCasting {
         return false;
     }
 
+    public static void onDied(ServerPlayer player) {
+        for (ItemStack stack : WornTalismans.getWorn(player)) {
+            resetReprieve(stack);
+        }
+        for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
+            resetReprieve(player.getInventory().getItem(i));
+        }
+    }
+
+    private static void resetReprieve(ItemStack stack) {
+        if (stack.getItem() instanceof TalismanItem talisman
+            && talisman.fixedTrigger() == TalismanData.Trigger.BRINK
+            && TalismanData.getNextFire(stack) != 0L) {
+            TalismanData.setNextFire(stack, 0L);
+        }
+    }
+
     private static void announceReprieve(ServerPlayer player, ServerLevel level) {
         level.playSound(null, player.blockPosition(), SoundEvents.TOTEM_USE, SoundSource.PLAYERS, 1.0f, 1.0f);
         level.sendParticles(ParticleTypes.TOTEM_OF_UNDYING,

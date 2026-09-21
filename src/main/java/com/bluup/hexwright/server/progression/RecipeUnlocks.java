@@ -22,7 +22,7 @@ public final class RecipeUnlocks {
     }
 
     public static boolean canCraft(ServerPlayer player, String recipeNameKey) {
-        return !RecipeTablets.requiresTablet(recipeNameKey) || isUnlocked(player, recipeNameKey);
+        return !RecipeTablets.requiresDiscovery(recipeNameKey) || isUnlocked(player, recipeNameKey);
     }
 
     public static boolean unlock(ServerPlayer player, String recipeNameKey) {

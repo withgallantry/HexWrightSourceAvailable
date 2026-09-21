@@ -3,6 +3,7 @@ package com.bluup.hexwright.compat.jei
 import com.bluup.hexwright.Hexwright
 import com.bluup.hexwright.compat.recipeviewer.ArmourCraftDisplay
 import com.bluup.hexwright.compat.recipeviewer.EssenceForgeDisplay
+import com.bluup.hexwright.compat.recipeviewer.ScryingSpectaclesDisplay
 import com.bluup.hexwright.server.block.HexwrightBlocks
 import mezz.jei.api.IModPlugin
 import mezz.jei.api.constants.RecipeTypes
@@ -26,6 +27,7 @@ class HexwrightJeiPlugin : IModPlugin {
             RecipeTypes.CRAFTING,
             ArmourCraftDisplay.all().map { it.toShapedRecipe() }
         )
+        registration.addRecipes(RecipeTypes.CRAFTING, listOf(ScryingSpectaclesDisplay.toShapelessRecipe()))
     }
 
     override fun registerRecipeCatalysts(registration: IRecipeCatalystRegistration) {

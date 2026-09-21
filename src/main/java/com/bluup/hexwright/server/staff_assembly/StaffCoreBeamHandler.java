@@ -7,7 +7,6 @@ import com.bluup.hexwright.inits.HexwrightNetworking;
 import com.bluup.hexwright.server.item.HexwrightItems;
 import com.bluup.hexwright.server.sound.HexwrightSoundEvents;
 import at.petrak.hexcasting.api.addldata.ADMediaHolder;
-import at.petrak.hexcasting.api.casting.math.HexPattern;
 import at.petrak.hexcasting.api.misc.MediaConstants;
 import at.petrak.hexcasting.api.pigment.FrozenPigment;
 import at.petrak.hexcasting.api.utils.MediaHelper;
@@ -15,6 +14,7 @@ import at.petrak.hexcasting.common.lib.hex.HexEvalSounds;
 import at.petrak.hexcasting.xplat.IXplatAbstractions;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
@@ -23,7 +23,6 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -213,13 +212,13 @@ public final class StaffCoreBeamHandler {
             return;
         }
 
-        List<HexPattern> patterns = StaffAssemblyData.getAreaCastPatterns(staff);
+        CompoundTag boundHex = StaffAssemblyData.getBoundHexTag(staff);
 
         Vec3 direction = player.getLookAngle().normalize();
         Vec3 start = computeStaffTip(player, direction);
 
         double impactAmbit = StaffCoreData.echoImpactAmbit(StaffCoreData.getQuality(StaffAssemblyData.getCoreItem(staff)));
-        StaffCoreBoltEntity bolt = new StaffCoreBoltEntity(player.level(), player, patterns, impactAmbit);
+        StaffCoreBoltEntity bolt = new StaffCoreBoltEntity(player.level(), player, boundHex, impactAmbit);
         bolt.setPos(start.x, start.y, start.z);
         bolt.shoot(direction.x, direction.y, direction.z, (float) BOLT_SPEED, 0.0f);
         player.level().addFreshEntity(bolt);

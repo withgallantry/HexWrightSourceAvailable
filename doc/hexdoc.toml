@@ -17,7 +17,13 @@ export_dir = "src/hexdoc_hexwright/_export/generated"
 strict = false
 missing = [
     "minecraft:chest",
-    "hexwright:wither_storm_spawn_egg",
+    "hexwright:wither_storm_spawn_egg", "hexwright:experimental_construct_spawn_egg",
+    "hexwright:fractured_construct_spawn_egg", "hexwright:runestone_titan_spawn_egg",
+    "hexwright:servitor_construct_spawn_egg", "hexwright:cog_sentinel_spawn_egg",
+    "hexwright:corrupt_experiment_spawn_egg",
+    "hexwright:broom_bristleback", "hexwright:broom_crooked_comber", "hexwright:broom_gleamglide",
+    "hexwright:broom_nightsweep", "hexwright:broom_splintered_sweeper", "hexwright:broom_starbeam",
+    "hexwright:broom_twin_whisk", "hexwright:broom_whisperwind",
     "hexwright:blossom_staff", "hexwright:dark_forest_staff", "hexwright:dark_forest_tome_staff",
     "hexwright:dark_forest_tome_staff_open", "hexwright:eclipse_staff", "hexwright:eclipse_tome_staff",
     "hexwright:eclipse_tome_staff_open", "hexwright:end_staff", "hexwright:end_tome_staff",

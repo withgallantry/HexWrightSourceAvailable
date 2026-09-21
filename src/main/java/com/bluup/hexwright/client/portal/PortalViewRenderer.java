@@ -1,5 +1,6 @@
 package com.bluup.hexwright.client.portal;
 
+import com.bluup.hexwright.HexwrightDebug;
 import com.bluup.hexwright.client.render.IrisCompat;
 import com.bluup.hexwright.mixin.BloomEffectAccessor;
 import com.bluup.hexwright.mixin.GameRendererAccessor;
@@ -137,8 +138,9 @@ public final class PortalViewRenderer {
     private static final boolean FRESH_FILL_ENABLED =
         !"false".equals(System.getProperty("hexwright.portal.freshfill"));
 
-    private static final boolean DEBUG =
-        "true".equals(System.getProperty("hexwright.portal.debug"));
+    private static boolean debug() {
+        return HexwrightDebug.on(HexwrightDebug.PORTAL);
+    }
 
     public static final boolean FABULOUS_VIEWS =
         !"false".equals(System.getProperty("hexwright.portal.fabulous"));
@@ -147,11 +149,11 @@ public final class PortalViewRenderer {
         "true".equals(System.getProperty("hexwright.portal.panebloom"));
 
     static {
-        if (DEBUG || !VIEWS_ENABLED || !CONE_ENABLED || !SCISSOR_ENABLED || !FRESH_FILL_ENABLED
+        if (debug() || !VIEWS_ENABLED || !CONE_ENABLED || !SCISSOR_ENABLED || !FRESH_FILL_ENABLED
             || !CLIP_ENABLED) {
             com.bluup.hexwright.Hexwright.LOGGER.info(
                 "[portal-debug] toggles: views={} cone={} scissor={} freshfill={} debug={}",
-                VIEWS_ENABLED, CONE_ENABLED, SCISSOR_ENABLED, FRESH_FILL_ENABLED, DEBUG);
+                VIEWS_ENABLED, CONE_ENABLED, SCISSOR_ENABLED, FRESH_FILL_ENABLED, debug());
         }
     }
 
@@ -159,7 +161,7 @@ public final class PortalViewRenderer {
     private static String debugLastSource = "none";
 
     public static void debugMainFrame(int drawnSections, int graphSections, boolean freshFill) {
-        if (!DEBUG) {
+        if (!debug()) {
             return;
         }
         String source = freshFill ? "fill" : "graph";
@@ -267,14 +269,15 @@ public final class PortalViewRenderer {
     private static boolean refuse(int depth, String reason) {
         if (depth == 0 && !reason.equals(refusalReason)) {
             refusalReason = reason;
-            com.bluup.hexwright.Hexwright.LOGGER.info("[portal] no pane is being rendered: {}", reason);
+            HexwrightDebug.log(HexwrightDebug.PORTAL, "[portal] no pane is being rendered: {}", reason);
         }
         return false;
     }
 
     private static void noteViewRendered() {
         if (refusalReason != null) {
-            com.bluup.hexwright.Hexwright.LOGGER.info("[portal] panes are rendering again (was: {})", refusalReason);
+            HexwrightDebug.log(HexwrightDebug.PORTAL,
+                "[portal] panes are rendering again (was: {})", refusalReason);
             refusalReason = null;
         }
     }
@@ -663,7 +666,7 @@ public final class PortalViewRenderer {
     private static boolean bloomRepointWarned;
 
     public static void debugBloomAttachment() {
-        if (!DEBUG || passDepth == 0 || bloomProbesLogged >= 3) {
+        if (!debug() || passDepth == 0 || bloomProbesLogged >= 3) {
             return;
         }
         RenderTarget bloomInput = BloomEffectAccessor.hexwright$getInput();

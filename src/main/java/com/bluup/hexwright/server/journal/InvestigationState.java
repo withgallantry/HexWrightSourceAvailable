@@ -21,11 +21,13 @@ public class InvestigationState extends SavedData {
     private static final String COMPLETED_KEY = "Completed";
     private static final String COUNTERS_KEY = "Counters";
     private static final String ISSUED_KEY = "Issued";
+    private static final String ARTIFACTS_KEY = "Artifacts";
     private static final String PLAYERS_KEY = "Players";
 
     private final Map<UUID, Set<String>> completed = new HashMap<>();
     private final Map<UUID, Map<String, Integer>> counters = new HashMap<>();
     private final Set<UUID> issued = new HashSet<>();
+    private final Map<UUID, Set<String>> artifacts = new HashMap<>();
 
     public static InvestigationState get(MinecraftServer server) {
         return server.overworld().getDataStorage()
@@ -84,6 +86,29 @@ public class InvestigationState extends SavedData {
         return true;
     }
 
+    public Set<String> artifacts(UUID player) {
+        Set<String> theirs = artifacts.get(player);
+        return theirs == null ? Set.of() : Collections.unmodifiableSet(theirs);
+    }
+
+    public boolean discoverArtifact(UUID player, String artifactId) {
+        if (!artifacts.computeIfAbsent(player, id -> new HashSet<>()).add(artifactId)) {
+            return false;
+        }
+        setDirty();
+        return true;
+    }
+
+    public boolean forgetArtifacts(UUID player) {
+        Set<String> theirs = artifacts.get(player);
+        if (theirs == null || theirs.isEmpty()) {
+            return false;
+        }
+        theirs.clear();
+        setDirty();
+        return true;
+    }
+
     public int counter(UUID player, String key) {
         Map<String, Integer> theirs = counters.get(player);
         return theirs == null ? 0 : theirs.getOrDefault(key, 0);
@@ -129,6 +154,15 @@ public class InvestigationState extends SavedData {
                 entry.putBoolean(ISSUED_KEY, true);
             }
 
+            Set<String> found = artifacts.getOrDefault(player, Set.of());
+            if (!found.isEmpty()) {
+                ListTag list = new ListTag();
+                for (String id : found) {
+                    list.add(StringTag.valueOf(id));
+                }
+                entry.put(ARTIFACTS_KEY, list);
+            }
+
             players.put(player.toString(), entry);
         }
         tag.put(PLAYERS_KEY, players);
@@ -157,6 +191,14 @@ public class InvestigationState extends SavedData {
                 state.issued.add(player);
             }
 
+            ListTag found = entry.getList(ARTIFACTS_KEY, Tag.TAG_STRING);
+            if (!found.isEmpty()) {
+                Set<String> theirs = state.artifacts.computeIfAbsent(player, id -> new HashSet<>());
+                for (int i = 0; i < found.size(); i++) {
+                    theirs.add(found.getString(i));
+                }
+            }
+
             CompoundTag tallies = entry.getCompound(COUNTERS_KEY);
             if (!tallies.isEmpty()) {
                 Map<String, Integer> theirs = state.counters.computeIfAbsent(player, id -> new HashMap<>());
@@ -172,6 +214,7 @@ public class InvestigationState extends SavedData {
         Set<UUID> all = new HashSet<>(completed.keySet());
         all.addAll(counters.keySet());
         all.addAll(issued);
+        all.addAll(artifacts.keySet());
         return all;
     }
 }

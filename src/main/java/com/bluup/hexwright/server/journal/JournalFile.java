@@ -1,6 +1,7 @@
 package com.bluup.hexwright.server.journal;
 
 import com.bluup.hexwright.Hexwright;
+import com.bluup.hexwright.HexwrightDebug;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import net.fabricmc.loader.api.FabricLoader;
@@ -80,7 +81,7 @@ final class JournalFile<T> {
                 return empty.get();
             }
             T parsed = parser.apply(GSON.fromJson(reader, JsonObject.class));
-            Hexwright.LOGGER.info("Loaded journal content from {}", source);
+            HexwrightDebug.log(HexwrightDebug.CONTENT, "Loaded journal content from {}", source);
             return parsed;
         } catch (Throwable t) {
             Hexwright.LOGGER.error("Failed to read journal content from {}; that section will be empty", source, t);

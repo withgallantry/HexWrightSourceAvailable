@@ -4,6 +4,7 @@ import com.bluup.hexwright.Hexwright;
 import com.bluup.hexwright.server.armour.GemArmourRecipe;
 import com.bluup.hexwright.server.crucible.EssencePouchMergeRecipe;
 import com.bluup.hexwright.server.vault.VaultKeyCopyRecipe;
+import com.bluup.hexwright.server.wardingbox.ScryingSpectaclesRecipe;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.item.crafting.RecipeSerializer;
@@ -23,6 +24,9 @@ public final class HexwrightRecipes {
     public static final RecipeSerializer<EssencePouchMergeRecipe> ESSENCE_POUCH_MERGE =
         new SimpleCraftingRecipeSerializer<>(EssencePouchMergeRecipe::new);
 
+    public static final RecipeSerializer<ScryingSpectaclesRecipe> SCRYING_SPECTACLES =
+        new SimpleCraftingRecipeSerializer<>(ScryingSpectaclesRecipe::new);
+
     private HexwrightRecipes() {
     }
 
@@ -35,5 +39,7 @@ public final class HexwrightRecipes {
             Hexwright.id("vault_key_copy"), VAULT_KEY_COPY);
         Registry.register(BuiltInRegistries.RECIPE_SERIALIZER,
             Hexwright.id("essence_pouch_merge"), ESSENCE_POUCH_MERGE);
+        Registry.register(BuiltInRegistries.RECIPE_SERIALIZER,
+            Hexwright.id("scrying_spectacles"), SCRYING_SPECTACLES);
     }
 }

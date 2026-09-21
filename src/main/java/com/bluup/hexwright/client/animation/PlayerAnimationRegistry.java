@@ -1,6 +1,7 @@
 package com.bluup.hexwright.client.animation;
 
 import com.bluup.hexwright.Hexwright;
+import com.bluup.hexwright.HexwrightDebug;
 import dev.kosmx.playerAnim.core.data.KeyframeAnimation;
 import dev.kosmx.playerAnim.core.data.gson.AnimationSerializing;
 import net.fabricmc.fabric.api.resource.ResourceManagerHelper;
@@ -57,6 +58,6 @@ public final class PlayerAnimationRegistry implements SimpleSynchronousResourceR
         }
 
         animations = loaded;
-        Hexwright.LOGGER.info("Loaded {} player animations.", loaded.size());
+        HexwrightDebug.log(HexwrightDebug.CONTENT, "Loaded {} player animations.", loaded.size());
     }
 }

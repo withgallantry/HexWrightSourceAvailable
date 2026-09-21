@@ -15,7 +15,6 @@ import net.minecraft.world.item.ItemStack;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Supplier;
 
 public final class SatchelCasting {
 
@@ -25,7 +24,7 @@ public final class SatchelCasting {
     }
 
     public static List<Iota> fire(ServerPlayer player, InteractionHand hand, ItemStack focus, List<Iota> seeds,
-                                   Supplier<ItemStack> heldSlot) {
+                                  ChestCastEnv.HeldSlot heldSlot) {
         if (castDepth > 0 || focus.isEmpty()) {
             return List.of();
         }
@@ -37,18 +36,21 @@ public final class SatchelCasting {
             return List.of();
         }
 
+        ChestCastEnv env = new ChestCastEnv(player, hand, heldSlot);
         castDepth++;
         try {
             CastingVM templateVm = IXplatAbstractions.INSTANCE.getStaffcastVM(player, hand);
+            CompoundTag userData = new CompoundTag();
+            HexalMoteStorage.lendBoundStorage(player, userData);
             CastingImage seededImage = templateVm.getImage().copy(
                 seeds,
                 0,
                 List.of(),
                 false,
                 0L,
-                new CompoundTag()
+                userData
             );
-            CastingVM vm = new CastingVM(seededImage, new ChestCastEnv(player, hand, heldSlot));
+            CastingVM vm = new CastingVM(seededImage, env);
             vm.queueExecuteAndWrapIotas(new ArrayList<>(hex), level);
             return new ArrayList<>(vm.getImage().getStack());
         } catch (RuntimeException e) {
@@ -56,6 +58,7 @@ public final class SatchelCasting {
                 player.getGameProfile().getName(), hand, focus, e);
             return List.of();
         } finally {
+            env.commitHeldSlot();
             castDepth--;
         }
     }

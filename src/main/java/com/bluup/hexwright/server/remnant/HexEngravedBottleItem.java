@@ -1,7 +1,6 @@
 package com.bluup.hexwright.server.remnant;
 
 import at.petrak.hexcasting.api.casting.iota.Iota;
-import at.petrak.hexcasting.api.casting.iota.IotaType;
 import at.petrak.hexcasting.api.item.IotaHolderItem;
 import com.bluup.hexwright.server.block.HexwrightBlocks;
 import com.bluup.hexwright.server.block.PlacedBottleBlock;
@@ -30,6 +29,7 @@ import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
+import java.util.UUID;
 
 public class HexEngravedBottleItem extends Item implements IotaHolderItem {
 
@@ -106,8 +106,7 @@ public class HexEngravedBottleItem extends Item implements IotaHolderItem {
 
     @Override
     public @Nullable CompoundTag readIotaTag(ItemStack stack) {
-        Remnant contents = BottleData.getContents(stack);
-        return contents == null ? null : IotaType.serialize(new RemnantIota(contents));
+        return null;
     }
 
     @Override
@@ -123,7 +122,12 @@ public class HexEngravedBottleItem extends Item implements IotaHolderItem {
         if (!(iota instanceof RemnantIota remnantIota)) {
             return false;
         }
-        return BottleData.canAccept(stack, remnantIota.getRemnant());
+        UUID draught = remnantIota.getDraught();
+        RemnantDrawState ledger = RemnantDrawState.get();
+        if (draught == null || ledger == null) {
+            return false;
+        }
+        return BottleData.canAccept(stack, ledger.peek(draught, RemnantDrawState.gameTime()));
     }
 
     @Override
@@ -132,8 +136,17 @@ public class HexEngravedBottleItem extends Item implements IotaHolderItem {
             BottleData.empty(stack);
             return;
         }
-        if (iota instanceof RemnantIota remnantIota) {
-            BottleData.pour(stack, remnantIota.getRemnant());
+        if (!(iota instanceof RemnantIota remnantIota)) {
+            return;
+        }
+        UUID draught = remnantIota.getDraught();
+        RemnantDrawState ledger = RemnantDrawState.get();
+        if (draught == null || ledger == null) {
+            return;
+        }
+        Remnant poured = ledger.redeem(draught, RemnantDrawState.gameTime());
+        if (poured != null) {
+            BottleData.pour(stack, poured);
         }
     }
 

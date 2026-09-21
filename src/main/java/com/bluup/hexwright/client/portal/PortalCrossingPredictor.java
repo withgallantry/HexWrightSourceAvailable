@@ -96,7 +96,8 @@ public final class PortalCrossingPredictor {
         Vec3 velocity = player.getDeltaMovement();
         Vec3 newPos = PortalManager.exitPosition(transform, source, destination, player.position(), entrySign);
 
-        Vec3 anchor = holdInFront(destination, transform.apply(oldPos), newPos);
+        Vec3 anchor = holdInFront(destination,
+            PortalManager.liftOntoSill(destination, transform.apply(oldPos)), newPos);
 
         player.setPos(newPos);
         player.xo = anchor.x;

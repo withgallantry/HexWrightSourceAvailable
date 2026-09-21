@@ -14,6 +14,7 @@ import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.Container;
@@ -56,21 +57,33 @@ public final class PentaboxUIFactory extends UIFactory<PentaboxUIFactory.Holder>
         ItemStack pentaboxStack;
         int deployedSlot = -1;
         ItemStack held = entityPlayer.getItemInHand(holder.hand);
+        MinecraftServer server = entityPlayer.getServer();
         if (held.getItem() instanceof PentaboxItem) {
             pentaboxStack = held;
             pentaboxContainer = new PentaboxContainer(held);
         } else if (PentaboxData.isLinkedStack(held)) {
-            PentaboxData.syncDeployedStack(held);
-            ItemStack linkedPentabox = PentaboxData.getLinkedPentabox(held);
-            if (!(linkedPentabox.getItem() instanceof PentaboxItem)) {
-                return null;
+            if (server == null) {
+                ItemStack display = PentaboxData.getLinkedDisplay(held);
+                if (!(display.getItem() instanceof PentaboxItem)) {
+                    return null;
+                }
+                pentaboxStack = display;
+                deployedSlot = PentaboxData.getLinkedSlot(held);
+                pentaboxContainer = new PentaboxContainer(display);
+            } else {
+                PentaboxData.syncDeployedStack(server, held);
+                ItemStack parked = PentaboxData.peekBox(server, held);
+                if (!(parked.getItem() instanceof PentaboxItem)) {
+                    return null;
+                }
+                pentaboxStack = parked;
+                deployedSlot = PentaboxData.getLinkedSlot(held);
+                pentaboxContainer = new PentaboxContainer(parked, items -> {
+                    PentaboxData.saveItems(parked, items);
+                    PentaboxStore.get(server).setDirty();
+                    PentaboxData.setLinkedDisplay(held, parked);
+                });
             }
-            pentaboxStack = linkedPentabox;
-            deployedSlot = PentaboxData.getLinkedSlot(held);
-            pentaboxContainer = new PentaboxContainer(linkedPentabox, items -> {
-                PentaboxData.saveItems(linkedPentabox, items);
-                PentaboxData.setLinkedPentabox(held, linkedPentabox);
-            });
         } else {
             return null;
         }
@@ -145,6 +158,16 @@ public final class PentaboxUIFactory extends UIFactory<PentaboxUIFactory.Holder>
             @Override
             public boolean mayPickup(Player player) {
                 return !deployed;
+            }
+
+            @Override
+            public int getMaxStackSize() {
+                return 1;
+            }
+
+            @Override
+            public int getMaxStackSize(ItemStack stack) {
+                return 1;
             }
         };
 

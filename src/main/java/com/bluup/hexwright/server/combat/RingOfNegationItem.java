@@ -1,6 +1,7 @@
 package com.bluup.hexwright.server.combat;
 
 import com.bluup.hexwright.server.accessory.WornAccessories;
+import com.bluup.hexwright.server.item.ArtifactItem;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.LivingEntity;
@@ -12,7 +13,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 
-public class RingOfNegationItem extends Item {
+public class RingOfNegationItem extends Item implements ArtifactItem {
 
     public enum Kind {
         NEGATION,
@@ -51,8 +52,22 @@ public class RingOfNegationItem extends Item {
     }
 
     @Override
+    public boolean isArtifact(ItemStack stack) {
+        return this.kind == Kind.REPRISAL;
+    }
+
+    @Override
+    public Component getName(ItemStack stack) {
+        Component name = super.getName(stack);
+        return ArtifactItem.is(stack) ? name.copy().withStyle(ArtifactItem.COLOUR) : name;
+    }
+
+    @Override
     public void appendHoverText(ItemStack stack, @Nullable Level level, List<Component> tooltip,
                                 TooltipFlag flag) {
+        if (ArtifactItem.is(stack)) {
+            tooltip.add(ArtifactItem.tooltipLine());
+        }
         tooltip.add(Component.translatable("item.hexwright.ring_of_negation.tip")
             .withStyle(ChatFormatting.GRAY));
         tooltip.add(Component.translatable("item.hexwright.ring_of_negation.tip.caps",

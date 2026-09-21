@@ -1,5 +1,6 @@
 package com.bluup.hexwright.client.spellcasting;
 
+import com.bluup.hexwright.client.command.ClientCommandGate;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
@@ -15,6 +16,7 @@ public final class SpellcastingGridCommands {
     public static void register() {
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) ->
             dispatcher.register(ClientCommandManager.literal("hexwrightgrid")
+                .requires(ClientCommandGate::creative)
                 .then(ClientCommandManager.literal("on").executes(ctx -> set(ctx.getSource(), true)))
                 .then(ClientCommandManager.literal("off").executes(ctx -> set(ctx.getSource(), false)))
                 .then(ClientCommandManager.literal("toggle")

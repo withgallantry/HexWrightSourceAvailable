@@ -5,6 +5,7 @@ import com.mojang.brigadier.arguments.FloatArgumentType;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
+import com.bluup.hexwright.client.command.ClientCommandGate;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
@@ -27,6 +28,7 @@ final class EmissiveBloomCommands {
     static void register() {
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) ->
             dispatcher.register(ClientCommandManager.literal("hexwrightglow")
+                .requires(ClientCommandGate::creative)
                 .then(ClientCommandManager.literal("reload").executes(EmissiveBloomCommands::reload))
                 .then(ClientCommandManager.literal("status").executes(EmissiveBloomCommands::status))
                 .then(ClientCommandManager.literal("on").executes(ctx -> setEnabled(ctx.getSource(), true)))

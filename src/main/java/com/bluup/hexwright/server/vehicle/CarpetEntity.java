@@ -27,7 +27,10 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 public class CarpetEntity extends VehicleEntity {
 
@@ -36,7 +39,43 @@ public class CarpetEntity extends VehicleEntity {
     private static final EntityDataAccessor<Boolean> DATA_CHEST_ATTACHED =
         SynchedEntityData.defineId(CarpetEntity.class, EntityDataSerializers.BOOLEAN);
 
-    private final SimpleContainer chest = new SimpleContainer(VehicleConfig.CARPET_CHEST_SIZE);
+    private final ChestContainer chest = new ChestContainer();
+
+    private class ChestContainer extends SimpleContainer {
+
+        private final Set<Player> viewers = new HashSet<>();
+
+        ChestContainer() {
+            super(VehicleConfig.CARPET_CHEST_SIZE);
+        }
+
+        @Override
+        public boolean stillValid(Player player) {
+            return !CarpetEntity.this.isRemoved()
+                && CarpetEntity.this.isChestAttached()
+                && player.level() == CarpetEntity.this.level()
+                && player.distanceToSqr(CarpetEntity.this) <= VehicleConfig.CARPET_CHEST_REACH_SQR;
+        }
+
+        @Override
+        public void startOpen(Player player) {
+            viewers.add(player);
+        }
+
+        @Override
+        public void stopOpen(Player player) {
+            viewers.remove(player);
+        }
+
+        void closeViewers() {
+            for (Player viewer : new ArrayList<>(viewers)) {
+                if (viewer instanceof ServerPlayer serverPlayer) {
+                    serverPlayer.closeContainer();
+                }
+            }
+            viewers.clear();
+        }
+    }
 
     public CarpetEntity(EntityType<? extends CarpetEntity> type, Level level) {
         super(type, level);
@@ -215,6 +254,7 @@ public class CarpetEntity extends VehicleEntity {
     }
 
     private void detachChest(@Nullable ServerPlayer player) {
+        closeChestViewers();
         setChestAttached(false);
         chest.clearContent();
         ItemStack chestStack = new ItemStack(Items.CHEST);
@@ -248,6 +288,18 @@ public class CarpetEntity extends VehicleEntity {
         }
 
         return false;
+    }
+
+    @Override
+    public void remove(RemovalReason reason) {
+        if (!this.level().isClientSide) {
+            closeChestViewers();
+        }
+        super.remove(reason);
+    }
+
+    private void closeChestViewers() {
+        chest.closeViewers();
     }
 
     private void openChestMenu(ServerPlayer player) {

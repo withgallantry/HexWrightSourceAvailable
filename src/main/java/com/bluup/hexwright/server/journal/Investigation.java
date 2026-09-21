@@ -15,7 +15,8 @@ public record Investigation(
     String icon,
     Detail detail,
     List<String> requires,
-    CompletionCondition completion
+    CompletionCondition completion,
+    List<String> unlocks
 ) {
 
     public record Detail(String title, String image, List<String> lines) {
@@ -56,7 +57,8 @@ public record Investigation(
                 strings(GsonHelper.getAsJsonArray(detail, "lines", new JsonArray()))
             ),
             strings(GsonHelper.getAsJsonArray(json, "requires", new JsonArray())),
-            CompletionCondition.parse(GsonHelper.getAsJsonObject(json, "completion"))
+            CompletionCondition.parse(GsonHelper.getAsJsonObject(json, "completion")),
+            strings(GsonHelper.getAsJsonArray(json, "unlocks", new JsonArray()))
         );
     }
 

@@ -1,6 +1,8 @@
 package com.bluup.hexwright.mixin;
 
 import com.bluup.hexwright.server.weapon.AnimatedWeapon;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.bluup.hexwright.server.weapon.MeleeSwingState;
 import com.bluup.hexwright.server.weapon.SwingArc;
 import net.minecraft.network.protocol.game.ServerboundInteractPacket;
@@ -26,6 +28,22 @@ public abstract class ServerPlayerSwingMixin {
 
     @Unique
     private final MeleeSwingState hexwright$swingState = new MeleeSwingState();
+
+    @WrapOperation(
+        method = "handleAnimate",
+        at = @At(
+            value = "INVOKE",
+            target = "Lnet/minecraft/server/level/ServerPlayer;swing(Lnet/minecraft/world/InteractionHand;)V"
+        )
+    )
+    private void hexwright$noVanillaAttackSwing(ServerPlayer player, InteractionHand hand,
+                                                Operation<Void> original) {
+        if (AnimatedWeapon.ownsSwingPacket(player, hand, this.hexwright$swingState)) {
+            player.resetAttackStrengthTicker();
+        } else {
+            original.call(player, hand);
+        }
+    }
 
     @Inject(method = "handleAnimate", at = @At("TAIL"))
     private void hexwright$weaponAttackAnimation(ServerboundSwingPacket packet, CallbackInfo ci) {

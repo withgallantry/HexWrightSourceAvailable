@@ -36,6 +36,7 @@ public final class HexiconData {
     private static final String TAG_SELECTED_SLOT = "selected_slot";
     private static final String TAG_SELECTED_BOUND = "selected_bound";
     private static final String TAG_WRITTEN_COUNT = "written_count";
+    private static final String TAG_REVISION = "revision";
     private static final String TAG_CHAPTERS = "chapters";
     private static final String TAG_CHAPTER_NAME = "name";
     private static final String TAG_CHAPTER_ICON = "icon";
@@ -188,7 +189,13 @@ public final class HexiconData {
 
         setCachedSelectedBound(stack, payload != null);
         refreshCachedWrittenCount(serverLevel, stack);
+        bumpRevision(stack);
         return true;
+    }
+
+    private static void bumpRevision(ItemStack stack) {
+        CompoundTag root = NBTHelper.getOrCreateCompound(stack, TAG_ROOT);
+        NBTHelper.putInt(root, TAG_REVISION, NBTHelper.getInt(root, TAG_REVISION, 0) + 1);
     }
 
     public static @Nullable CompoundTag readSelectedSpellTag(ItemStack stack) {

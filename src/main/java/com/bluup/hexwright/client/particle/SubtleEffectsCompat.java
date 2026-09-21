@@ -1,6 +1,7 @@
 package com.bluup.hexwright.client.particle;
 
 import com.bluup.hexwright.Hexwright;
+import com.bluup.hexwright.HexwrightDebug;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.particle.Particle;
 
@@ -34,7 +35,7 @@ public final class SubtleEffectsCompat {
             method.invoke(particle);
             if (!reported) {
                 reported = true;
-                Hexwright.LOGGER.info(
+                HexwrightDebug.log(HexwrightDebug.RENDER,
                     "Subtle Effects detected; exempting Photon emitters from its particle culling");
             }
         } catch (ReflectiveOperationException | RuntimeException e) {

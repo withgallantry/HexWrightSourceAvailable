@@ -1,6 +1,7 @@
 package com.bluup.hexwright.client.portal;
 
 import com.bluup.hexwright.Hexwright;
+import com.bluup.hexwright.HexwrightDebug;
 import com.bluup.hexwright.inits.HexwrightNetworking;
 import com.bluup.hexwright.mixin.LevelRendererAccessor;
 import com.bluup.hexwright.mixin.MinecraftPortalAccessor;
@@ -181,7 +182,7 @@ public final class RemoteLevelManager {
         ((MinecraftPortalAccessor) (Object) mc).hexwright$setLevelRenderer(replacement);
         addLive(key, new RemoteLevel(outgoing, outgoingRenderer, true));
         HexwrightNetworking.sendVaultRetained(key, true);
-        Hexwright.LOGGER.info(
+        HexwrightDebug.log(HexwrightDebug.VAULT,
             "[vault] retained {} ({} entities cleared) for the view out of {}; loading screen skipped: {}",
             key, stale.size(), incoming.location(), skipNextLoadingScreen);
     }
@@ -260,7 +261,7 @@ public final class RemoteLevelManager {
         }
         RemoteLevel opened = createStreamedLevel(mc, connection, dimension, typeHolder);
         addLive(dimension, opened);
-        Hexwright.LOGGER.info("[vault] {} now streams {} region(s) at once", dimension,
+        HexwrightDebug.log(HexwrightDebug.VAULT, "[vault] {} now streams {} region(s) at once", dimension,
             live(dimension).size());
         return opened;
     }
@@ -304,7 +305,7 @@ public final class RemoteLevelManager {
         detach(LEVELS, dimension, outgoing);
         outgoing.retireDeadlineGameTime = gameTime() + PortalPair.OPEN_TICKS + FORGET_GRACE_TICKS;
         RETIRING.computeIfAbsent(dimension, key -> new ArrayList<>()).add(outgoing);
-        Hexwright.LOGGER.info(
+        HexwrightDebug.log(HexwrightDebug.VAULT,
             "[vault] {} is at its region limit; the least recently drawn one retires with its fading pane",
             dimension);
     }

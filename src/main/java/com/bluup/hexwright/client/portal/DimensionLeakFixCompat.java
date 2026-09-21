@@ -1,6 +1,7 @@
 package com.bluup.hexwright.client.portal;
 
 import com.bluup.hexwright.Hexwright;
+import com.bluup.hexwright.HexwrightDebug;
 import com.bluup.hexwright.server.vault.VaultDimension;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
@@ -42,8 +43,8 @@ public final class DimensionLeakFixCompat {
         ClientTickEvents.END_CLIENT_TICK.register(client -> tick());
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> client.execute(
             DimensionLeakFixCompat::reset));
-        Hexwright.LOGGER.info("[vault] {} present; vault crossings will keep their levels out of "
-            + "its delayed cleanup", MOD_ID);
+        HexwrightDebug.log(HexwrightDebug.VAULT, "[vault] {} present; vault crossings will keep their "
+            + "levels out of its delayed cleanup", MOD_ID);
     }
 
     public static boolean isVault(@Nullable ResourceKey<Level> key) {
@@ -103,8 +104,9 @@ public final class DimensionLeakFixCompat {
                 return;
             }
             boolean standDown = pending.isEmpty() && standDown();
-            Hexwright.LOGGER.info("[vault] DimensionLeakFix compatibility: suppressing Phase B for "
-                + "{} retained level(s){}", withdrawn,
+            HexwrightDebug.log(HexwrightDebug.VAULT,
+                "[vault] DimensionLeakFix compatibility: suppressing Phase B for {} retained level(s){}",
+                withdrawn,
                 standDown ? "" : "; other levels still queued, its countdown left running");
         } catch (Throwable t) {
             Hexwright.LOGGER.warn("[vault] DimensionLeakFix compatibility disabled: {}",

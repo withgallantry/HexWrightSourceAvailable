@@ -67,6 +67,9 @@ public final class RegionActions {
         Registry.register(registry, Hexwright.id("region_query"),
             new ActionRegistryEntry(HexPattern.fromAngles("eeea", HexDir.EAST), QUERY));
 
+        Registry.register(registry, Hexwright.id("region_reach"),
+            new ActionRegistryEntry(HexPattern.fromAngles("wqwqwqwqwqwaeqqqqqaww", HexDir.SOUTH_WEST), REACH));
+
         Registry.register(registry, Hexwright.id("region_entities"),
             new ActionRegistryEntry(HexPattern.fromAngles("eeeawede", HexDir.EAST), ENTITIES_WITHIN));
         Registry.register(registry, Hexwright.id("region_thoth"),
@@ -174,6 +177,14 @@ public final class RegionActions {
     };
 
 
+    private static final PureRegionAction REACH = new PureRegionAction(1) {
+        @Override
+        public List<Iota> execute(List<? extends Iota> args, CastingEnvironment env) {
+            Region region = region(args, 0, getArgc());
+            return List.of(new BooleanIota(RegionAmbit.isWithinAmbit(env, region)));
+        }
+    };
+
     private static final PureRegionAction ENTITIES_WITHIN = new PureRegionAction(1) {
         @Override
         public List<Iota> execute(List<? extends Iota> args, CastingEnvironment env) {
@@ -208,7 +219,7 @@ public final class RegionActions {
             throw MishapInvalidIota.ofType(regionIota, 1, "hexwright.region");
         }
         Region region = iota.getRegion();
-        RegionAmbit.assertIterable(env, region, regionIota, 1);
+        RegionAmbit.assertIterable(region, regionIota, 1);
 
         stack.remove(stack.size() - 1);
         stack.remove(stack.size() - 1);

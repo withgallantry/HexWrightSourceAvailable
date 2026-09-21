@@ -34,6 +34,7 @@ public class PentaboxItem extends Item {
     public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
         ItemStack stack = player.getItemInHand(hand);
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
+            PentaboxData.normalizeStacks(serverPlayer, stack);
             openMenuInHand(serverPlayer, stack, hand);
         }
         return InteractionResultHolder.sidedSuccess(stack, level.isClientSide);

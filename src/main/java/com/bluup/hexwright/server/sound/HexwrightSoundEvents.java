@@ -69,6 +69,10 @@ public final class HexwrightSoundEvents {
         journalClick = registerOrReuse(JOURNAL_CLICK_ID, journalClick);
         com.bluup.hexwright.server.boss.ancient.AncientSounds.register();
         com.bluup.hexwright.server.boss.storm.WitherStormSounds.register();
+        com.bluup.hexwright.server.boss.cog.CogSentinelSounds.register();
+        com.bluup.hexwright.server.boss.corrupt.CorruptExperimentSounds.register();
+        com.bluup.hexwright.server.weapon.StarfallSounds.register();
+        com.bluup.hexwright.server.powerorb.PowerOrbSounds.register();
         registered = true;
     }
 

@@ -1,6 +1,6 @@
 package com.bluup.hexwright.mixin;
 
-import com.bluup.hexwright.Hexwright;
+import com.bluup.hexwright.HexwrightDebug;
 import com.mojang.blaze3d.pipeline.RenderTarget;
 import net.minecraft.client.Minecraft;
 import net.irisshaders.iris.pipeline.FinalPassRenderer;
@@ -27,7 +27,8 @@ public class IrisFinalTargetMixin {
             if (hexwright$lastTarget != null && !hexwright$reportedReuse
                 && lastColorTextureId == target.getColorTextureId() && lastColorTextureVersion == version) {
                 hexwright$reportedReuse = true;
-                Hexwright.LOGGER.info("[iris-audit] reattaching reused colour texture {} for a new render target",
+                HexwrightDebug.log(HexwrightDebug.RENDER,
+                    "[iris-audit] reattaching reused colour texture {} for a new render target",
                     lastColorTextureId);
             }
             lastColorTextureVersion = version ^ -1;

@@ -99,10 +99,52 @@ public final class HexwrightItems {
         new com.bluup.hexwright.server.portal.WorldCrystalItem(new Item.Properties().stacksTo(1).rarity(Rarity.EPIC))
     );
 
+    public static final Item GOLEM_POWER_ORB = Registry.register(
+        BuiltInRegistries.ITEM,
+        Hexwright.id("golem_power_orb"),
+        new com.bluup.hexwright.server.powerorb.PowerOrbItem(com.bluup.hexwright.server.powerorb.PowerOrbPower.GOLEM,
+            new Item.Properties().stacksTo(1).rarity(Rarity.RARE))
+    );
+
+    public static final Item SANCTUARY_POWER_ORB = Registry.register(
+        BuiltInRegistries.ITEM,
+        Hexwright.id("sanctuary_power_orb"),
+        new com.bluup.hexwright.server.powerorb.PowerOrbItem(com.bluup.hexwright.server.powerorb.PowerOrbPower.SANCTUARY,
+            new Item.Properties().stacksTo(1).rarity(Rarity.RARE))
+    );
+
     public static final Item SEALED_SATCHEL = Registry.register(
         BuiltInRegistries.ITEM,
         Hexwright.id("sealed_satchel"),
         new com.bluup.hexwright.server.reliquary.SatchelItem(new Item.Properties().stacksTo(1).rarity(Rarity.RARE))
+    );
+
+    public static final Item MANTLE_OF_ASCENSION = Registry.register(
+        BuiltInRegistries.ITEM,
+        Hexwright.id("mantle_of_ascension"),
+        new com.bluup.hexwright.server.armour.MantleOfAscensionItem(
+            new Item.Properties().stacksTo(1).rarity(Rarity.EPIC).fireResistant())
+    );
+
+    public static final Item HAT_OF_ASCENSION = Registry.register(
+        BuiltInRegistries.ITEM,
+        Hexwright.id("hat_of_ascension"),
+        new com.bluup.hexwright.server.armour.HatOfAscensionItem(
+            new Item.Properties().stacksTo(1).rarity(Rarity.EPIC).fireResistant())
+    );
+
+    public static final Item CAPE_OF_PASSAGE = Registry.register(
+        BuiltInRegistries.ITEM,
+        Hexwright.id("cape_of_passage"),
+        new com.bluup.hexwright.server.armour.CapeOfPassageItem(
+            new Item.Properties().stacksTo(1).rarity(Rarity.EPIC).fireResistant())
+    );
+
+    public static final Item HAT_OF_PASSAGE = Registry.register(
+        BuiltInRegistries.ITEM,
+        Hexwright.id("hat_of_passage"),
+        new com.bluup.hexwright.server.armour.HatOfPassageItem(
+            new Item.Properties().stacksTo(1).rarity(Rarity.EPIC).fireResistant())
     );
 
     public static final Item TALISMAN = Registry.register(
@@ -250,6 +292,12 @@ public final class HexwrightItems {
         new com.bluup.hexwright.server.weapon.EternalBowItem(artifactProperties())
     );
 
+    public static final Item STARFALL_BOW = Registry.register(
+        BuiltInRegistries.ITEM,
+        Hexwright.id("starfall_bow"),
+        new com.bluup.hexwright.server.weapon.StarfallBowItem(artifactProperties())
+    );
+
     public static final Item ETERNAL_SCYTHE = Registry.register(
         BuiltInRegistries.ITEM,
         Hexwright.id("eternal_scythe"),
@@ -257,9 +305,9 @@ public final class HexwrightItems {
             5, -2.8F, artifactProperties())
     );
 
-    public static final java.util.List<Item> ETERNAL_WEAPONS = java.util.List.of(
+    public static final java.util.List<Item> ARTIFACT_WEAPONS = java.util.List.of(
         ETERNAL_WAR_HAMMER, ETERNAL_BATTLE_AXE, ETERNAL_GREAT_SWORD, ETERNAL_ODACHI,
-        ETERNAL_SCYTHE, ETERNAL_WAKIZASHI, ETERNAL_BOW);
+        ETERNAL_SCYTHE, ETERNAL_WAKIZASHI, ETERNAL_BOW, STARFALL_BOW);
 
     private static Item.Properties artifactProperties() {
         return new Item.Properties().stacksTo(1).rarity(Rarity.EPIC).fireResistant();
@@ -314,6 +362,48 @@ public final class HexwrightItems {
             0x1B1226, 0xB000FF, new Item.Properties().rarity(Rarity.EPIC))
     );
 
+    public static final Item COG_SENTINEL_SPAWN_EGG = Registry.register(
+        BuiltInRegistries.ITEM,
+        Hexwright.id("cog_sentinel_spawn_egg"),
+        new SpawnEggItem(com.bluup.hexwright.server.boss.HexwrightBossEntities.COG_SENTINEL,
+            0x2A3440, 0x51E0FF, new Item.Properties().rarity(Rarity.EPIC))
+    );
+
+    public static final Item CORRUPT_EXPERIMENT_SPAWN_EGG = Registry.register(
+        BuiltInRegistries.ITEM,
+        Hexwright.id("corrupt_experiment_spawn_egg"),
+        new SpawnEggItem(com.bluup.hexwright.server.boss.HexwrightBossEntities.CORRUPT_EXPERIMENT,
+            0x2B1B3A, 0x9B34EB, new Item.Properties().rarity(Rarity.EPIC))
+    );
+
+    public static final Item EXPERIMENTAL_CONSTRUCT_SPAWN_EGG = Registry.register(
+        BuiltInRegistries.ITEM,
+        Hexwright.id("experimental_construct_spawn_egg"),
+        new SpawnEggItem(com.bluup.hexwright.server.mob.HexwrightMobEntities.EXPERIMENTAL_CONSTRUCT,
+            0x3E5068, 0x7FF3FF, new Item.Properties())
+    );
+
+    public static final Item SERVITOR_CONSTRUCT_SPAWN_EGG = Registry.register(
+        BuiltInRegistries.ITEM,
+        Hexwright.id("servitor_construct_spawn_egg"),
+        new SpawnEggItem(com.bluup.hexwright.server.mob.HexwrightMobEntities.SERVITOR_CONSTRUCT,
+            0x1F2A3C, 0x9FD8FF, new Item.Properties())
+    );
+
+    public static final Item FRACTURED_CONSTRUCT_SPAWN_EGG = Registry.register(
+        BuiltInRegistries.ITEM,
+        Hexwright.id("fractured_construct_spawn_egg"),
+        new SpawnEggItem(com.bluup.hexwright.server.mob.HexwrightMobEntities.FRACTURED_CONSTRUCT,
+            0x1F2A3C, 0x5A6B82, new Item.Properties())
+    );
+
+    public static final Item RUNESTONE_TITAN_SPAWN_EGG = Registry.register(
+        BuiltInRegistries.ITEM,
+        Hexwright.id("runestone_titan_spawn_egg"),
+        new SpawnEggItem(com.bluup.hexwright.server.mob.HexwrightMobEntities.RUNESTONE_TITAN,
+            0x2A3342, 0x4FE0FF, new Item.Properties())
+    );
+
     private static Item registerCore(com.bluup.hexwright.server.staff_assembly.StaffCoreItem.Kind kind) {
         return Registry.register(
             BuiltInRegistries.ITEM,
@@ -324,13 +414,17 @@ public final class HexwrightItems {
 
     public static void register() {
         ItemGroupEvents.modifyEntriesEvent(CreativeModeTabs.COMBAT).register(entries -> {
+            entries.accept(HAT_OF_ASCENSION);
+            entries.accept(MANTLE_OF_ASCENSION);
+            entries.accept(HAT_OF_PASSAGE);
+            entries.accept(CAPE_OF_PASSAGE);
             for (Item hammer : BATTLE_HAMMERS.values()) {
                 entries.accept(hammer);
             }
             for (Item axe : BATTLE_AXES.values()) {
                 entries.accept(axe);
             }
-            for (Item weapon : ETERNAL_WEAPONS) {
+            for (Item weapon : ARTIFACT_WEAPONS) {
                 entries.accept(weapon);
             }
             for (Item bow : ARCHER_GREAT_BOWS.values()) {
@@ -359,6 +453,8 @@ public final class HexwrightItems {
             entries.accept(ARTISAN_SIGNET);
             entries.accept(WARDERS_SPECTACLES);
             entries.accept(WORLD_CRYSTAL);
+            entries.accept(GOLEM_POWER_ORB);
+            entries.accept(SANCTUARY_POWER_ORB);
             entries.accept(FIELD_TUNER);
             entries.accept(VAULT_KEY);
             for (int rune = 0; rune < DungeonGroups.LETTERS.length(); rune++) {
@@ -408,8 +504,15 @@ public final class HexwrightItems {
             }
         });
 
-        ItemGroupEvents.modifyEntriesEvent(CreativeModeTabs.SPAWN_EGGS).register(entries ->
-            entries.accept(WITHER_STORM_SPAWN_EGG));
+        ItemGroupEvents.modifyEntriesEvent(CreativeModeTabs.SPAWN_EGGS).register(entries -> {
+            entries.accept(EXPERIMENTAL_CONSTRUCT_SPAWN_EGG);
+            entries.accept(SERVITOR_CONSTRUCT_SPAWN_EGG);
+            entries.accept(FRACTURED_CONSTRUCT_SPAWN_EGG);
+            entries.accept(RUNESTONE_TITAN_SPAWN_EGG);
+            entries.accept(WITHER_STORM_SPAWN_EGG);
+            entries.accept(COG_SENTINEL_SPAWN_EGG);
+            entries.accept(CORRUPT_EXPERIMENT_SPAWN_EGG);
+        });
     }
 
     private HexwrightItems() {

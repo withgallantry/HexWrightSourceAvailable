@@ -1,6 +1,7 @@
 package com.bluup.hexwright.server.vault;
 
 import com.bluup.hexwright.Hexwright;
+import com.bluup.hexwright.HexwrightDebug;
 import com.bluup.hexwright.server.pocketcaster.PocketCasterData;
 import com.bluup.hexwright.server.portal.PortalManager;
 import com.bluup.hexwright.server.portal.PortalPair;
@@ -49,7 +50,9 @@ public final class VaultManager {
 
     private static final int REOPEN_SEARCH_RADIUS = 4;
 
-    private static final boolean DEBUG = "true".equals(System.getProperty("hexwright.vault.debug"));
+    private static boolean debug() {
+        return HexwrightDebug.on(HexwrightDebug.VAULT);
+    }
 
     private static final TicketType<ChunkPos> TICKET =
         TicketType.create("hexwright_vault", Comparator.comparingLong(ChunkPos::toLong));
@@ -213,7 +216,7 @@ public final class VaultManager {
         SESSIONS_BY_VAULT.put(record.id(), session);
         SESSIONS_BY_OPENER.put(opener, session);
         rememberDoor(server, record, outsideLevel, outsideWindow);
-        if (DEBUG) {
+        if (debug()) {
             Hexwright.LOGGER.info("[vault] session {} opened vault {} for {}",
                 session.sessionId(), record.id(), opener);
         }
@@ -237,7 +240,7 @@ public final class VaultManager {
             vaultLevel.getChunk(chunk.x, chunk.z);
         }
         VaultRooms.generate(vaultLevel, record);
-        Hexwright.LOGGER.info("Rebuilt vault {} ({}{})", record.id(), record.grade(),
+        HexwrightDebug.log(HexwrightDebug.VAULT, "Rebuilt vault {} ({}{})", record.id(), record.grade(),
             record.build().isEmpty() ? "" : "/" + record.build());
         return true;
     }
@@ -281,7 +284,7 @@ public final class VaultManager {
         SESSIONS_BY_VAULT.put(record.id(), relocated);
         SESSIONS_BY_OPENER.put(session.opener(), relocated);
         rememberDoor(server, record, newOutsideLevel, newWindow);
-        if (DEBUG) {
+        if (debug()) {
             Hexwright.LOGGER.info("[vault] session {} (vault {}) door relocated by pattern",
                 relocated.sessionId(), record.id());
         }
@@ -424,7 +427,7 @@ public final class VaultManager {
                 TICKET, session.vaultChunk(), session.vaultTicketRadius(), session.vaultChunk());
         }
         VaultChunkStreamer.release(server, session);
-        if (DEBUG) {
+        if (debug()) {
             Hexwright.LOGGER.info("[vault] session {} (vault {}) closed: {}",
                 session.sessionId(), session.vaultId(), reason);
         }

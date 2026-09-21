@@ -1,6 +1,7 @@
 package com.bluup.hexwright.server.block
 
 import com.bluup.hexwright.Hexwright
+import com.bluup.hexwright.HexwrightDebug
 import com.google.gson.Gson
 import com.google.gson.JsonParseException
 import net.fabricmc.loader.api.FabricLoader
@@ -78,7 +79,7 @@ object EssenceForgeCategories {
                     Hexwright.LOGGER.error("Essence Forge categories at {} define no usable category; listing every recipe", source)
                     return fallback()
                 }
-                Hexwright.LOGGER.info("Loaded {} Essence Forge recipe categories from {}", parsed.size, source)
+                HexwrightDebug.log(HexwrightDebug.CONTENT, "Loaded {} Essence Forge recipe categories from {}", parsed.size, source)
                 return parsed
             }
         } catch (t: Throwable) {

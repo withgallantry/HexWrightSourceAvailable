@@ -7,7 +7,13 @@ import com.bluup.hexwright.server.block.ResonantAnchorBlockEntity;
 import com.bluup.hexwright.server.boss.HexwrightBossEntities;
 import com.bluup.hexwright.server.boss.QuartzGolemEntity;
 import com.bluup.hexwright.server.boss.WardedChests;
+import com.bluup.hexwright.server.boss.corrupt.CorruptExperimentEntity;
+import com.bluup.hexwright.server.mob.HexwrightMobEntities;
+import com.bluup.hexwright.server.mob.RunestoneTitanEntity;
+import com.bluup.hexwright.server.mob.ServitorConstructEntity;
 import com.bluup.hexwright.server.worldgen.HexwrightWorldgen;
+import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
+import it.unimi.dsi.fastutil.longs.LongSet;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
@@ -27,6 +33,7 @@ import net.minecraft.world.level.chunk.ChunkGenerator;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.ChestBlock;
 import net.minecraft.world.level.block.Mirror;
 import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.levelgen.structure.BoundingBox;
@@ -38,11 +45,15 @@ import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemp
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 public class DungeonPiece extends TemplateStructurePiece {
 
     private static final String SPAWN_MARKER = "spawn/";
+
+    private static final Map<ResourceLocation, EntityType<?>> GARRISON = Map.of(
+        new ResourceLocation("minecraft", "pillager"), HexwrightMobEntities.EXPERIMENTAL_CONSTRUCT);
 
     private static final ResourceLocation CRYSTALITE_TABLE = Hexwright.id("chests/deep_dungeon_crystalite");
 
@@ -52,6 +63,9 @@ public class DungeonPiece extends TemplateStructurePiece {
     private final String rune;
 
     private Set<BlockPos> air;
+
+    private Set<BlockPos> pavement;
+    private Set<BlockPos> clutter;
 
     private Set<BlockPos> rooms;
 
@@ -78,7 +92,9 @@ public class DungeonPiece extends TemplateStructurePiece {
             fixture.isEmpty() ? null : parseFixture(fixture),
             tag.getBoolean("Miniboss"),
             DungeonTraps.Spec.load(tag),
-            tag.getBoolean("Anchor"));
+            tag.getBoolean("Anchor"),
+            tag.getBoolean("Servitor"),
+            tag.getBoolean("Titan"));
         this.rune = tag.getString("Group");
     }
 
@@ -149,6 +165,8 @@ public class DungeonPiece extends TemplateStructurePiece {
         tag.putString("Fixture", this.fittings.fixture() == null ? "" : this.fittings.fixture().name());
         tag.putBoolean("Miniboss", this.fittings.miniboss());
         tag.putBoolean("Anchor", this.fittings.anchor());
+        tag.putBoolean("Servitor", this.fittings.servitor());
+        tag.putBoolean("Titan", this.fittings.titan());
         tag.putString("Group", this.rune);
         if (this.fittings.trap() != null) {
             this.fittings.trap().save(tag);
@@ -159,6 +177,7 @@ public class DungeonPiece extends TemplateStructurePiece {
     public void postProcess(WorldGenLevel level, StructureManager manager, ChunkGenerator generator,
                             RandomSource random, BoundingBox box, ChunkPos chunkPos, BlockPos pos) {
         super.postProcess(level, manager, generator, random, box, chunkPos, pos);
+        DungeonSeal.seal(level, this.boundingBox, box, claimedCells());
         if (this.fittings.crystaliteChest()) {
             stockCrystaliteChest(level, box, random);
         }
@@ -178,7 +197,102 @@ public class DungeonPiece extends TemplateStructurePiece {
             wardBossChests(level, box);
             spawnMiniboss(level, box, random);
         }
+        if (this.fittings.servitor()) {
+            spawnServitor(level, box, random);
+        }
+        if (this.fittings.titan()) {
+            spawnTitan(level, box, random);
+        }
+        if (isCorruptHall()) {
+            spawnCorruptExperiment(level, box, random);
+        }
         armArrowTraps(level, box);
+        dressRoom(level, box);
+    }
+
+    private Set<BlockPos> pavement() {
+        if (this.pavement == null) {
+            this.pavement = new HashSet<>();
+            for (net.minecraft.world.level.block.Block block : DungeonFloors.PAVEMENT) {
+                this.pavement.addAll(allOf(block));
+            }
+        }
+        return this.pavement;
+    }
+
+    private Set<BlockPos> clutter() {
+        if (this.clutter == null) {
+            this.clutter = new HashSet<>();
+            for (net.minecraft.world.level.block.Block block : DungeonFloors.CLUTTER) {
+                this.clutter.addAll(allOf(block));
+            }
+        }
+        return this.clutter;
+    }
+
+    private void dressRoom(WorldGenLevel level, BoundingBox box) {
+        DungeonModules.Module module = DungeonModules.byTemplate(this.templateName);
+        if (module == null) {
+            return;
+        }
+        if (module == DungeonModules.CORRUPT_HALL) {
+            return;
+        }
+        for (DungeonProps.Placed prop : DungeonProps.dress(
+                air(), roomAir(), pavement(), clutter(), this.boundingBox,
+                DungeonProps.roomOf(module, this.fittings.miniboss()), reserved())) {
+            if (box.isInside(prop.pos())) {
+                level.setBlock(prop.pos(), prop.state(), Block.UPDATE_CLIENTS);
+            }
+        }
+    }
+
+    private Set<BlockPos> reserved() {
+        Set<BlockPos> reserved = new HashSet<>();
+        for (BlockPos chest : allOf(Blocks.CHEST)) {
+            DungeonProps.reserveChest(reserved, chest);
+        }
+        for (BlockPos trapped : allOf(Blocks.TRAPPED_CHEST)) {
+            DungeonProps.reserveChest(reserved, trapped);
+        }
+        if (this.fittings.fixture() != null) {
+            List<BlockPos> benches = DungeonFittings.fixtureSpots(air(), this.boundingBox);
+            if (!benches.isEmpty()) {
+                reserved.add(benches.get(Math.floorMod(
+                    this.boundingBox.minX() * 31 + this.boundingBox.minZ(), benches.size())));
+            }
+        }
+        BlockPos trap = trapSpot();
+        if (trap != null) {
+            reserved.add(trap);
+            reserved.add(trap.above());
+        }
+        if (this.fittings.caveTap() || this.fittings.anchor()) {
+            BlockPos column = DungeonFittings.tapColumn(roomAir(), this.boundingBox);
+            if (column != null) {
+                for (int y = this.boundingBox.minY(); y <= this.boundingBox.maxY(); y++) {
+                    reserved.add(new BlockPos(column.getX(), y, column.getZ()));
+                }
+                DungeonProps.reserveAround(reserved,
+                    DungeonFittings.anchorSpot(roomAir(), this.boundingBox, column, trap));
+            }
+        }
+        if (this.fittings.miniboss()) {
+            DungeonProps.reserveAround(reserved,
+                DungeonFittings.minibossSpot(air(), this.boundingBox));
+            for (BlockPos chest : bossChests()) {
+                DungeonProps.reserveChest(reserved, chest);
+            }
+        }
+        if (this.fittings.servitor()) {
+            DungeonProps.reserveAround(reserved,
+                DungeonFittings.servitorSpot(roomAir(), this.boundingBox, trap));
+        }
+        if (this.fittings.titan()) {
+            DungeonProps.reserveAround(reserved,
+                DungeonFittings.titanSpot(roomAir(), this.boundingBox, trap));
+        }
+        return reserved;
     }
 
     private void armArrowTraps(WorldGenLevel level, BoundingBox box) {
@@ -203,6 +317,20 @@ public class DungeonPiece extends TemplateStructurePiece {
             found.add(info.pos());
         }
         return found;
+    }
+
+    private LongSet claimedCells() {
+        LongSet claimed = new LongOpenHashSet();
+        claim(claimed, Blocks.AIR);
+        claim(claimed, Blocks.STRUCTURE_BLOCK);
+        claim(claimed, Blocks.LAVA);
+        return claimed;
+    }
+
+    private void claim(LongSet claimed, Block block) {
+        for (BlockPos pos : allOf(block)) {
+            claimed.add(pos.asLong());
+        }
     }
 
     private Set<BlockPos> air() {
@@ -306,18 +434,38 @@ public class DungeonPiece extends TemplateStructurePiece {
         DungeonFittings.carveCaveTap(level, box, random, column, column.getY() + 1, this.boundingBox.maxY());
     }
 
+    private static final int HOARD_CHESTS = 2;
+
     private List<BlockPos> bossChests() {
         List<BlockPos> chests = allOf(Blocks.CHEST);
-        chests.sort(DungeonFittings::compare);
-        return chests;
+        if (chests.size() >= HOARD_CHESTS) {
+            chests.sort(DungeonFittings::compare);
+            return chests;
+        }
+        BlockPos anchor = DungeonFittings.minibossSpot(air(), this.boundingBox);
+        if (anchor == null) {
+            chests.sort(DungeonFittings::compare);
+            return chests;
+        }
+        return DungeonFittings.hoardSpots(air(), this.boundingBox, anchor, HOARD_CHESTS);
     }
 
     private void wardBossChests(WorldGenLevel level, BoundingBox box) {
         for (BlockPos chest : bossChests()) {
-            if (box.isInside(chest)) {
-                WardedChests.seal(level, chest);
+            if (!box.isInside(chest)) {
+                continue;
             }
+            standHoardChests(level, chest);
+            WardedChests.seal(level, chest);
         }
+    }
+
+    private void standHoardChests(WorldGenLevel level, BlockPos pos) {
+        if (level.getBlockState(pos).is(Blocks.CHEST)) {
+            return;
+        }
+        level.setBlock(pos, Blocks.CHEST.defaultBlockState().setValue(
+            ChestBlock.FACING, DungeonFittings.openSide(air(), pos)), Block.UPDATE_CLIENTS);
     }
 
     private void spawnMiniboss(WorldGenLevel level, BoundingBox box, RandomSource random) {
@@ -337,6 +485,80 @@ public class DungeonPiece extends TemplateStructurePiece {
         level.addFreshEntity(golem);
     }
 
+    private boolean isCorruptHall() {
+        return isTemplate(DungeonModules.CORRUPT_HALL.template());
+    }
+
+    public boolean isTemplate(ResourceLocation template) {
+        return template.toString().equals(this.templateName);
+    }
+
+    private void spawnCorruptExperiment(WorldGenLevel level, BoundingBox box, RandomSource random) {
+        BlockPos spot = DungeonFittings.minibossSpot(air(), this.boundingBox);
+        if (spot == null || !box.isInside(spot)) {
+            return;
+        }
+        CorruptExperimentEntity experiment = HexwrightBossEntities.CORRUPT_EXPERIMENT.create(level.getLevel());
+        if (experiment == null) {
+            return;
+        }
+        experiment.moveTo(spot.getX() + 0.5D, spot.getY(), spot.getZ() + 0.5D, random.nextFloat() * 360.0F, 0.0F);
+        experiment.finalizeSpawn(level, level.getCurrentDifficultyAt(spot), MobSpawnType.STRUCTURE, null, null);
+        experiment.setPersistenceRequired();
+        level.addFreshEntity(experiment);
+    }
+
+    private static void settle(Mob mob, ServerLevelAccessor level) {
+        if (mob.getBbWidth() <= 1.0F || level.noCollision(mob)) {
+            return;
+        }
+        double x = mob.getX();
+        double z = mob.getZ();
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dz = -1; dz <= 1; dz++) {
+                if (dx == 0 && dz == 0) {
+                    continue;
+                }
+                mob.setPos(x + dx * 0.5D, mob.getY(), z + dz * 0.5D);
+                if (level.noCollision(mob)) {
+                    return;
+                }
+            }
+        }
+        mob.setPos(x, mob.getY(), z);
+    }
+
+    private void spawnServitor(WorldGenLevel level, BoundingBox box, RandomSource random) {
+        BlockPos spot = DungeonFittings.servitorSpot(roomAir(), this.boundingBox, trapSpot());
+        if (spot == null || !box.isInside(spot)) {
+            return;
+        }
+        ServitorConstructEntity servitor = HexwrightMobEntities.SERVITOR_CONSTRUCT.create(level.getLevel());
+        if (servitor == null) {
+            return;
+        }
+        servitor.moveTo(spot.getX() + 0.5D, spot.getY(), spot.getZ() + 0.5D, random.nextFloat() * 360.0F, 0.0F);
+        servitor.finalizeSpawn(level, level.getCurrentDifficultyAt(spot), MobSpawnType.STRUCTURE, null, null);
+        servitor.setPersistenceRequired();
+        level.addFreshEntity(servitor);
+    }
+
+    private void spawnTitan(WorldGenLevel level, BoundingBox box, RandomSource random) {
+        BlockPos spot = DungeonFittings.titanSpot(roomAir(), this.boundingBox, trapSpot());
+        if (spot == null || !box.isInside(spot)) {
+            return;
+        }
+        RunestoneTitanEntity titan = HexwrightMobEntities.RUNESTONE_TITAN.create(level.getLevel());
+        if (titan == null) {
+            return;
+        }
+        titan.moveTo(spot.getX() + 0.5D, spot.getY(), spot.getZ() + 0.5D, random.nextFloat() * 360.0F, 0.0F);
+        titan.finalizeSpawn(level, level.getCurrentDifficultyAt(spot), MobSpawnType.STRUCTURE, null, null);
+        titan.setPersistenceRequired();
+        titan.setHome(spot);
+        level.addFreshEntity(titan);
+    }
+
     @Override
     protected void handleDataMarker(String marker, BlockPos pos, ServerLevelAccessor level,
                                     RandomSource random, BoundingBox box) {
@@ -345,7 +567,9 @@ public class DungeonPiece extends TemplateStructurePiece {
             return;
         }
         ResourceLocation id = ResourceLocation.tryParse(marker.substring(SPAWN_MARKER.length()));
-        EntityType<?> type = id == null ? null : BuiltInRegistries.ENTITY_TYPE.getOptional(id).orElse(null);
+        EntityType<?> type = id == null ? null
+            : GARRISON.containsKey(id) ? GARRISON.get(id)
+            : BuiltInRegistries.ENTITY_TYPE.getOptional(id).orElse(null);
         if (type == null) {
             Hexwright.LOGGER.warn("Dungeon module {} asks for unknown mob '{}'", this.templateName, marker);
             return;
@@ -355,6 +579,7 @@ public class DungeonPiece extends TemplateStructurePiece {
             return;
         }
         mob.moveTo(pos.getX() + 0.5D, pos.getY(), pos.getZ() + 0.5D, random.nextFloat() * 360.0F, 0.0F);
+        settle(mob, level);
         mob.finalizeSpawn(level, level.getCurrentDifficultyAt(pos), MobSpawnType.STRUCTURE, null, null);
         mob.setPersistenceRequired();
         level.addFreshEntity(mob);

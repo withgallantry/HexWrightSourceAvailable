@@ -34,15 +34,18 @@ public final class SlamWindUp {
         }
 
         long now = server.getTickCount();
+        List<Runnable> due = new ArrayList<>();
         Iterator<Pending> pending = PENDING.iterator();
         while (pending.hasNext()) {
             Pending entry = pending.next();
-            if (entry.dueTick() > now) {
-                continue;
+            if (entry.dueTick() <= now) {
+                pending.remove();
+                due.add(entry.blow());
             }
-            pending.remove();
+        }
+        for (Runnable blow : due) {
             try {
-                entry.blow().run();
+                blow.run();
             } catch (RuntimeException e) {
                 Hexwright.LOGGER.error("Scheduled weapon blow failed", e);
             }

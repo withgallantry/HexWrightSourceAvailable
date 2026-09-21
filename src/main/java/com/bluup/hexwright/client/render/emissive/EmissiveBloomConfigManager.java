@@ -1,6 +1,7 @@
 package com.bluup.hexwright.client.render.emissive;
 
 import com.bluup.hexwright.Hexwright;
+import com.bluup.hexwright.HexwrightDebug;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonSyntaxException;
@@ -72,7 +73,7 @@ public final class EmissiveBloomConfigManager {
                 throw new JsonSyntaxException("empty or null config document");
             }
             applyClamped(loaded);
-            Hexwright.LOGGER.info("Loaded bloom config from {}", path);
+            HexwrightDebug.log(HexwrightDebug.RENDER, "Loaded bloom config from {}", path);
         } catch (IOException | JsonSyntaxException e) {
             Hexwright.LOGGER.error("Failed to read bloom config at {}, keeping previous values", path, e);
         }
@@ -92,7 +93,7 @@ public final class EmissiveBloomConfigManager {
                 GSON.toJson(config, writer);
             }
             if (successMessage != null) {
-                Hexwright.LOGGER.info(successMessage, path);
+                HexwrightDebug.log(HexwrightDebug.RENDER, successMessage, path);
             }
         } catch (IOException e) {
             Hexwright.LOGGER.error("Failed to write bloom config to {}", path, e);

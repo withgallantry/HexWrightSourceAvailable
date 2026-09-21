@@ -1,7 +1,9 @@
 package com.bluup.hexwright.server.portal;
 
 import com.bluup.hexwright.Hexwright;
+import com.bluup.hexwright.HexwrightDebug;
 import com.bluup.hexwright.inits.HexwrightNetworking;
+import com.bluup.hexwright.server.command.CommandGate;
 import com.bluup.hexwright.server.sound.HexwrightSoundEvents;
 import com.mojang.brigadier.Command;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
@@ -104,6 +106,9 @@ public final class PortalManager extends SavedData {
     private final Map<UUID, Integer> arrivalTrace = new HashMap<>();
 
     private void beginArrivalTrace(UUID uuid) {
+        if (!HexwrightDebug.on(HexwrightDebug.PORTAL)) {
+            return;
+        }
         arrivalTrace.put(uuid, ARRIVAL_TRACE_TICKS);
     }
 
@@ -121,7 +126,8 @@ public final class PortalManager extends SavedData {
                 continue;
             }
             entry.setValue(left - 1);
-            Hexwright.LOGGER.info("[arrival server {}] t={} y={} vy={} onGround={} pinned={}",
+            HexwrightDebug.log(HexwrightDebug.PORTAL,
+                "[arrival server {}] t={} y={} vy={} onGround={} pinned={}",
                 level.dimension().location(), ARRIVAL_TRACE_TICKS - left,
                 String.format("%.4f", entity.getY()),
                 String.format("%+.4f", entity.getDeltaMovement().y),
@@ -144,7 +150,7 @@ public final class PortalManager extends SavedData {
 
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) ->
             dispatcher.register(Commands.literal("hexwright_portals")
-                .requires(source -> source.hasPermission(2))
+                .requires(source -> source.hasPermission(2) && CommandGate.creative(source))
                 .then(Commands.literal("clear").executes(context -> {
                     ServerLevel level = context.getSource().getLevel();
                     PortalManager manager = get(level);
@@ -513,9 +519,11 @@ public final class PortalManager extends SavedData {
             player.connection.send(new ClientboundSetEntityMotionPacket(player.getId(), newVel));
             get(destLevel).beginLandingFreeze(player.getUUID(), newPos);
             get(destLevel).beginArrivalTrace(player.getUUID());
-            Hexwright.LOGGER.info("[arrival server] {} exits to {} at y={} (feet), from y={}",
-                player.getGameProfile().getName(), destLevel.dimension().location(),
-                String.format("%.4f", newPos.y), String.format("%.4f", entity.getY()));
+            if (HexwrightDebug.on(HexwrightDebug.PORTAL)) {
+                Hexwright.LOGGER.info("[arrival server] {} exits to {} at y={} (feet), from y={}",
+                    player.getGameProfile().getName(), destLevel.dimension().location(),
+                    String.format("%.4f", newPos.y), String.format("%.4f", entity.getY()));
+            }
             return;
         }
         UUID uuid = entity.getUUID();
@@ -541,7 +549,15 @@ public final class PortalManager extends SavedData {
                                     Vec3 pos, double entrySign) {
         Vec3 onPlane = pos.subtract(source.normal().scale(source.signedDistance(pos)));
         double clearance = (entrySign >= 0.0 ? 1.0 : -1.0) * PortalPair.EXIT_CLEARANCE;
-        return transform.apply(onPlane).add(destination.normal().scale(clearance));
+        return liftOntoSill(destination, transform.apply(onPlane).add(destination.normal().scale(clearance)));
+    }
+
+    public static Vec3 liftOntoSill(PortalWindow window, Vec3 feet) {
+        if (window.vHat().y < 0.99) {
+            return feet;
+        }
+        double below = window.origin().y - feet.y;
+        return below > 0.0 ? feet.add(0.0, below, 0.0) : feet;
     }
 
 

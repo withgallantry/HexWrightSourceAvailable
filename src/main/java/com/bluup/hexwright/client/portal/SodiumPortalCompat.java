@@ -1,6 +1,7 @@
 package com.bluup.hexwright.client.portal;
 
 import com.bluup.hexwright.Hexwright;
+import com.bluup.hexwright.HexwrightDebug;
 import net.fabricmc.loader.api.FabricLoader;
 
 import java.lang.reflect.Field;
@@ -48,12 +49,14 @@ public final class SodiumPortalCompat {
 
     private static boolean resolve() {
         if (!WANTED) {
-            Hexwright.LOGGER.info("[sodium-portal] disabled by -Dhexwright.portal.sodium=false; portal views "
-                + "are drawn by vanilla's renderer, with its section grid forced back to full size");
+            HexwrightDebug.log(HexwrightDebug.PORTAL,
+                "[sodium-portal] disabled by -Dhexwright.portal.sodium=false; portal views "
+                    + "are drawn by vanilla's renderer, with its section grid forced back to full size");
             return false;
         }
         if (!FabricLoader.getInstance().isModLoaded("sodium")) {
-            Hexwright.LOGGER.info("[sodium-portal] Sodium not installed; portal views use vanilla's renderer");
+            HexwrightDebug.log(HexwrightDebug.PORTAL,
+                "[sodium-portal] Sodium not installed; portal views use vanilla's renderer");
             return false;
         }
         try {
@@ -87,7 +90,7 @@ public final class SodiumPortalCompat {
             chunkStatusAdded = tracker.getMethod("onChunkStatusAdded", int.class, int.class, int.class);
             chunkStatusRemoved = tracker.getMethod("onChunkStatusRemoved", int.class, int.class, int.class);
             blockDataFlag = chunkStatus.getField("FLAG_ALL").getInt(null);
-            Hexwright.LOGGER.info(
+            HexwrightDebug.log(HexwrightDebug.PORTAL,
                 "[sodium-portal] active - portal views will be drawn by Sodium from their own render lists");
             return true;
         } catch (ReflectiveOperationException | RuntimeException mismatch) {
@@ -183,6 +186,9 @@ public final class SodiumPortalCompat {
     }
 
     private static void report(Object worldRenderer, Context context, Object handedBack) {
+        if (!HexwrightDebug.on(HexwrightDebug.PORTAL)) {
+            return;
+        }
         if (!VERBOSE && swapsReported >= QUIET_AFTER) {
             return;
         }
@@ -203,6 +209,9 @@ public final class SodiumPortalCompat {
     }
 
     private static void reportRemotePass() {
+        if (!HexwrightDebug.on(HexwrightDebug.PORTAL)) {
+            return;
+        }
         if (!VERBOSE && swapsReported >= QUIET_AFTER) {
             return;
         }

@@ -1,6 +1,6 @@
 package com.bluup.hexwright.common.aspects;
 
-import com.bluup.hexwright.Hexwright;
+import com.bluup.hexwright.HexwrightDebug;
 import com.bluup.hexwright.common.aspects.AspectMappings.AspectProfile;
 import com.bluup.hexwright.common.staff_assembly.calc.IngredientCategory;
 import com.bluup.hexwright.common.staff_assembly.calc.IngredientData;
@@ -73,7 +73,7 @@ public final class RecipeAspects {
 
         AspectMappings.setDerived(derived);
         CoalescenceRecipes.invalidate();
-        Hexwright.LOGGER.info("Derived aspect profiles for {} item(s) from {} recipe(s) in {} ms",
+        HexwrightDebug.log(HexwrightDebug.CONTENT, "Derived aspect profiles for {} item(s) from {} recipe(s) in {} ms",
             derived.size(), recipes.size(), (System.nanoTime() - startNanos) / 1_000_000);
     }
 

@@ -26,6 +26,7 @@ import net.minecraft.server.packs.PackType
 object HexwrightServer : ModInitializer {
     override fun onInitialize() {
         com.bluup.hexwright.server.sound.HexwrightSoundEvents.register()
+        com.bluup.hexwright.server.effect.HexwrightEffects.register()
         HexwrightCriteria.register()
         TalismanEvents.register()
         com.bluup.hexwright.server.pentabox.PentaboxEvents.register()
@@ -38,6 +39,7 @@ object HexwrightServer : ModInitializer {
         HexwrightActions.register()
         com.bluup.hexwright.server.remnant.RemnantActions.register()
         com.bluup.hexwright.server.remnant.RemnantBuffs.register()
+        com.bluup.hexwright.server.armour.MantleFlight.register()
         com.bluup.hexwright.server.region.RegionActions.register()
         com.bluup.hexwright.server.region.RegionThothBenchmark.register()
         com.bluup.hexwright.server.hexpatterns.CantorActions.register()
@@ -56,11 +58,16 @@ object HexwrightServer : ModInitializer {
         com.bluup.hexwright.server.hexicon.HexiconData.register()
         com.bluup.hexwright.server.hexpatterns.WielderActions.register()
         com.bluup.hexwright.server.armour.ArmourPowerActions.register()
+        com.bluup.hexwright.server.powerorb.PowerOrbActions.register()
+        com.bluup.hexwright.server.powerorb.GolemOrbPower.register()
+        com.bluup.hexwright.server.armour.PassageStep.register()
         TalismanActions.register()
         com.bluup.hexwright.server.portal.PortalActions.register()
         com.bluup.hexwright.server.portal.PortalManager.register()
         com.bluup.hexwright.server.hexpatterns.VoidTearActions.register()
         com.bluup.hexwright.server.portal.VoidTearManager.register()
+        com.bluup.hexwright.server.hexpatterns.DustActions.register()
+        com.bluup.hexwright.server.dust.DustManifestations.register()
         com.bluup.hexwright.server.vault.VaultManager.register()
         com.bluup.hexwright.server.vehicle.FlightActions.register()
         com.bluup.hexwright.server.bindstone.BindstoneWard.register()
@@ -71,7 +78,6 @@ object HexwrightServer : ModInitializer {
         com.bluup.hexwright.server.staff_assembly.StaffCastFlare.register()
         com.bluup.hexwright.server.weapon.SlamWindUp.register()
         com.bluup.hexwright.server.weapon.SoulHarvest.register()
-        com.bluup.hexwright.server.vehicle.VehicleDebugCommand.register()
         com.bluup.hexwright.compat.accessories.AccessoriesCompat.register()
         Hexwright.LOGGER.info("Hexwright server initializing.")
         HexwrightNetworking.registerServer()
@@ -81,6 +87,9 @@ object HexwrightServer : ModInitializer {
         com.bluup.hexwright.server.fluid.HexidFluids.register()
         com.bluup.hexwright.server.fluid.HexidTankStorage.register()
         CauldronInteraction.WATER[HexwrightItems.SEALED_SATCHEL] = CauldronInteraction.DYED_ITEM
+        CauldronInteraction.WATER[HexwrightItems.MANTLE_OF_ASCENSION] = CauldronInteraction.DYED_ITEM
+        CauldronInteraction.WATER[HexwrightItems.HAT_OF_ASCENSION] = CauldronInteraction.DYED_ITEM
+        CauldronInteraction.WATER[HexwrightItems.GOLEM_POWER_ORB] = CauldronInteraction.DYED_ITEM
         com.bluup.hexwright.server.worldgen.HexwrightWorldgen.register()
         com.bluup.hexwright.server.progression.TabletLoot.register()
         com.bluup.hexwright.server.progression.RecipeTablets.validate(
@@ -88,12 +97,17 @@ object HexwrightServer : ModInitializer {
         )
         com.bluup.hexwright.server.journal.Investigations.validate()
         com.bluup.hexwright.server.journal.LoreEntries.validate()
+        com.bluup.hexwright.server.journal.Artifacts.validate()
         com.bluup.hexwright.server.journal.InvestigationProgress.register()
         com.bluup.hexwright.server.journal.StarterJournal.register()
         com.bluup.hexwright.server.journal.JournalDebugCommand.register()
+        com.bluup.hexwright.server.command.DebugCommand.register()
         HexwrightEntities.register()
         com.bluup.hexwright.server.boss.HexwrightBossEntities.register()
         com.bluup.hexwright.server.boss.HexwrightBossEntities.registerAttributes()
+        com.bluup.hexwright.server.mob.HexwrightMobEntities.register()
+        com.bluup.hexwright.server.mob.HexwrightMobEntities.registerAttributes()
+        com.bluup.hexwright.server.powerorb.PowerOrbEntities.register()
         HexwrightMenus.register()
         com.bluup.hexwright.server.talisman.HexwrightRecipes.register()
         ServerPlayConnectionEvents.DISCONNECT.register { handler, _ -> StaffCoreBeamHandler.clearPlayer(handler.player) }
@@ -109,6 +123,7 @@ object HexwrightServer : ModInitializer {
             HexwrightNetworking.sendMasterySync(player)
             HexwrightNetworking.sendRecipeUnlockSync(player)
             HexwrightNetworking.sendInvestigationSync(player)
+            HexwrightNetworking.sendArtifactSync(player)
             HexwrightNetworking.sendResonanceNames(player)
         }
         ServerLifecycleEvents.SERVER_STARTED.register { server ->

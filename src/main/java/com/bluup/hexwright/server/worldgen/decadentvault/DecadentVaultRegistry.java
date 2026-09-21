@@ -1,6 +1,6 @@
 package com.bluup.hexwright.server.worldgen.decadentvault;
 
-import com.bluup.hexwright.Hexwright;
+import com.bluup.hexwright.HexwrightDebug;
 import com.bluup.hexwright.server.vault.VaultDimension;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.Registries;
@@ -53,7 +53,7 @@ public final class DecadentVaultRegistry extends SavedData {
         setDirty();
         BlockPos entrance = DecadentVaultGenerator.generate(
             level, origin, level.dimension(), portalPos, level.random);
-        Hexwright.LOGGER.info("Rolled Decadent Vault {} at {} in {} for a portal at {}",
+        HexwrightDebug.log(HexwrightDebug.VAULT, "Rolled Decadent Vault {} at {} in {} for a portal at {}",
             id, origin, level.dimension().location(), portalPos);
         return entrance;
     }

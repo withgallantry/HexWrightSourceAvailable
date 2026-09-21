@@ -105,12 +105,26 @@ const float INK_WIDTH_SWING = 0.35;
 // band the game ever draws, which quietly made GlowWidth do nothing at all.
 const float WIDTH_FLOOR_CELLS = 0.45;
 
-// Fresnel exponent and weight, from the Photon 2 reference shield. This is the
-// term that makes the surface read as a shield rather than as a mark painted
-// on the world: it lights the faces at grazing angles, so the contact band
-// sits on something visibly glowing.
-const float FRESNEL_POWER = 0.5;
-const float FRESNEL_STRENGTH = 1.0;
+// Fresnel exponent and weight. The term itself comes from the Photon 2
+// reference shield, and it is what makes the surface read as a shield rather
+// than as a mark painted on the world: it lights the faces at grazing angles,
+// so the contact band sits on something visibly glowing.
+//
+// THE REFERENCE'S OWN NUMBERS (0.5 and full strength) DO NOT TRANSFER, and
+// have now been adopted and backed out twice. 0.5 is a square root, so a
+// surface 25 degrees off face-on still returns about a third of full strength
+// - a broad, forgiving curve that suits a DOME SEEN FROM OUTSIDE, where the
+// only grazing surface is a thin silhouette. This shield is a CUBE WITH THE
+// CASTER INSIDE IT: its side faces run from behind the camera out to the
+// horizon, so most of the visible surface grazes and that same broad curve
+// fills the whole periphery of the screen with flat pigment. Reported both
+// times in the same words - the sides are opaque and hard to see through -
+// and visible in the report that prompted this pass as two dark wedges either
+// side of the view. 3.0 pulls the curve in to the genuinely edge-on sliver;
+// 0.25 scales it back further because, unlike the reference, this shield also
+// has textured ink faces drawn underneath it.
+const float FRESNEL_POWER = 3.0;
+const float FRESNEL_STRENGTH = 0.25;
 
 // How far behind the scene a fragment may sit and still draw, in blocks.
 // Covers depth-buffer precision and the shield sitting flush against a block
@@ -168,28 +182,50 @@ void main() {
     float fragZ = linearDepth(gl_FragCoord.z);
     float gap = length(shieldPos) * (sceneZ / max(fragZ, 1e-4) - 1.0);
 
-    // Face normal straight from the screen derivatives of the position. The
-    // faces are flat, so this is exact, and it saves carrying a normal through
-    // the vertex format. Taken in uniform control flow, before any discard.
     vec3 viewDir = -normalize(shieldPos);
-    // Guarded: where the two derivatives run parallel, or where a face is so
-    // edge-on that both are vanishing, the cross product has no length and
-    // normalize() returns NaN - which propagates into alpha and reaches the
-    // framebuffer as solid opaque. Fall back to the view direction, which
-    // reads as perfectly face-on and so contributes no rim at all.
-    vec3 faceCross = cross(dFdx(shieldPos), dFdy(shieldPos));
-    float faceCrossLength = length(faceCross);
-    vec3 faceNormal = faceCrossLength > 1e-9 ? faceCross / faceCrossLength : viewDir;
+
+    // Which tile of the atlas this fragment reads is which face it is on, and
+    // the six faces are the six axis-aligned sides of a cube - so the face
+    // index IS the normal. Face n lies on axis n/2, on the -side for even n
+    // and the +side for odd; see ShieldContactField's FACE_AXIS/FACE_SIDE,
+    // which this must keep agreeing with.
+    float faceIndex = floor(min(fieldUV.x, 0.999) * 3.0) + 3.0 * floor(min(fieldUV.y, 0.999) * 2.0);
+    float faceAxis = floor(faceIndex * 0.5);
+    float faceSide = mix(-1.0, 1.0, step(0.5, mod(faceIndex, 2.0)));
+    vec3 faceNormal = vec3(1.0 - step(0.5, faceAxis),
+                           step(0.5, faceAxis) - step(1.5, faceAxis),
+                           step(1.5, faceAxis)) * faceSide;
+
+    // NOT cross(dFdx(shieldPos), dFdy(shieldPos)), which is what this was.
+    //
+    // A plane's screen derivatives do give its normal, and for a face pointed
+    // anywhere near the camera they give it accurately. But this cube is 32+
+    // blocks across with the caster standing inside it, so its four side faces
+    // run from behind the camera out to the horizon, and along that stretch
+    // perspective squashes them until both derivatives point almost entirely
+    // down the same receding direction. Two nearly-parallel vectors have a
+    // cross product made entirely of cancelling terms: the direction that
+    // comes out is dominated by float error, and it changes completely from
+    // one frame to the next as the camera moves a fraction of a pixel. That
+    // error lands in fresnel, which on those same grazing faces is the whole
+    // of the alpha - so the shield's sides flickered as large angular sections
+    // while the faces pointed at the caster, where the derivatives are honest,
+    // stayed perfectly stable. Reported as "large triangle sections flicker in
+    // and out, only when I move", which is precisely the shape of it.
+    //
+    // The face index costs one texture-coordinate read and is exact at every
+    // angle, so the instability is gone rather than tuned around. It also
+    // retires the NaN guard the old form needed: normalize() of a zero-length
+    // cross returns NaN, NaN fails "alpha <= 0.0" and blends as solid opaque.
+    //
     // abs(): the caster is inside the cube and sees its faces from behind, so
     // which way the normal happens to point must not decide whether it lights.
-    float fresnel = pow(1.0 - abs(dot(faceNormal, viewDir)), FRESNEL_POWER);
+    // clamp(): pow() of a negative base is undefined and returns NaN on most
+    // drivers, and dot() of two unit vectors can land a hair over 1.0.
+    float fresnel = pow(clamp(1.0 - abs(dot(faceNormal, viewDir)), 0.0, 1.0), FRESNEL_POWER);
 
-    // Which tile of the atlas this fragment reads is which face it is on.
-    if (DebugFace >= 0.0) {
-        float face = floor(min(fieldUV.x, 0.999) * 3.0) + 3.0 * floor(min(fieldUV.y, 0.999) * 2.0);
-        if (abs(face - DebugFace) > 0.5) {
-            discard;
-        }
+    if (DebugFace >= 0.0 && abs(faceIndex - DebugFace) > 0.5) {
+        discard;
     }
 
     // Blocks across the face to the nearest solid/empty transition on it.

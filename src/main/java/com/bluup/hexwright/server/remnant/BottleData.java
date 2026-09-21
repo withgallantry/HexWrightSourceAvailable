@@ -152,6 +152,20 @@ public final class BottleData {
         return shared;
     }
 
+    public static @Nullable Remnant draw(ItemStack stack, double amount) {
+        TankRemnants mix = getMixture(stack);
+        if (mix.kinds() != 1 || amount <= 0.0) {
+            return null;
+        }
+        Remnant held = mix.contents().get(0);
+        double taken = Math.min(amount, held.drams());
+        if (held.drams() - taken < TankRemnants.MIN_DRAMS) {
+            taken = held.drams();
+        }
+        write(stack, mix.minus(held.type(), taken));
+        return held.withDrams(taken);
+    }
+
     public static void empty(ItemStack stack) {
         if (stack.getTagElement(ROOT_TAG) != null) {
             write(stack, TankRemnants.EMPTY);

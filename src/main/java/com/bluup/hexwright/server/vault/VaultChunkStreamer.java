@@ -41,15 +41,30 @@ public final class VaultChunkStreamer {
 
     private static long tickCounter;
 
-    private record PendingSend(ResourceKey<Level> dimension, ArrayDeque<ChunkPos> queue, long retryDeadline) {
+    private record PendingSend(VaultPortalSession session, ResourceKey<Level> dimension,
+                               ArrayDeque<ChunkPos> queue, long retryDeadline) {
 
-        static PendingSend of(ServerLevel level, List<ChunkPos> chunks) {
-            return new PendingSend(level.dimension(), new ArrayDeque<>(chunks),
+        static PendingSend of(VaultPortalSession session, ServerLevel level, List<ChunkPos> chunks) {
+            return new PendingSend(session, level.dimension(), new ArrayDeque<>(chunks),
                 tickCounter + PENDING_RETRY_TICKS);
         }
     }
 
-    private static final Map<UUID, PendingSend> PENDING = new HashMap<>();
+    private static final Map<UUID, List<PendingSend>> PENDING = new HashMap<>();
+
+    private static void queue(ServerPlayer player, PendingSend send) {
+        List<PendingSend> owed = PENDING.computeIfAbsent(player.getUUID(), id -> new ArrayList<>());
+        owed.removeIf(p -> p.session() == send.session() && p.dimension().equals(send.dimension()));
+        owed.add(send);
+    }
+
+    private static void cancel(UUID playerId, VaultPortalSession session, ResourceKey<Level> dimension) {
+        List<PendingSend> owed = PENDING.get(playerId);
+        if (owed != null && owed.removeIf(p -> p.session() == session && p.dimension().equals(dimension))
+            && owed.isEmpty()) {
+            PENDING.remove(playerId);
+        }
+    }
 
     private static final Map<UUID, Set<ResourceLocation>> RETAINED = new HashMap<>();
 
@@ -111,10 +126,10 @@ public final class VaultChunkStreamer {
         diffSubscribers(server, session.vaultViewers(), desiredVaultViewers,
             added -> {
                 HexwrightNetworking.sendVaultLevelInit(added, vaultLevel);
-                PENDING.put(added.getUUID(), PendingSend.of(vaultLevel, vaultViewChunks(session)));
+                queue(added, PendingSend.of(session, vaultLevel, vaultViewChunks(session)));
             },
             removed -> {
-                PENDING.remove(removed.getUUID());
+                cancel(removed.getUUID(), session, vaultLevel.dimension());
                 HexwrightNetworking.sendVaultChunkForget(removed, vaultLevel.dimension(),
                     vaultViewChunks(session));
             });
@@ -125,10 +140,10 @@ public final class VaultChunkStreamer {
                     return;
                 }
                 HexwrightNetworking.sendVaultLevelInit(added, outsideLevel);
-                PENDING.put(added.getUUID(), PendingSend.of(outsideLevel, session.outsideChunks()));
+                queue(added, PendingSend.of(session, outsideLevel, session.outsideChunks()));
             },
             removed -> {
-                PENDING.remove(removed.getUUID());
+                cancel(removed.getUUID(), session, outsideLevel.dimension());
                 HexwrightNetworking.sendVaultChunkForget(removed, outsideLevel.dimension(),
                     session.outsideChunks());
             });
@@ -141,26 +156,39 @@ public final class VaultChunkStreamer {
         var iterator = PENDING.entrySet().iterator();
         while (iterator.hasNext()) {
             var entry = iterator.next();
-            PendingSend pending = entry.getValue();
             ServerPlayer player = server.getPlayerList().getPlayer(entry.getKey());
-            ServerLevel level = server.getLevel(pending.dimension());
-            if (player == null || level == null) {
+            if (player == null) {
                 iterator.remove();
                 continue;
             }
-            var queue = pending.queue();
-            boolean retry = tickCounter < pending.retryDeadline();
-            int polls = queue.size();
             int sent = 0;
-            while (sent < CHUNKS_PER_TICK && polls-- > 0 && !queue.isEmpty()) {
-                ChunkPos pos = queue.poll();
-                if (sendChunk(player, level, pos)) {
-                    sent++;
-                } else if (retry) {
-                    queue.addLast(pos);
+            var owed = entry.getValue().iterator();
+            while (owed.hasNext()) {
+                PendingSend pending = owed.next();
+                ServerLevel level = server.getLevel(pending.dimension());
+                if (level == null) {
+                    owed.remove();
+                    continue;
+                }
+                var queue = pending.queue();
+                boolean retry = tickCounter < pending.retryDeadline();
+                int polls = queue.size();
+                while (sent < CHUNKS_PER_TICK && polls-- > 0 && !queue.isEmpty()) {
+                    ChunkPos pos = queue.poll();
+                    if (sendChunk(player, level, pos)) {
+                        sent++;
+                    } else if (retry) {
+                        queue.addLast(pos);
+                    }
+                }
+                if (queue.isEmpty()) {
+                    owed.remove();
+                }
+                if (sent >= CHUNKS_PER_TICK) {
+                    break;
                 }
             }
-            if (queue.isEmpty()) {
+            if (entry.getValue().isEmpty()) {
                 iterator.remove();
             }
         }
@@ -265,7 +293,7 @@ public final class VaultChunkStreamer {
     static void onDoorRelocated(MinecraftServer server, VaultPortalSession session,
                                 @Nullable ServerLevel oldOutsideLevel) {
         for (UUID id : session.vaultViewers()) {
-            PENDING.remove(id);
+            cancel(id, session, VaultDimension.KEY);
             ServerPlayer player = server.getPlayerList().getPlayer(id);
             if (player != null) {
                 HexwrightNetworking.sendVaultChunkForget(player, VaultDimension.KEY,
@@ -273,8 +301,8 @@ public final class VaultChunkStreamer {
             }
         }
         for (UUID id : session.outsideViewers()) {
-            PENDING.remove(id);
             if (oldOutsideLevel != null) {
+                cancel(id, session, oldOutsideLevel.dimension());
                 setRetained(id, oldOutsideLevel.dimension().location(), false);
             }
         }
@@ -284,10 +312,10 @@ public final class VaultChunkStreamer {
 
     static void release(MinecraftServer server, VaultPortalSession session) {
         for (UUID id : session.outsideViewers()) {
-            PENDING.remove(id);
+            cancel(id, session, session.outsideDimension());
         }
         for (UUID id : session.vaultViewers()) {
-            PENDING.remove(id);
+            cancel(id, session, VaultDimension.KEY);
         }
         for (UUID id : session.vaultViewers()) {
             ServerPlayer player = server.getPlayerList().getPlayer(id);

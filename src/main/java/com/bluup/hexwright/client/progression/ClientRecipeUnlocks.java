@@ -24,7 +24,7 @@ public final class ClientRecipeUnlocks {
     }
 
     public static boolean isDiscovered(String recipeNameKey) {
-        return !RecipeTablets.requiresTablet(recipeNameKey) || has(recipeNameKey);
+        return !RecipeTablets.requiresDiscovery(recipeNameKey) || has(recipeNameKey);
     }
 
     public static int version() {

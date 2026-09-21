@@ -142,6 +142,7 @@ dependencies {
     modImplementation "net.fabricmc:fabric-language-kotlin:${project.fabric_kotlin_version}"
     modImplementation "at.petra-k.hexcasting:hexcasting-fabric-${project.minecraft_version}:${project.hexcasting_version}"
     modImplementation "ram.talia.moreiotas:moreiotas-fabric-${project.minecraft_version}:${project.moreiotas_version}"
+    modCompileOnly("ram.talia.hexal:hexal-fabric-${project.minecraft_version}:${project.hexal_version}") { transitive = false }
     modImplementation "com.lowdragmc.ldlib:ldlib-fabric-${project.minecraft_version}:${project.ldlib_version}"
     modImplementation "maven.modrinth:photon-editor:${project.photon_modrinth_version}"
 
@@ -181,9 +182,14 @@ fileTree(dir: "gradle/local", include: "*.gradle").files.toSorted().each { apply
 
 processResources {
     inputs.property "version", project.version
+    exclude "**/*.bbmodel"
     filesMatching("fabric.mod.json") {
         expand "version": project.version
     }
+}
+
+tasks.matching { it.name == "sourcesJar" }.configureEach {
+    exclude "**/*.bbmodel"
 }
 
 tasks.withType(JavaCompile).configureEach {

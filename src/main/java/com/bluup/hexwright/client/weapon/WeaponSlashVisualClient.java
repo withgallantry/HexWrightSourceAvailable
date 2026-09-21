@@ -2,8 +2,10 @@ package com.bluup.hexwright.client.weapon;
 
 import com.bluup.hexwright.Hexwright;
 import com.bluup.hexwright.server.weapon.AnimatedWeapon;
+import com.bluup.hexwright.server.weapon.SlashStyle;
 import com.bluup.hexwright.server.weapon.WeaponSlash;
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.math.Axis;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
@@ -12,9 +14,13 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.client.renderer.LightTexture;
+import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.util.Mth;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.phys.Vec3;
+import software.bernie.geckolib.cache.object.BakedGeoModel;
+import software.bernie.geckolib.model.GeoModel;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -36,6 +42,7 @@ public final class WeaponSlashVisualClient {
     public static void register() {
         ClientTickEvents.END_CLIENT_TICK.register(WeaponSlashVisualClient::onClientTick);
         WorldRenderEvents.AFTER_ENTITIES.register(WeaponSlashVisualClient::render);
+        SlashBloomCommands.register();
     }
 
     public static void onSwingStarted(AbstractClientPlayer player, String clipName, float clipSpeed) {
@@ -131,6 +138,7 @@ public final class WeaponSlashVisualClient {
                 pose.scale(live.scale, live.scale, live.scale);
                 live.renderer.render(pose, live.vfx, context.consumers(), null, null,
                     LightTexture.FULL_BRIGHT);
+                captureBloom(pose, live, partialTick);
             } catch (Exception e) {
                 if (!warned) {
                     warned = true;
@@ -140,6 +148,21 @@ public final class WeaponSlashVisualClient {
                 pose.popPose();
             }
         }
+    }
+
+    private static void captureBloom(PoseStack pose, Live live, float partialTick) {
+        float strength = SlashBloom.crescentStrength(live.style);
+        if (strength <= 0.0f) {
+            return;
+        }
+        GeoModel<SlashVfx> model = live.renderer.getGeoModel();
+        BakedGeoModel baked = model.getBakedModel(model.getModelResource(live.vfx, live.renderer));
+        RenderType layer = RenderType.entityTranslucentEmissive(live.style.crescentTexture());
+        SlashBloom.capture(layer, raw -> {
+            VertexConsumer buffer = SlashBloom.dimmed(raw, strength);
+            live.renderer.reRender(baked, pose, type -> buffer, live.vfx, layer, buffer, partialTick,
+                LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY, 1.0f, 1.0f, 1.0f, 1.0f);
+        });
     }
 
     private static final class Armed {
@@ -161,6 +184,7 @@ public final class WeaponSlashVisualClient {
         private final float height;
         private final float scale;
         private final int life;
+        private final SlashStyle style;
         private final SlashVfx vfx;
         private final SlashVfxRenderer renderer;
         private int age;
@@ -172,8 +196,9 @@ public final class WeaponSlashVisualClient {
             this.height = slash.height();
             this.scale = slash.scale();
             this.life = slash.lifeTicks();
+            this.style = slash.style();
             this.vfx = new SlashVfx(slash.clip());
-            this.renderer = new SlashVfxRenderer(new SlashVfxModel(slash.style()));
+            this.renderer = new SlashVfxRenderer(new SlashVfxModel(this.style));
         }
     }
 }

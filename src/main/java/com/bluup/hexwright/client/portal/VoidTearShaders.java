@@ -1,6 +1,7 @@
 package com.bluup.hexwright.client.portal;
 
 import com.bluup.hexwright.Hexwright;
+import com.bluup.hexwright.HexwrightDebug;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import net.fabricmc.fabric.api.resource.ResourceManagerHelper;
 import net.fabricmc.fabric.api.resource.SimpleSynchronousResourceReloadListener;
@@ -51,7 +52,7 @@ public final class VoidTearShaders implements SimpleSynchronousResourceReloadLis
         try {
             shader = new ShaderInstance(Minecraft.getInstance().getResourceManager(),
                 SHADER_NAME, DefaultVertexFormat.POSITION_TEX);
-            Hexwright.LOGGER.info("Loaded void tear shader");
+            HexwrightDebug.log(HexwrightDebug.RENDER, "Loaded void tear shader");
         } catch (IOException | RuntimeException e) {
             Hexwright.LOGGER.error("Failed to load void tear shader; rips will not render", e);
             shader = null;

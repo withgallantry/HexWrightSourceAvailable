@@ -19,7 +19,9 @@ import net.minecraft.world.level.block.SlabBlock;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.StairBlock;
 import net.minecraft.world.level.block.entity.BlockEntityType;
+import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.material.MapColor;
 
 public final class HexwrightBlocks {
     private static final float HARDNESS = 0.6f;
@@ -373,7 +375,10 @@ public final class HexwrightBlocks {
 
     public static final com.bluup.hexwright.server.fluid.HexidPipeBlock HEXID_PIPE_BLOCK =
         new com.bluup.hexwright.server.fluid.HexidPipeBlock(
-            soft(Blocks.COPPER_BLOCK)
+            BlockBehaviour.Properties.of()
+                .mapColor(MapColor.COLOR_ORANGE)
+                .sound(SoundType.COPPER)
+                .strength(0.0f, BLAST_RESISTANCE)
                 .noOcclusion()
         );
 
@@ -475,6 +480,8 @@ public final class HexwrightBlocks {
         Registry.register(BuiltInRegistries.ITEM, Hexwright.id("liquefactrium"), LIQUEFACTRIUM_ITEM);
 
         VaultDecorBlocks.register();
+
+        DungeonProp.register();
 
         ItemGroupEvents.modifyEntriesEvent(CreativeModeTabs.FUNCTIONAL_BLOCKS).register(entries -> {
             entries.accept(STAFF_ASSEMBLY_ITEM);

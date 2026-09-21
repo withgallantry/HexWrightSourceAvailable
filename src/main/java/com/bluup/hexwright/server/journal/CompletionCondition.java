@@ -1,6 +1,8 @@
 package com.bluup.hexwright.server.journal;
 
 import com.bluup.hexwright.common.staff_assembly.calc.IngredientCategory;
+import com.bluup.hexwright.server.worldgen.decadentvault.DecadentVaultRegistry;
+import com.bluup.hexwright.server.worldgen.dungeon.DungeonRooms;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import net.minecraft.advancements.Advancement;
@@ -34,6 +36,10 @@ public interface CompletionCondition {
     default void collectCounted(List<Counted> into) {
     }
 
+    default boolean discoversStructure() {
+        return false;
+    }
+
     interface Counted extends CompletionCondition {
 
         String counterKey();
@@ -56,6 +62,9 @@ public interface CompletionCondition {
                 GsonHelper.getAsDouble(json, "amount", 1.0));
             case "visit_biome" -> new VisitBiome(Matcher.parse(GsonHelper.getAsString(json, "biome")));
             case "visit_structure" -> new VisitStructure(Matcher.parse(GsonHelper.getAsString(json, "structure")));
+            case "visit_dungeon_room" -> new VisitDungeonRoom(
+                new ResourceLocation(GsonHelper.getAsString(json, "room")));
+            case "visit_decadent_vault" -> VisitDecadentVault.INSTANCE;
             case "visit_dimension" -> new VisitDimension(
                 ResourceKey.create(Registries.DIMENSION, new ResourceLocation(GsonHelper.getAsString(json, "dimension"))));
             case "advancement" -> new HasAdvancement(new ResourceLocation(GsonHelper.getAsString(json, "advancement")));
@@ -149,6 +158,11 @@ public interface CompletionCondition {
 
     record VisitStructure(Matcher structure) implements CompletionCondition {
         @Override
+        public boolean discoversStructure() {
+            return true;
+        }
+
+        @Override
         public boolean isMet(ServerPlayer player, InvestigationState state) {
             if (!(player.level() instanceof ServerLevel level)) {
                 return false;
@@ -167,6 +181,34 @@ public interface CompletionCondition {
                 start = level.structureManager().getStructureWithPieceAt(player.blockPosition(), resolved);
             }
             return start.isValid();
+        }
+    }
+
+    record VisitDungeonRoom(ResourceLocation room) implements CompletionCondition {
+        @Override
+        public boolean discoversStructure() {
+            return true;
+        }
+
+        @Override
+        public boolean isMet(ServerPlayer player, InvestigationState state) {
+            return player.level() instanceof ServerLevel level
+                && DungeonRooms.isInside(level, player.blockPosition(), room);
+        }
+    }
+
+    record VisitDecadentVault() implements CompletionCondition {
+        static final VisitDecadentVault INSTANCE = new VisitDecadentVault();
+
+        @Override
+        public boolean discoversStructure() {
+            return true;
+        }
+
+        @Override
+        public boolean isMet(ServerPlayer player, InvestigationState state) {
+            return DecadentVaultRegistry.get(player.server)
+                .isInside(player.level().dimension(), player.position());
         }
     }
 
@@ -257,6 +299,16 @@ public interface CompletionCondition {
         public void collectCounted(List<Counted> into) {
             conditions.forEach(condition -> condition.collectCounted(into));
         }
+
+        @Override
+        public boolean discoversStructure() {
+            for (CompletionCondition condition : conditions) {
+                if (condition.discoversStructure()) {
+                    return true;
+                }
+            }
+            return false;
+        }
     }
 
     record AnyOf(List<CompletionCondition> conditions) implements CompletionCondition {
@@ -273,6 +325,16 @@ public interface CompletionCondition {
         @Override
         public void collectCounted(List<Counted> into) {
             conditions.forEach(condition -> condition.collectCounted(into));
+        }
+
+        @Override
+        public boolean discoversStructure() {
+            for (CompletionCondition condition : conditions) {
+                if (condition.discoversStructure()) {
+                    return true;
+                }
+            }
+            return false;
         }
     }
 

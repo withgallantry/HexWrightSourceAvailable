@@ -1,6 +1,6 @@
 package com.bluup.hexwright.server.vault;
 
-import com.bluup.hexwright.Hexwright;
+import com.bluup.hexwright.HexwrightDebug;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
@@ -94,7 +94,7 @@ public final class VaultContainment {
             return;
         }
         LAST_LOGGED.put(player.getUUID(), now);
-        Hexwright.LOGGER.info("[vault] containment: {} was at {}, {}, {} - {}",
+        HexwrightDebug.log(HexwrightDebug.VAULT, "[vault] containment: {} was at {}, {}, {} - {}",
             player.getGameProfile().getName(),
             Math.round(from.x), Math.round(from.y), Math.round(from.z), what);
     }

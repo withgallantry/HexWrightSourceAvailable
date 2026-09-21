@@ -3,6 +3,7 @@ package com.bluup.hexwright.compat.emi
 import com.bluup.hexwright.Hexwright
 import com.bluup.hexwright.compat.recipeviewer.ArmourCraftDisplay
 import com.bluup.hexwright.compat.recipeviewer.EssenceForgeDisplay
+import com.bluup.hexwright.compat.recipeviewer.ScryingSpectaclesDisplay
 import com.bluup.hexwright.server.block.HexwrightBlocks
 import dev.emi.emi.api.EmiPlugin
 import dev.emi.emi.api.EmiRegistry
@@ -29,6 +30,14 @@ class HexwrightEmiPlugin : EmiPlugin {
                 )
             )
         }
+        registry.addRecipe(
+            EmiCraftingRecipe(
+                ScryingSpectaclesDisplay.inputs().map { EmiStack.of(it) },
+                EmiStack.of(ScryingSpectaclesDisplay.result()),
+                ScryingSpectaclesDisplay.ID,
+                true
+            )
+        )
     }
 
     private companion object {

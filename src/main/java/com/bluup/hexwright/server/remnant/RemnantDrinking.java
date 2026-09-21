@@ -16,6 +16,12 @@ public final class RemnantDrinking {
 
     private static final int MIN_DURATION_TICKS = 100;
 
+    private static final double REPAST_ANCHOR_DRAMS = 600.0;
+
+    private static final int REPAST_ANCHOR_TICKS = 3600;
+
+    private static final int REPAST_MIN_DURATION_TICKS = 20;
+
     private static final double DRAMS_PER_HALF_HEART = 20.0;
 
     private static final double AMPLIFIER_STEP = 200.0;
@@ -26,6 +32,10 @@ public final class RemnantDrinking {
     }
 
     public static int durationTicks(Remnant remnant) {
+        if (remnant.type() == RemnantType.REPAST) {
+            double ratio = remnant.drams() / REPAST_ANCHOR_DRAMS;
+            return Math.max(REPAST_MIN_DURATION_TICKS, (int) (REPAST_ANCHOR_TICKS * ratio * ratio));
+        }
         return Math.max(MIN_DURATION_TICKS, (int) (remnant.drams() * TICKS_PER_DRAM));
     }
 

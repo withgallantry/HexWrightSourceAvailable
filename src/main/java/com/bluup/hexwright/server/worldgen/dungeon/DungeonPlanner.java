@@ -4,6 +4,7 @@ import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.block.Rotation;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -33,8 +34,9 @@ public final class DungeonPlanner {
     }
 
     public record Fittings(boolean crystaliteChest, boolean caveTap, DungeonModules.Fixture fixture,
-                           boolean miniboss, DungeonTraps.Spec trap, boolean anchor) {
-        static final Fittings NONE = new Fittings(false, false, null, false, null, false);
+                           boolean miniboss, DungeonTraps.Spec trap, boolean anchor, boolean servitor,
+                           boolean titan) {
+        static final Fittings NONE = new Fittings(false, false, null, false, null, false, false, false);
     }
 
     private static final int MIN_CRYSTALITE_CHESTS = 3;
@@ -46,34 +48,76 @@ public final class DungeonPlanner {
 
     private static final int MIN_TRAPS = 1;
 
-    private record Blob(Set<Cell> cells, Cell hub) {
+    private static final int[] TITAN_GAPS = {4, 5};
+
+    private record Blob(Set<Cell> cells, Cell hub, List<Cell> frontier, Set<Cell> barred) {
     }
 
     private DungeonPlanner() {
     }
 
-    public static List<Placement> plan(RandomSource random, int lowerRooms, int upperRooms, int maxTraps) {
+    public static List<Placement> plan(RandomSource random, int floors, int[] roomsPer, int maxTraps,
+                                       Predicate<DungeonModules.Module> titanRoom,
+                                       RandomSource extras, float corruptChance) {
         int stairTurns = random.nextInt(4);
         Rotation stairRotation = DungeonModules.rotation(stairTurns);
         Cell stairwell = new Cell(0, 0);
 
-        Blob lower = grow(random, stairwell,
-            DungeonModules.rotate(DungeonModules.STAIRS_DOWN.mask(), stairTurns), lowerRooms);
-        Blob upper = grow(random, stairwell,
-            DungeonModules.rotate(DungeonModules.STAIRS_UP.mask(), stairTurns), upperRooms);
+        List<DungeonModules.Module> stairModules = new ArrayList<>(floors);
+        List<Blob> storeys = new ArrayList<>(floors);
+        for (int level = 0; level < floors; level++) {
+            DungeonModules.Module stairs =
+                DungeonModules.pick(DungeonModules.stairsFor(level, floors), random);
+            stairModules.add(stairs);
+            storeys.add(grow(random, stairwell,
+                DungeonModules.rotate(stairs.mask(), stairTurns), roomsPer[level]));
+        }
+
+        int corruptLevel = -1;
+        Cell corruptCell = null;
+        if (extras.nextFloat() < corruptChance) {
+            corruptLevel = floors > 2 ? 1 + extras.nextInt(floors - 2) : 0;
+            Blob storey = storeys.get(corruptLevel);
+            corruptCell = findHub(extras, storey.cells(), storey.frontier(), storey.barred(),
+                corruptLevel == 0 ? storey.hub() : null);
+        }
 
         List<Placement> placements = new ArrayList<>();
-        int hallIndex = layOut(placements, lower, stairwell, 0, DungeonModules.STAIRS_DOWN, stairRotation, true, random);
-        layOut(placements, upper, stairwell, 1, DungeonModules.STAIRS_UP, stairRotation, false, random);
-        return furnish(placements, hallIndex, maxTraps, random);
+        int hallIndex = -1;
+        int corruptIndex = -1;
+        for (int level = 0; level < floors; level++) {
+            int[] index = layOut(placements, storeys.get(level), stairwell, level,
+                stairModules.get(level), stairRotation, level == 0,
+                level == corruptLevel ? corruptCell : null, random);
+            if (level == 0) {
+                hallIndex = index[0];
+            }
+            if (level == corruptLevel) {
+                corruptIndex = index[1];
+            }
+        }
+        return furnish(placements, hallIndex, corruptIndex, floors, maxTraps, titanRoom, random);
     }
 
-    private static List<Placement> furnish(List<Placement> placements, int hallIndex, int maxTraps,
-                                           RandomSource random) {
+    public static int[] roomsPerFloor(int floors, int lowerRooms, int upperRooms) {
+        int[] out = new int[floors];
+        for (int level = 0; level < floors; level++) {
+            out[level] = floors == 1
+                ? lowerRooms
+                : lowerRooms + Math.round((upperRooms - lowerRooms) * level / (float) (floors - 1));
+        }
+        return out;
+    }
+
+    private static List<Placement> furnish(List<Placement> placements, int hallIndex, int corruptIndex,
+                                           int floors, int maxTraps,
+                                           Predicate<DungeonModules.Module> titanRoom, RandomSource random) {
+        int topLevel = floors - 1;
+        Set<Integer> bossRooms = new HashSet<>(List.of(hallIndex, corruptIndex));
         Set<Integer> crystalite = pick(random, placements, MIN_CRYSTALITE_CHESTS
             + random.nextInt(MAX_CRYSTALITE_CHESTS - MIN_CRYSTALITE_CHESTS + 1),
-            p -> !p.module().isStairs(), Set.of(hallIndex));
-        Set<Integer> taps = pick(random, placements, CAVE_TAPS, p -> p.level() == 1, Set.of());
+            p -> !p.module().isStairs(), bossRooms);
+        Set<Integer> taps = pick(random, placements, CAVE_TAPS, p -> p.level() == topLevel, Set.of(corruptIndex));
         Integer anchorRoom = taps.isEmpty() ? null : taps.iterator().next();
 
         int wanted = 0;
@@ -85,13 +129,15 @@ public final class DungeonPlanner {
             }
             roll -= FIXTURE_WEIGHTS[count];
         }
-        Set<Integer> fixtures = pick(random, placements, wanted, p -> p.module().isHall(), Set.of(hallIndex));
+        Set<Integer> fixtures = pick(random, placements, wanted, p -> p.module().isHall(), bossRooms);
 
         Set<Integer> offLimits = new LinkedHashSet<>(fixtures);
-        offLimits.add(hallIndex);
+        offLimits.addAll(bossRooms);
         int wantedTraps = maxTraps <= 0 ? 0 : MIN_TRAPS + random.nextInt(maxTraps - MIN_TRAPS + 1);
         Set<Integer> traps = pick(random, placements, wantedTraps,
             p -> !p.module().isStairs(), offLimits);
+        Set<Integer> servitors = everyOther(placements, bossRooms);
+        Set<Integer> titans = titans(placements, bossRooms, anchorRoom, titanRoom);
 
         List<Placement> out = new ArrayList<>(placements.size());
         for (int index = 0; index < placements.size(); index++) {
@@ -103,9 +149,43 @@ public final class DungeonPlanner {
                 placement.level(), placement.cellZ(),
                 new Fittings(crystalite.contains(index), taps.contains(index), fixture, index == hallIndex,
                     traps.contains(index) ? DungeonTraps.roll(random) : null,
-                    anchorRoom != null && anchorRoom == index)));
+                    anchorRoom != null && anchorRoom == index,
+                    servitors.contains(index) && !titans.contains(index), titans.contains(index))));
         }
         return out;
+    }
+
+    private static Set<Integer> everyOther(List<Placement> placements, Set<Integer> bossRooms) {
+        Set<Integer> chosen = new LinkedHashSet<>();
+        int eligible = 0;
+        for (int index = 0; index < placements.size(); index++) {
+            if (bossRooms.contains(index) || placements.get(index).module().isStairs()) {
+                continue;
+            }
+            if (eligible++ % 2 == 0) {
+                chosen.add(index);
+            }
+        }
+        return chosen;
+    }
+
+    private static Set<Integer> titans(List<Placement> placements, Set<Integer> bossRooms, Integer anchorRoom,
+                                       Predicate<DungeonModules.Module> titanRoom) {
+        Set<Integer> chosen = new LinkedHashSet<>();
+        int sinceLast = 0;
+        for (int index = 0; index < placements.size(); index++) {
+            Placement placement = placements.get(index);
+            if (bossRooms.contains(index) || placement.module().isStairs()
+                || (anchorRoom != null && anchorRoom == index)) {
+                continue;
+            }
+            sinceLast++;
+            if (sinceLast >= TITAN_GAPS[chosen.size() % TITAN_GAPS.length] && titanRoom.test(placement.module())) {
+                chosen.add(index);
+                sinceLast = 0;
+            }
+        }
+        return chosen;
     }
 
     private static Set<Integer> pick(RandomSource random, List<Placement> placements, int wanted,
@@ -148,18 +228,19 @@ public final class DungeonPlanner {
             frontier.add(to);
         }
 
-        return new Blob(cells, findHub(random, cells, frontier, barred));
+        return new Blob(cells, findHub(random, cells, frontier, barred, null), frontier, barred);
     }
 
-    private static Cell findHub(RandomSource random, Set<Cell> cells, List<Cell> frontier, Set<Cell> barred) {
+    private static Cell findHub(RandomSource random, Set<Cell> cells, List<Cell> frontier, Set<Cell> barred,
+                                Cell taken) {
         for (int attempt = 0; attempt < HUB_ATTEMPTS; attempt++) {
-            Cell hub = tryHub(frontier.get(random.nextInt(frontier.size())), cells, frontier, barred);
+            Cell hub = tryHub(frontier.get(random.nextInt(frontier.size())), cells, frontier, barred, taken);
             if (hub != null) {
                 return hub;
             }
         }
         for (Cell candidate : List.copyOf(frontier)) {
-            Cell hub = tryHub(candidate, cells, frontier, barred);
+            Cell hub = tryHub(candidate, cells, frontier, barred, taken);
             if (hub != null) {
                 return hub;
             }
@@ -167,7 +248,11 @@ public final class DungeonPlanner {
         return null;
     }
 
-    private static Cell tryHub(Cell candidate, Set<Cell> cells, List<Cell> frontier, Set<Cell> barred) {
+    private static Cell tryHub(Cell candidate, Set<Cell> cells, List<Cell> frontier, Set<Cell> barred,
+                               Cell taken) {
+        if (candidate.equals(taken)) {
+            return null;
+        }
         List<Cell> missing = new ArrayList<>();
         for (int bit = 0; bit < 4; bit++) {
             Cell neighbour = candidate.step(1 << bit);
@@ -184,10 +269,11 @@ public final class DungeonPlanner {
         return candidate;
     }
 
-    private static int layOut(List<Placement> out, Blob blob, Cell stairwell, int level,
-                              DungeonModules.Module stairs, Rotation stairRotation,
-                              boolean withHall, RandomSource random) {
+    private static int[] layOut(List<Placement> out, Blob blob, Cell stairwell, int level,
+                                DungeonModules.Module stairs, Rotation stairRotation,
+                                boolean withHall, Cell corrupt, RandomSource random) {
         int hallIndex = -1;
+        int corruptIndex = -1;
         for (Cell cell : blob.cells()) {
             if (cell.equals(stairwell)) {
                 out.add(new Placement(stairs, stairRotation, cell.x(), level, cell.z(), Fittings.NONE));
@@ -200,8 +286,10 @@ public final class DungeonPlanner {
                 }
             }
             boolean isHall = withHall && cell.equals(blob.hub());
+            boolean isCorrupt = cell.equals(corrupt);
             DungeonModules.Module module = isHall
-                ? DungeonModules.BOSS_HALL
+                ? DungeonModules.pick(DungeonModules.BOSS_HALLS, random)
+                : isCorrupt ? DungeonModules.CORRUPT_HALL
                 : DungeonModules.pick(DungeonModules.familyFor(mask), random);
             int turns = DungeonModules.turnsOnto(module.mask(), mask, random);
             if (turns < 0) {
@@ -212,8 +300,11 @@ public final class DungeonPlanner {
             if (isHall) {
                 hallIndex = out.size() - 1;
             }
+            if (isCorrupt) {
+                corruptIndex = out.size() - 1;
+            }
         }
-        return hallIndex;
+        return new int[] {hallIndex, corruptIndex};
     }
 
     private static boolean inReach(Cell cell) {

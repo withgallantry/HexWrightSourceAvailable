@@ -4,6 +4,7 @@ import at.petrak.hexcasting.api.pigment.ColorProvider;
 import at.petrak.hexcasting.api.pigment.FrozenPigment;
 import at.petrak.hexcasting.xplat.IXplatAbstractions;
 import com.bluup.hexwright.Hexwright;
+import com.bluup.hexwright.HexwrightDebug;
 import com.bluup.hexwright.client.render.IrisCompat;
 import com.bluup.hexwright.client.render.SceneSnapshot;
 import com.mojang.blaze3d.pipeline.RenderTarget;
@@ -24,7 +25,6 @@ import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.ShaderInstance;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.Level;
@@ -40,9 +40,8 @@ import java.util.List;
 import java.util.Map;
 
 public final class StaffCoreSphereVisualClient {
-    private static final ResourceLocation SHIELD_WHITE = new ResourceLocation("hexwright", "textures/effects/shield_white.png");
-    private static final RenderType SHIELD_TYPE = RenderType.entityTranslucent(SHIELD_WHITE);
-    private static final RenderType BAND_TYPE = RenderType.entityTranslucentCull(SHIELD_WHITE);
+    private static final RenderType SHIELD_TYPE = ShieldLayers.shield();
+    private static final RenderType BAND_TYPE = ShieldLayers.bands();
     private static final int GRID_X = 28;
     private static final int GRID_Y = 28;
     private static final float OPEN_CLOSE_TICKS = 18.0f;
@@ -99,7 +98,7 @@ public final class StaffCoreSphereVisualClient {
 
     public static void register() {
         ClientTickEvents.END_CLIENT_TICK.register(StaffCoreSphereVisualClient::onClientTick);
-        WorldRenderEvents.AFTER_TRANSLUCENT.register(context -> render(Minecraft.getInstance(), context));
+        WorldRenderEvents.LAST.register(context -> render(Minecraft.getInstance(), context));
     }
 
     public static void handleSphereVisual(int entityId, boolean active, @Nullable CompoundTag pigmentTag, double halfExtent) {
@@ -191,7 +190,7 @@ public final class StaffCoreSphereVisualClient {
 
         if (!announcedSwitches) {
             announcedSwitches = true;
-            Hexwright.LOGGER.info("Shield visual: faces={} glow={} debug={} face={}"
+            HexwrightDebug.log(HexwrightDebug.RENDER, "Shield visual: faces={} glow={} debug={} face={}"
                     + " (a switch that never arrives looks exactly like a switch that did nothing)",
                 DRAW_FACES, DRAW_GLOW, DEBUG_MODE, DEBUG_FACE);
         }
@@ -203,6 +202,11 @@ public final class StaffCoreSphereVisualClient {
 
         Vec3 camera = mc.gameRenderer.getMainCamera().getPosition();
         PoseStack poseStack = context.matrixStack();
+
+        PoseStack modelView = RenderSystem.getModelViewStack();
+        modelView.pushPose();
+        modelView.setIdentity();
+        RenderSystem.applyModelViewMatrix();
 
         poseStack.pushPose();
         poseStack.translate(-camera.x, -camera.y, -camera.z);
@@ -223,13 +227,15 @@ public final class StaffCoreSphereVisualClient {
                     renderCube(vc, poseStack, cube, time);
                 }
             }
+            if (consumers instanceof MultiBufferSource.BufferSource bufferSource) {
+                bufferSource.endBatch(SHIELD_TYPE);
+            }
         } finally {
             poseStack.popPose();
+            modelView.popPose();
+            RenderSystem.applyModelViewMatrix();
         }
 
-        if (consumers instanceof MultiBufferSource.BufferSource bufferSource) {
-            bufferSource.endBatch(SHIELD_TYPE);
-        }
         drawContactGlow(mc, context, camera, live, contactDepth);
     }
 
@@ -299,51 +305,54 @@ public final class StaffCoreSphereVisualClient {
         modelViewStack.mulPoseMatrix(cameraRotation);
         RenderSystem.applyModelViewMatrix();
 
-        RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
-        RenderSystem.disableCull();
-        RenderSystem.disableDepthTest();
-        RenderSystem.depthMask(false);
+        try {
+            RenderSystem.enableBlend();
+            RenderSystem.defaultBlendFunc();
+            RenderSystem.disableCull();
+            RenderSystem.disableDepthTest();
+            RenderSystem.depthMask(false);
 
-        shader.safeGetUniform("NearFar").set(NEAR_PLANE, mc.gameRenderer.getDepthFar());
-        shader.safeGetUniform("GlowWidth").set(CONTACT_GLOW_WIDTH);
-        shader.safeGetUniform("FieldRange").set(ShieldContactField.RANGE);
-        shader.safeGetUniform("DebugMode").set(DEBUG_MODE);
-        shader.safeGetUniform("DebugFace").set(DEBUG_FACE);
-        shader.safeGetUniform("InkOrigin").set(
-            (float) wrapInkOrigin(camera.x),
-            (float) wrapInkOrigin(camera.y),
-            (float) wrapInkOrigin(camera.z)
-        );
-        shader.setSampler("SamplerSceneDepth", depthTexture);
-        RenderSystem.setShader(() -> shader);
+            shader.safeGetUniform("NearFar").set(NEAR_PLANE, mc.gameRenderer.getDepthFar());
+            shader.safeGetUniform("GlowWidth").set(CONTACT_GLOW_WIDTH);
+            shader.safeGetUniform("FieldRange").set(ShieldContactField.RANGE);
+            shader.safeGetUniform("DebugMode").set(DEBUG_MODE);
+            shader.safeGetUniform("DebugFace").set(DEBUG_FACE);
+            shader.safeGetUniform("InkOrigin").set(
+                (float) wrapInkOrigin(camera.x),
+                (float) wrapInkOrigin(camera.y),
+                (float) wrapInkOrigin(camera.z)
+            );
+            shader.setSampler("SamplerSceneDepth", depthTexture);
+            RenderSystem.setShader(() -> shader);
 
-        for (LiveCube cube : live) {
-            ShieldContactField field = cube.field();
-            if (field == null || !field.ready()) {
-                continue;
+            for (LiveCube cube : live) {
+                ShieldContactField field = cube.field();
+                if (field == null || !field.ready()) {
+                    continue;
+                }
+                int alpha = Mth.clamp((int) (255.0f * cube.easedProgress()), 0, 255);
+                if (alpha <= 0) {
+                    continue;
+                }
+                int rgb = lighten(cube.baseColor(), CONTACT_GLOW_LIGHTEN);
+                shader.safeGetUniform("FieldCell").set(field.cellSize());
+                shader.setSampler("SamplerContactField", field.textureId());
+
+                BufferBuilder builder = Tesselator.getInstance().getBuilder();
+                builder.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR_TEX);
+                glowBox(builder, cube, camera, field,
+                    (rgb >> 16) & 0xFF, (rgb >> 8) & 0xFF, rgb & 0xFF, alpha);
+                BufferUploader.drawWithShader(builder.end());
             }
-            int alpha = Mth.clamp((int) (255.0f * cube.easedProgress()), 0, 255);
-            if (alpha <= 0) {
-                continue;
-            }
-            int rgb = lighten(cube.baseColor(), CONTACT_GLOW_LIGHTEN);
-            shader.safeGetUniform("FieldCell").set(field.cellSize());
-            shader.setSampler("SamplerContactField", field.textureId());
 
-            BufferBuilder builder = Tesselator.getInstance().getBuilder();
-            builder.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR_TEX);
-            glowBox(builder, cube, camera, field,
-                (rgb >> 16) & 0xFF, (rgb >> 8) & 0xFF, rgb & 0xFF, alpha);
-            BufferUploader.drawWithShader(builder.end());
+            RenderSystem.depthMask(true);
+            RenderSystem.enableDepthTest();
+            RenderSystem.enableCull();
+            RenderSystem.disableBlend();
+        } finally {
+            modelViewStack.popPose();
+            RenderSystem.applyModelViewMatrix();
         }
-
-        RenderSystem.depthMask(true);
-        RenderSystem.enableDepthTest();
-        RenderSystem.enableCull();
-        RenderSystem.disableBlend();
-        modelViewStack.popPose();
-        RenderSystem.applyModelViewMatrix();
     }
 
     private static int contactDepthTexture(Minecraft mc) {
@@ -598,13 +607,9 @@ public final class StaffCoreSphereVisualClient {
         float maxXO = maxX + EDGE_OFFSET;
         float minYO = minY - EDGE_OFFSET;
         float maxYO = maxY + EDGE_OFFSET;
-        float minZO = minZ - EDGE_OFFSET;
-        float maxZO = maxZ + EDGE_OFFSET;
 
-        drawFaceOutlineRect(vc, mat, normal, maxXO, true, minZ, maxZ, minY, maxY, r, g, b, a, 1.0f, 0.0f, 0.0f);
-        drawFaceOutlineRect(vc, mat, normal, minXO, true, minZ, maxZ, minY, maxY, r, g, b, a, -1.0f, 0.0f, 0.0f);
-        drawFaceOutlineRect(vc, mat, normal, maxZO, false, minX, maxX, minY, maxY, r, g, b, a, 0.0f, 0.0f, 1.0f);
-        drawFaceOutlineRect(vc, mat, normal, minZO, false, minX, maxX, minY, maxY, r, g, b, a, 0.0f, 0.0f, -1.0f);
+        drawFaceOutlineRect(vc, mat, normal, maxXO, minZ, maxZ, minY, maxY, r, g, b, a, 1.0f, 0.0f, 0.0f);
+        drawFaceOutlineRect(vc, mat, normal, minXO, minZ, maxZ, minY, maxY, r, g, b, a, -1.0f, 0.0f, 0.0f);
         drawHorizontalFaceOutlineRect(vc, mat, normal, maxYO, minX, maxX, minZ, maxZ, r, g, b, a, 0.0f, 1.0f, 0.0f);
         drawHorizontalFaceOutlineRect(vc, mat, normal, minYO, minX, maxX, minZ, maxZ, r, g, b, a, 0.0f, -1.0f, 0.0f);
     }
@@ -639,8 +644,6 @@ public final class StaffCoreSphereVisualClient {
 
         quadTwoSided(vc, mat, normal, xMin, y, zMin, xMin, y, zMin + t, xMax, y, zMin + t, xMax, y, zMin, r, g, b, a, nx, ny, nz);
         quadTwoSided(vc, mat, normal, xMin, y, zMax - t, xMin, y, zMax, xMax, y, zMax, xMax, y, zMax - t, r, g, b, a, nx, ny, nz);
-        quadTwoSided(vc, mat, normal, xMin, y, zMin + t, xMin, y, zMax - t, xMin + t, y, zMax - t, xMin + t, y, zMin + t, r, g, b, a, nx, ny, nz);
-        quadTwoSided(vc, mat, normal, xMax - t, y, zMin + t, xMax - t, y, zMax - t, xMax, y, zMax - t, xMax, y, zMin + t, r, g, b, a, nx, ny, nz);
     }
 
     private static void drawFaceOutlineRect(
@@ -648,7 +651,6 @@ public final class StaffCoreSphereVisualClient {
         Matrix4f mat,
         Matrix3f normal,
         float fixed,
-        boolean fixedX,
         float spanMin,
         float spanMax,
         float yMin,
@@ -672,18 +674,10 @@ public final class StaffCoreSphereVisualClient {
             return;
         }
 
-        if (fixedX) {
-            quadTwoSided(vc, mat, normal, fixed, yMin, spanMin, fixed, yMin + t, spanMin, fixed, yMin + t, spanMax, fixed, yMin, spanMax, r, g, b, a, nx, ny, nz);
-            quadTwoSided(vc, mat, normal, fixed, yMax - t, spanMin, fixed, yMax, spanMin, fixed, yMax, spanMax, fixed, yMax - t, spanMax, r, g, b, a, nx, ny, nz);
-            quadTwoSided(vc, mat, normal, fixed, yMin + t, spanMin, fixed, yMax - t, spanMin, fixed, yMax - t, spanMin + t, fixed, yMin + t, spanMin + t, r, g, b, a, nx, ny, nz);
-            quadTwoSided(vc, mat, normal, fixed, yMin + t, spanMax - t, fixed, yMax - t, spanMax - t, fixed, yMax - t, spanMax, fixed, yMin + t, spanMax, r, g, b, a, nx, ny, nz);
-            return;
-        }
-
-        quadTwoSided(vc, mat, normal, spanMin, yMin, fixed, spanMin, yMin + t, fixed, spanMax, yMin + t, fixed, spanMax, yMin, fixed, r, g, b, a, nx, ny, nz);
-        quadTwoSided(vc, mat, normal, spanMin, yMax - t, fixed, spanMin, yMax, fixed, spanMax, yMax, fixed, spanMax, yMax - t, fixed, r, g, b, a, nx, ny, nz);
-        quadTwoSided(vc, mat, normal, spanMin, yMin + t, fixed, spanMin, yMax - t, fixed, spanMin + t, yMax - t, fixed, spanMin + t, yMin + t, fixed, r, g, b, a, nx, ny, nz);
-        quadTwoSided(vc, mat, normal, spanMax - t, yMin + t, fixed, spanMax - t, yMax - t, fixed, spanMax, yMax - t, fixed, spanMax, yMin + t, fixed, r, g, b, a, nx, ny, nz);
+        quadTwoSided(vc, mat, normal, fixed, yMin, spanMin, fixed, yMin + t, spanMin, fixed, yMin + t, spanMax, fixed, yMin, spanMax, r, g, b, a, nx, ny, nz);
+        quadTwoSided(vc, mat, normal, fixed, yMax - t, spanMin, fixed, yMax, spanMin, fixed, yMax, spanMax, fixed, yMax - t, spanMax, r, g, b, a, nx, ny, nz);
+        quadTwoSided(vc, mat, normal, fixed, yMin + t, spanMin, fixed, yMax - t, spanMin, fixed, yMax - t, spanMin + t, fixed, yMin + t, spanMin + t, r, g, b, a, nx, ny, nz);
+        quadTwoSided(vc, mat, normal, fixed, yMin + t, spanMax - t, fixed, yMax - t, spanMax - t, fixed, yMax - t, spanMax, fixed, yMin + t, spanMax, r, g, b, a, nx, ny, nz);
     }
 
     private static void quadTwoSided(

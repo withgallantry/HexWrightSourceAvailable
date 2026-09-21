@@ -6,9 +6,7 @@ import at.petrak.hexcasting.api.casting.eval.vm.CastingVM;
 import at.petrak.hexcasting.api.casting.iota.EntityIota;
 import at.petrak.hexcasting.api.casting.iota.Iota;
 import at.petrak.hexcasting.api.casting.iota.ListIota;
-import at.petrak.hexcasting.api.casting.iota.PatternIota;
 import at.petrak.hexcasting.api.casting.iota.Vec3Iota;
-import at.petrak.hexcasting.api.casting.math.HexPattern;
 import at.petrak.hexcasting.common.lib.HexAttributes;
 import com.bluup.hexwright.common.staff_assembly.calc.CoreData;
 import com.bluup.hexwright.common.staff_assembly.calc.CoreRegistry;
@@ -28,7 +26,6 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -76,16 +73,11 @@ public final class StaffPowers {
     }
 
     public static void executeTickWithBuckets(ServerPlayer player, ItemStack staff, ListIota entityBuckets, @Nullable AABB rangeBox) {
-        executeWithSeed(player, StaffAssemblyData.getAreaCastPatterns(staff), entityBuckets, rangeBox);
+        executeWithSeed(player, StaffAssemblyData.getBoundHex(staff, player.serverLevel()), entityBuckets, rangeBox);
     }
 
-    public static void executeWithSeed(ServerPlayer player, List<HexPattern> patterns, Iota seed, @Nullable AABB rangeBox) {
-        if (patterns.isEmpty()) {
-            return;
-        }
-
-        List<Iota> executable = patterns.stream().map(PatternIota::new).collect(Collectors.toList());
-        if (executable.isEmpty()) {
+    public static void executeWithSeed(ServerPlayer player, List<Iota> hex, Iota seed, @Nullable AABB rangeBox) {
+        if (hex.isEmpty()) {
             return;
         }
 
@@ -105,7 +97,7 @@ public final class StaffPowers {
             }
 
             CastingVM vm = new CastingVM(seededImage, env);
-            vm.queueExecuteAndWrapIotas(executable, player.serverLevel());
+            vm.queueExecuteAndWrapIotas(hex, player.serverLevel());
         } catch (RuntimeException ignored) {
         }
     }
@@ -141,26 +133,6 @@ public final class StaffPowers {
         var living = env.getCastingEntity();
         ItemStack held = living.getItemInHand(env.getCastingHand());
         return held.is(HexwrightItems.CONFIGURABLE_STAFF) ? held : ItemStack.EMPTY;
-    }
-
-    public static @Nullable List<HexPattern> patternsFromIota(@Nullable Iota datum) {
-        if (datum instanceof PatternIota patternIota) {
-            return List.of(patternIota.getPattern());
-        }
-
-        if (!(datum instanceof ListIota listIota)) {
-            return null;
-        }
-
-        List<HexPattern> out = new ArrayList<>();
-        for (Iota entry : listIota.getList()) {
-            if (!(entry instanceof PatternIota patternIota)) {
-                return null;
-            }
-            out.add(patternIota.getPattern());
-        }
-
-        return out;
     }
 
     public static ListIota buildEntityBuckets(Level level, AABB scanBox, @Nullable Entity excludeFromPlayers) {

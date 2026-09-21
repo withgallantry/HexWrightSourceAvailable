@@ -16,6 +16,7 @@ import com.bluup.hexwright.server.item.PentaboxItem;
 import com.bluup.hexwright.server.pentabox.PentaboxData;
 import com.bluup.hexwright.server.talisman.TalismanDesign;
 import com.bluup.hexwright.server.talisman.TalismanItem;
+import com.bluup.hexwright.server.reliquary.ChestCastEnv;
 import com.bluup.hexwright.server.reliquary.ReliquaryStore;
 import com.bluup.hexwright.server.reliquary.ReliquaryWindow;
 import com.bluup.hexwright.server.reliquary.SatchelItem;
@@ -52,7 +53,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.function.Supplier;
 
 public final class HexwrightNetworking {
     public static final ResourceLocation STAFF_CORE_BEAM_C2S = Hexwright.id("staff_core_beam_c2s");
@@ -69,6 +69,8 @@ public final class HexwrightNetworking {
     public static final ResourceLocation MASTERY_SYNC_S2C = Hexwright.id("mastery_sync_s2c");
     public static final ResourceLocation RECIPE_UNLOCK_SYNC_S2C = Hexwright.id("recipe_unlock_sync_s2c");
     public static final ResourceLocation INVESTIGATION_SYNC_S2C = Hexwright.id("investigation_sync_s2c");
+    public static final ResourceLocation JOURNAL_TOAST_S2C = Hexwright.id("journal_toast_s2c");
+    public static final ResourceLocation JOURNAL_ARTIFACT_SYNC_S2C = Hexwright.id("journal_artifact_sync_s2c");
     public static final ResourceLocation RESONANCE_NAMES_SYNC_S2C = Hexwright.id("resonance_names_sync_s2c");
     public static final ResourceLocation ARTISAN_SIGNET_SIGN_C2S = Hexwright.id("artisan_signet_sign_c2s");
     public static final ResourceLocation TALISMAN_DESIGN_C2S = Hexwright.id("talisman_design_c2s");
@@ -84,11 +86,15 @@ public final class HexwrightNetworking {
     public static final ResourceLocation WARD_TRIGGER_S2C = Hexwright.id("ward_trigger_s2c");
     public static final ResourceLocation PROJECTILE_HIT_S2C = Hexwright.id("projectile_hit_s2c");
     public static final ResourceLocation GROUND_SLAM_S2C = Hexwright.id("ground_slam_s2c");
+    public static final ResourceLocation COG_SCORCH_S2C = Hexwright.id("cog_scorch_s2c");
+    public static final ResourceLocation PASSAGE_PORTAL_S2C = Hexwright.id("passage_portal_s2c");
+    public static final ResourceLocation SKYFALL_VFX_S2C = Hexwright.id("skyfall_vfx_s2c");
     public static final ResourceLocation VEHICLE_DESCEND_INPUT_C2S = Hexwright.id("vehicle_descend_input_c2s");
     public static final ResourceLocation VEHICLE_DEBUG_REQUEST_C2S = Hexwright.id("vehicle_debug_request_c2s");
     public static final ResourceLocation VEHICLE_DEBUG_S2C = Hexwright.id("vehicle_debug_s2c");
     public static final ResourceLocation PORTAL_SYNC_S2C = Hexwright.id("portal_sync_s2c");
     public static final ResourceLocation VOID_TEAR_S2C = Hexwright.id("void_tear_s2c");
+    public static final ResourceLocation DUST_S2C = Hexwright.id("dust_s2c");
     public static final ResourceLocation PORTAL_USE_C2S = Hexwright.id("portal_use_c2s");
     public static final ResourceLocation PORTAL_ATTACK_C2S = Hexwright.id("portal_attack_c2s");
     public static final ResourceLocation PORTAL_CROSS_C2S = Hexwright.id("portal_cross_c2s");
@@ -140,6 +146,26 @@ public final class HexwrightNetworking {
             buf.writeUtf(id);
         }
         ServerPlayNetworking.send(player, INVESTIGATION_SYNC_S2C, buf);
+    }
+
+    public static void sendArtifactSync(ServerPlayer player) {
+        java.util.Set<String> found =
+            com.bluup.hexwright.server.journal.InvestigationProgress.artifactsFor(player);
+        FriendlyByteBuf buf = PacketByteBufs.create();
+        buf.writeVarInt(found.size());
+        for (String id : found) {
+            buf.writeUtf(id);
+        }
+        ServerPlayNetworking.send(player, JOURNAL_ARTIFACT_SYNC_S2C, buf);
+    }
+
+    public static void sendJournalToast(ServerPlayer player,
+                                        com.bluup.hexwright.server.journal.JournalToastKind kind,
+                                        String entryId) {
+        FriendlyByteBuf buf = PacketByteBufs.create();
+        buf.writeByte(kind.id());
+        buf.writeUtf(entryId);
+        ServerPlayNetworking.send(player, JOURNAL_TOAST_S2C, buf);
     }
 
     public static void sendResonanceNames(ServerPlayer player) {
@@ -208,7 +234,7 @@ public final class HexwrightNetworking {
                     return;
                 }
                 if (PentaboxData.isLinkedStack(held)) {
-                    ItemStack pentabox = PentaboxData.getLinkedPentabox(held);
+                    ItemStack pentabox = PentaboxData.peekBox(server, held);
                     if (pentabox.getItem() instanceof PentaboxItem) {
                         PentaboxItem.openMenuFromLinkedSlot(player, hand);
                     }
@@ -702,6 +728,21 @@ public final class HexwrightNetworking {
             client.execute(() -> com.bluup.hexwright.client.journal.ClientInvestigations.set(completed));
         });
 
+        ClientPlayNetworking.registerGlobalReceiver(JOURNAL_ARTIFACT_SYNC_S2C, (client, handler, buf, responseSender) -> {
+            int count = buf.readVarInt();
+            List<String> found = new ArrayList<>(count);
+            for (int i = 0; i < count; i++) {
+                found.add(buf.readUtf());
+            }
+            client.execute(() -> com.bluup.hexwright.client.journal.ClientInvestigations.setArtifacts(found));
+        });
+
+        ClientPlayNetworking.registerGlobalReceiver(JOURNAL_TOAST_S2C, (client, handler, buf, responseSender) -> {
+            var kind = com.bluup.hexwright.server.journal.JournalToastKind.byId(buf.readByte());
+            String entryId = buf.readUtf();
+            client.execute(() -> com.bluup.hexwright.client.journal.JournalToast.show(kind, entryId));
+        });
+
         ClientPlayNetworking.registerGlobalReceiver(RESONANCE_NAMES_SYNC_S2C, (client, handler, buf, responseSender) -> {
             boolean full = buf.readBoolean();
             int count = buf.readVarInt();
@@ -797,6 +838,33 @@ public final class HexwrightNetworking {
                 .handleSlam(impact, radius));
         });
 
+        ClientPlayNetworking.registerGlobalReceiver(COG_SCORCH_S2C, (client, handler, buf, responseSender) -> {
+            int count = buf.readVarInt();
+            java.util.List<Vec3> marks = new java.util.ArrayList<>(count);
+            for (int mark = 0; mark < count; mark++) {
+                marks.add(new Vec3(buf.readDouble(), buf.readDouble(), buf.readDouble()));
+            }
+            client.execute(() -> com.bluup.hexwright.client.boss.cog.CogScorchClient.handleMarks(marks));
+        });
+
+        ClientPlayNetworking.registerGlobalReceiver(PASSAGE_PORTAL_S2C, (client, handler, buf, responseSender) -> {
+            UUID traveller = buf.readUUID();
+            boolean arriving = buf.readBoolean();
+            Vec3 at = new Vec3(buf.readDouble(), buf.readDouble(), buf.readDouble());
+            float yaw = buf.readFloat();
+            client.execute(() -> com.bluup.hexwright.client.armour.PassagePortalVisualClient
+                .handlePortal(traveller, arriving, at, yaw));
+        });
+
+        ClientPlayNetworking.registerGlobalReceiver(SKYFALL_VFX_S2C, (client, handler, buf, responseSender) -> {
+            int kind = buf.readByte();
+            Vec3 at = new Vec3(buf.readDouble(), buf.readDouble(), buf.readDouble());
+            float yaw = buf.readFloat();
+            int variant = buf.readByte();
+            client.execute(() -> com.bluup.hexwright.client.weapon.SkyfallVisualClient
+                .handle(kind, at, yaw, variant));
+        });
+
         ClientPlayNetworking.registerGlobalReceiver(HEXICON_BOOK_OPEN_S2C, (client, handler, buf, responseSender) -> {
             UUID playerId = buf.readUUID();
             boolean open = buf.readBoolean();
@@ -831,6 +899,11 @@ public final class HexwrightNetworking {
                 default -> {
                 }
             }
+        });
+
+        ClientPlayNetworking.registerGlobalReceiver(DUST_S2C, (client, handler, buf, responseSender) -> {
+            com.bluup.hexwright.server.dust.DustPacket packet = com.bluup.hexwright.server.dust.DustPacket.read(buf);
+            client.execute(() -> com.bluup.hexwright.client.dust.DustClient.handle(packet));
         });
 
         ClientPlayNetworking.registerGlobalReceiver(VOID_TEAR_S2C, (client, handler, buf, responseSender) -> {
@@ -938,6 +1011,24 @@ public final class HexwrightNetworking {
             pair.write(buf);
             ServerPlayNetworking.send(player, PORTAL_SYNC_S2C, buf);
         }
+    }
+
+    public static void broadcastDust(net.minecraft.world.entity.Entity caster,
+                                     com.bluup.hexwright.server.dust.DustPacket packet) {
+        if (caster instanceof ServerPlayer self) {
+            sendDust(self, packet);
+        }
+        for (ServerPlayer tracking : PlayerLookup.tracking(caster)) {
+            if (tracking != caster) {
+                sendDust(tracking, packet);
+            }
+        }
+    }
+
+    public static void sendDust(ServerPlayer player, com.bluup.hexwright.server.dust.DustPacket packet) {
+        FriendlyByteBuf buf = PacketByteBufs.create();
+        packet.write(buf);
+        ServerPlayNetworking.send(player, DUST_S2C, buf);
     }
 
     public static void broadcastVoidTear(ServerLevel level, com.bluup.hexwright.server.portal.VoidTear tear) {
@@ -1142,6 +1233,49 @@ public final class HexwrightNetworking {
         }
     }
 
+    public static void sendCogScorch(ServerLevel level, Vec3 origin, java.util.List<Vec3> marks) {
+        if (marks.isEmpty()) {
+            return;
+        }
+        for (ServerPlayer tracking : PlayerLookup.tracking(level, BlockPos.containing(origin))) {
+            FriendlyByteBuf buf = PacketByteBufs.create();
+            buf.writeVarInt(marks.size());
+            for (Vec3 mark : marks) {
+                buf.writeDouble(mark.x);
+                buf.writeDouble(mark.y);
+                buf.writeDouble(mark.z);
+            }
+            ServerPlayNetworking.send(tracking, COG_SCORCH_S2C, buf);
+        }
+    }
+
+    public static void sendPassagePortal(ServerLevel level, net.minecraft.world.entity.Entity traveller,
+                                         Vec3 at, boolean arriving, float yaw) {
+        for (ServerPlayer tracking : PlayerLookup.tracking(level, BlockPos.containing(at))) {
+            FriendlyByteBuf buf = PacketByteBufs.create();
+            buf.writeUUID(traveller.getUUID());
+            buf.writeBoolean(arriving);
+            buf.writeDouble(at.x);
+            buf.writeDouble(at.y);
+            buf.writeDouble(at.z);
+            buf.writeFloat(yaw);
+            ServerPlayNetworking.send(tracking, PASSAGE_PORTAL_S2C, buf);
+        }
+    }
+
+    public static void sendSkyfallVfx(ServerLevel level, int kind, Vec3 at, float yaw, int variant) {
+        for (ServerPlayer tracking : PlayerLookup.tracking(level, BlockPos.containing(at))) {
+            FriendlyByteBuf buf = PacketByteBufs.create();
+            buf.writeByte(kind);
+            buf.writeDouble(at.x);
+            buf.writeDouble(at.y);
+            buf.writeDouble(at.z);
+            buf.writeFloat(yaw);
+            buf.writeByte(variant);
+            ServerPlayNetworking.send(tracking, SKYFALL_VFX_S2C, buf);
+        }
+    }
+
     public static void sendStaffCoreBeam(boolean active, boolean crosshairFree, boolean leftClickBusy) {
         FriendlyByteBuf buf = PacketByteBufs.create();
         buf.writeBoolean(active);
@@ -1255,6 +1389,24 @@ public final class HexwrightNetworking {
         sendSatchelBackpackView(player, true, entries);
     }
 
+    private static ChestCastEnv.HeldSlot wornSatchelHeldSlot(ServerPlayer player) {
+        return new ChestCastEnv.HeldSlot() {
+            @Override
+            public ItemStack get() {
+                ItemStack current = firstWornSatchel(player);
+                return current == null ? ItemStack.EMPTY : SatchelItem.getHeld(current);
+            }
+
+            @Override
+            public void set(ItemStack stack) {
+                ItemStack current = firstWornSatchel(player);
+                if (current != null) {
+                    SatchelItem.setHeld(current, stack);
+                }
+            }
+        };
+    }
+
     private static @Nullable List<ItemStack> computeSatchelBackpackView(ServerPlayer player) {
         if (!WornAccessories.hasProvider() || player.getServer() == null) {
             return null;
@@ -1268,10 +1420,7 @@ public final class HexwrightNetworking {
             return List.of();
         }
         ItemStack openFocus = SatchelUIFactory.effectiveHookFocus(player, satchel, key, SatchelItem.Hook.OPEN);
-        Supplier<ItemStack> heldSlot = () -> {
-            ItemStack current = firstWornSatchel(player);
-            return current == null ? ItemStack.EMPTY : SatchelItem.getHeld(current);
-        };
+        ChestCastEnv.HeldSlot heldSlot = wornSatchelHeldSlot(player);
         return ReliquaryWindow.runOpen(player, InteractionHand.MAIN_HAND, openFocus, heldSlot);
     }
 
@@ -1295,10 +1444,7 @@ public final class HexwrightNetworking {
         ItemStack shown = slotIndex < lastView.size() ? lastView.get(slotIndex) : ItemStack.EMPTY;
 
         InteractionHand hand = InteractionHand.MAIN_HAND;
-        Supplier<ItemStack> heldSlot = () -> {
-            ItemStack current = firstWornSatchel(player);
-            return current == null ? ItemStack.EMPTY : SatchelItem.getHeld(current);
-        };
+        ChestCastEnv.HeldSlot heldSlot = wornSatchelHeldSlot(player);
         net.minecraft.world.inventory.AbstractContainerMenu menu = player.containerMenu;
         boolean clientCursor = clientOwnedCursor && player.isCreative();
         ItemStack carried = menu.getCarried();

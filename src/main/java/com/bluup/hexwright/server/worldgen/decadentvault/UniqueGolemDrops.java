@@ -13,7 +13,7 @@ final class UniqueGolemDrops {
     }
 
     static ItemStack roll(RandomSource random) {
-        List<Item> weapons = HexwrightItems.ETERNAL_WEAPONS;
+        List<Item> weapons = HexwrightItems.ARTIFACT_WEAPONS;
         int roll = random.nextInt(weapons.size() * 2 + 1);
         Item item = roll >= weapons.size() * 2 ? HexwrightItems.WORLD_CRYSTAL : weapons.get(roll / 2);
         return new ItemStack(item);

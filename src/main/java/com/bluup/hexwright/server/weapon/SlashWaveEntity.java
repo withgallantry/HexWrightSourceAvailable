@@ -1,5 +1,6 @@
 package com.bluup.hexwright.server.weapon;
 
+import com.bluup.hexwright.HexwrightDebug;
 import com.bluup.hexwright.server.staff_assembly.HexwrightEntities;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.syncher.EntityDataAccessor;
@@ -90,6 +91,12 @@ public class SlashWaveEntity extends Entity {
         wave.setDeltaMovement(heading.scale(SPEED));
         level.addFreshEntity(wave);
 
+        HexwrightDebug.log(HexwrightDebug.WEAPON,
+            "[weapon] wave #{} launched: player yaw {} pitch {} / wave yaw {} pitch {}"
+                + " -> heading {} from {}",
+            wave.getId(), player.getYRot(), player.getXRot(), wave.getYRot(), wave.getXRot(),
+            heading, from);
+
         level.playSound(null, from.x, from.y, from.z,
             SoundEvents.PLAYER_ATTACK_SWEEP, SoundSource.PLAYERS, 0.7F, 1.4F);
     }
@@ -158,6 +165,9 @@ public class SlashWaveEntity extends Entity {
     }
 
     private void expire(ServerLevel level) {
+        HexwrightDebug.log(HexwrightDebug.WEAPON,
+            "[weapon] wave #{} ended server-side at {} after {} ticks, cut {}",
+            this.getId(), this.position(), this.age, this.cut.size());
         castOnCut(level);
         this.discard();
     }

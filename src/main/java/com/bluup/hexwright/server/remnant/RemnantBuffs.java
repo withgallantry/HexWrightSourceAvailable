@@ -1,12 +1,14 @@
 package com.bluup.hexwright.server.remnant;
 
 import com.bluup.hexwright.common.remnant.RemnantType;
+import com.bluup.hexwright.server.effect.HexwrightEffects;
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
@@ -91,6 +93,11 @@ public final class RemnantBuffs {
         state.forPlayer(player.getUUID()).set(type, expiresAt);
         state.setDirty();
 
+        MobEffect status = HexwrightEffects.remnantStatus(type);
+        if (status != null) {
+            HexwrightEffects.restart(player, status, durationTicks);
+        }
+
         switch (type) {
             case BALLAST -> applyModifier(player, Attributes.KNOCKBACK_RESISTANCE, type,
                 Math.min(1.0, drams / 400.0), AttributeModifier.Operation.ADDITION);
@@ -131,6 +138,8 @@ public final class RemnantBuffs {
                 dirty = true;
             }
 
+            syncStatuses(player, active, now);
+
             if (active.has(RemnantType.RIFT, now)) {
                 pullItems(player);
             }
@@ -150,6 +159,15 @@ public final class RemnantBuffs {
 
         if (dirty) {
             state.setDirty();
+        }
+    }
+
+    private static void syncStatuses(ServerPlayer player, RemnantBuffState.Active active, long now) {
+        for (Map.Entry<RemnantType, MobEffect> entry : HexwrightEffects.remnantStatuses().entrySet()) {
+            Long expiry = active.all().get(entry.getKey());
+            long remaining = expiry == null ? 0L : expiry - now;
+            HexwrightEffects.sync(player, entry.getValue(), remaining > 0L,
+                (int) Math.min(Integer.MAX_VALUE, Math.max(0L, remaining)));
         }
     }
 

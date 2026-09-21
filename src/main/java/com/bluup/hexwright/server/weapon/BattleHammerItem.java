@@ -113,7 +113,7 @@ public class BattleHammerItem extends BerserkWeaponItem {
 
     @Override
     public int strikeHitDelayTicks() {
-        return STRIKE_IMPACT_TICKS;
+        return 0;
     }
 
     @Override

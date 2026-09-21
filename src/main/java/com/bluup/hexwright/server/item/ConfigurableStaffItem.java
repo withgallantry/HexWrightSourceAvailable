@@ -1,10 +1,6 @@
 package com.bluup.hexwright.server.item;
 
 import at.petrak.hexcasting.api.casting.iota.Iota;
-import at.petrak.hexcasting.api.casting.iota.IotaType;
-import at.petrak.hexcasting.api.casting.iota.ListIota;
-import at.petrak.hexcasting.api.casting.iota.PatternIota;
-import at.petrak.hexcasting.api.casting.math.HexPattern;
 import at.petrak.hexcasting.api.item.IotaHolderItem;
 import com.bluup.hexwright.common.staff_assembly.StaffPart;
 import com.bluup.hexwright.common.staff_assembly.StaffPartCategory;
@@ -13,6 +9,7 @@ import com.bluup.hexwright.common.staff_assembly.calc.CoreData;
 import com.bluup.hexwright.common.staff_assembly.calc.CoreRegistry;
 import com.bluup.hexwright.common.staff_assembly.calc.EfficiencyRating;
 import com.bluup.hexwright.server.hexicon.HexiconData;
+import com.bluup.hexwright.server.hexpatterns.StoredHex;
 import com.bluup.hexwright.server.pocketcaster.PocketCasterData;
 import com.bluup.hexwright.server.reliquary.ChestCastEnv;
 import com.bluup.hexwright.server.staff_assembly.StaffAssemblyData;
@@ -42,13 +39,7 @@ public class ConfigurableStaffItem extends ItemHexwrightStaff implements IotaHol
     @Override
     public @Nullable CompoundTag readIotaTag(ItemStack stack) {
         if (StaffPowers.hasEntityListBindingCore(stack)) {
-            List<HexPattern> patterns = StaffAssemblyData.getAreaCastPatterns(stack);
-            if (patterns.isEmpty()) {
-                return null;
-            }
-            List<Iota> iotas = new java.util.ArrayList<>(patterns.size());
-            patterns.forEach(pattern -> iotas.add(new PatternIota(pattern)));
-            return IotaType.serialize(new ListIota(iotas));
+            return StaffAssemblyData.getBoundHexTag(stack);
         }
         if (StaffPowers.hasHexiconCore(stack)) {
             return HexiconData.readSelectedSpellTag(stack);
@@ -64,7 +55,7 @@ public class ConfigurableStaffItem extends ItemHexwrightStaff implements IotaHol
     @Override
     public boolean canWrite(ItemStack stack, @Nullable Iota iota) {
         if (StaffPowers.hasEntityListBindingCore(stack)) {
-            return iota == null || StaffPowers.patternsFromIota(iota) != null;
+            return iota == null || StoredHex.isHex(iota);
         }
         return StaffPowers.hasHexiconCore(stack) && !ChestCastEnv.isScratch(stack);
     }
@@ -72,8 +63,7 @@ public class ConfigurableStaffItem extends ItemHexwrightStaff implements IotaHol
     @Override
     public void writeDatum(ItemStack stack, @Nullable Iota iota) {
         if (StaffPowers.hasEntityListBindingCore(stack)) {
-            List<HexPattern> patterns = iota == null ? List.of() : StaffPowers.patternsFromIota(iota);
-            StaffAssemblyData.setAreaCastPatterns(stack, patterns == null ? List.of() : patterns);
+            StaffAssemblyData.setBoundHex(stack, StoredHex.decode(iota));
             return;
         }
         if (StaffPowers.hasHexiconCore(stack)) {
@@ -177,7 +167,7 @@ public class ConfigurableStaffItem extends ItemHexwrightStaff implements IotaHol
                 tooltip.add(Component.translatable("tooltip.hexwright.staff.hexicon", written).withStyle(ChatFormatting.GOLD));
             }
 
-            int areaCastCount = StaffAssemblyData.getAreaCastPatterns(stack).size();
+            int areaCastCount = StaffAssemblyData.getBoundHexSize(stack);
             if (areaCastCount > 0) {
                 tooltip.add(Component.translatable("tooltip.hexwright.staff.area_cast", areaCastCount).withStyle(ChatFormatting.GOLD));
             }

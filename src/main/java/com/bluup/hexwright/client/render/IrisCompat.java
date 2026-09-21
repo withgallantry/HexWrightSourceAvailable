@@ -1,6 +1,6 @@
 package com.bluup.hexwright.client.render;
 
-import com.bluup.hexwright.Hexwright;
+import com.bluup.hexwright.HexwrightDebug;
 import net.fabricmc.loader.api.FabricLoader;
 import net.irisshaders.iris.api.v0.IrisApi;
 import org.joml.Matrix4f;
@@ -59,7 +59,7 @@ public final class IrisCompat {
     public static void noteFinalPassHook() {
         if (!finalPassHookSeen) {
             finalPassHookSeen = true;
-            Hexwright.LOGGER.info("[iris] final-pass bloom integration active");
+            HexwrightDebug.log(HexwrightDebug.RENDER, "[iris] final-pass bloom integration active");
         }
     }
 

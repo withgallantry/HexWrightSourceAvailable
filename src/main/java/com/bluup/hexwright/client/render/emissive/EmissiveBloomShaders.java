@@ -1,6 +1,7 @@
 package com.bluup.hexwright.client.render.emissive;
 
 import com.bluup.hexwright.Hexwright;
+import com.bluup.hexwright.HexwrightDebug;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import net.fabricmc.fabric.api.resource.ResourceManagerHelper;
 import net.fabricmc.fabric.api.resource.SimpleSynchronousResourceReloadListener;
@@ -97,7 +98,7 @@ final class EmissiveBloomShaders implements SimpleSynchronousResourceReloadListe
             blur = newBlur;
             composite = newComposite;
             view = newView;
-            Hexwright.LOGGER.info("Loaded emissive bloom shaders");
+            HexwrightDebug.log(HexwrightDebug.RENDER, "Loaded emissive bloom shaders");
         } catch (IOException | RuntimeException e) {
             Hexwright.LOGGER.error("Failed to load emissive bloom shaders; bloom stays off until a retry", e);
             built.forEach(ShaderInstance::close);
