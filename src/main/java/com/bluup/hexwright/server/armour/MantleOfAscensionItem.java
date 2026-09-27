@@ -2,6 +2,7 @@ package com.bluup.hexwright.server.armour;
 
 import at.petrak.hexcasting.api.misc.MediaConstants;
 import com.bluup.hexwright.server.item.ArtifactItem;
+import com.bluup.hexwright.server.weapon.WeaponTooltips;
 import net.minecraft.ChatFormatting;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
@@ -46,10 +47,10 @@ public class MantleOfAscensionItem extends ArmorItem implements ArtifactItem, Dy
     public void appendHoverText(ItemStack stack, @Nullable Level level, List<Component> tooltip,
                                 TooltipFlag flag) {
         tooltip.add(ArtifactItem.tooltipLine());
-        tooltip.add(Component.translatable("item.hexwright.mantle_of_ascension.tip")
-            .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable("item.hexwright.mantle_of_ascension.tip.cost",
-                String.format("%.2f", MEDIA_PER_SECOND / (double) MediaConstants.DUST_UNIT))
-            .withStyle(ChatFormatting.DARK_GRAY));
+        WeaponTooltips.add(tooltip, Component.translatable("item.hexwright.mantle_of_ascension.tip"),
+            ChatFormatting.GRAY);
+        WeaponTooltips.add(tooltip, Component.translatable("item.hexwright.mantle_of_ascension.tip.cost",
+                String.format("%.2f", MEDIA_PER_SECOND / (double) MediaConstants.DUST_UNIT)),
+            ChatFormatting.DARK_GRAY);
     }
 }

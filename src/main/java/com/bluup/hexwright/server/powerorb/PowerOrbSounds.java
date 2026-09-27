@@ -9,7 +9,13 @@ import net.minecraft.sounds.SoundEvents;
 
 public enum PowerOrbSounds {
     SANCTUARY_SUMMON("sanctuary_summon", SoundEvents.ROOTED_DIRT_BREAK),
-    SANCTUARY_HEAL("sanctuary_heal", SoundEvents.AMETHYST_BLOCK_CHIME);
+    SANCTUARY_HEAL("sanctuary_heal", SoundEvents.AMETHYST_BLOCK_CHIME),
+    GUARDIAN_SUMMON("guardian_summon", SoundEvents.ILLUSIONER_CAST_SPELL),
+    GUARDIAN_GUARD("guardian_guard", SoundEvents.ARMOR_EQUIP_IRON),
+    GUARDIAN_BLOCK("guardian_block", SoundEvents.SHIELD_BLOCK),
+    GUARDIAN_STRIKE_1("guardian_strike_1", SoundEvents.PLAYER_ATTACK_SWEEP),
+    GUARDIAN_STRIKE_2("guardian_strike_2", SoundEvents.PLAYER_ATTACK_SWEEP),
+    GUARDIAN_PIERCE("guardian_pierce", SoundEvents.PLAYER_ATTACK_STRONG);
 
     private final ResourceLocation id;
     private SoundEvent event;

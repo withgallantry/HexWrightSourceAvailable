@@ -1,11 +1,16 @@
 package com.bluup.hexwright.mixin;
 
 import at.petrak.hexcasting.api.casting.eval.CastingEnvironment;
+import at.petrak.hexcasting.api.casting.iota.DoubleIota;
 import at.petrak.hexcasting.api.casting.iota.Iota;
+import at.petrak.hexcasting.api.casting.iota.ListIota;
+import at.petrak.hexcasting.api.casting.iota.NullIota;
 import at.petrak.hexcasting.api.casting.iota.Vec3Iota;
 import at.petrak.hexcasting.common.casting.actions.rw.OpTheCoolerRead;
 import com.bluup.hexwright.server.block.ResonanceTowerBlockEntity;
 import com.bluup.hexwright.server.block.ResonantAnchorBlockEntity;
+import com.bluup.hexwright.server.cloak.CloakField;
+import com.bluup.hexwright.server.cloak.ShieldGeneratorBlockEntity;
 import com.bluup.hexwright.server.network.ResonanceIota;
 import com.bluup.hexwright.server.network.ResonanceNames;
 import com.bluup.hexwright.server.network.ResonantAttunement;
@@ -66,5 +71,31 @@ public abstract class OpTheCoolerReadMixin {
 
         Vec3 landing = new Vec3(pos.getX() + 0.5, pos.getY() + 1.0, pos.getZ() + 0.5);
         cir.setReturnValue(List.of(new Vec3Iota(landing)));
+    }
+
+    @Inject(
+        method = "execute(Ljava/util/List;Lat/petrak/hexcasting/api/casting/eval/CastingEnvironment;)Ljava/util/List;",
+        at = @At("HEAD"),
+        cancellable = true,
+        remap = false
+    )
+    private void hexwright$readShieldGenerator(List<? extends Iota> args, CastingEnvironment env,
+                                               CallbackInfoReturnable<List<Iota>> cir) {
+        if (args.isEmpty() || !(args.get(0) instanceof Vec3Iota vecIota)) {
+            return;
+        }
+        Vec3 vec = vecIota.getVec3();
+        BlockPos pos = BlockPos.containing(vec);
+        if (!(env.getWorld().getBlockEntity(pos) instanceof ShieldGeneratorBlockEntity generator)) {
+            return;
+        }
+
+        env.assertVecInRange(vec);
+
+        CloakField field = generator.field();
+        cir.setReturnValue(List.of(field == null ? new NullIota() : new ListIota(List.<Iota>of(
+            new Vec3Iota(field.center()),
+            new DoubleIota(field.radius()),
+            new DoubleIota(field.height())))));
     }
 }

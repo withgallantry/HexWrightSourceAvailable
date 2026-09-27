@@ -1,5 +1,6 @@
 package com.bluup.hexwright.server.combat;
 
+import com.bluup.hexwright.server.dust.DustPhysics;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.world.damagesource.DamageSource;
@@ -14,13 +15,19 @@ public final class SpellDamage {
 
     public static final float PER_SECOND_CAP = 20.0F;
 
+    public static final float PLAYER_MELEE_PER_HIT_CAP = 32.0F;
+
     private static final List<ResourceKey<DamageType>> SPELL_TYPES =
-        List.of(DamageTypes.MAGIC, DamageTypes.INDIRECT_MAGIC, DamageTypes.GENERIC, Reprisal.TYPE);
+        List.of(DamageTypes.MAGIC, DamageTypes.INDIRECT_MAGIC, DamageTypes.GENERIC, Reprisal.TYPE,
+            DustPhysics.DUST_DAMAGE);
 
     private final DamagePolicy.Window window = new DamagePolicy.Window();
 
     public float limit(LivingEntity victim, DamageSource source, float amount) {
         float allowed = DamagePolicy.normaliseProjectile(source, amount);
+        if (source.is(DamageTypes.PLAYER_ATTACK)) {
+            return Math.min(allowed, PLAYER_MELEE_PER_HIT_CAP);
+        }
         if (!isSpellShaped(source)) {
             return allowed;
         }

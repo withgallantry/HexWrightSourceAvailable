@@ -34,13 +34,13 @@ public abstract class PistonWardMixin {
             return;
         }
         for (BlockPos pos : this.toPush) {
-            if (AreaWard.sealed(this.level, pos)) {
+            if (AreaWard.immovable(this.level, pos)) {
                 callback.setReturnValue(false);
                 return;
             }
         }
         for (BlockPos pos : this.toDestroy) {
-            if (AreaWard.sealed(this.level, pos)) {
+            if (AreaWard.immovable(this.level, pos)) {
                 callback.setReturnValue(false);
                 return;
             }

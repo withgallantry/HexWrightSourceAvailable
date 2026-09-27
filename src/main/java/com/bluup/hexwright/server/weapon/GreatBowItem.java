@@ -6,6 +6,8 @@ import at.petrak.hexcasting.api.item.IotaHolderItem;
 import at.petrak.hexcasting.api.utils.NBTHelper;
 import com.bluup.hexwright.server.armour.VenatorPowers;
 import com.bluup.hexwright.server.item.ArtifactItem;
+import com.bluup.hexwright.server.item.EngravableItem;
+import com.bluup.hexwright.server.item.RechargingItem;
 import com.bluup.hexwright.server.pocketcaster.PocketCasterData;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.particles.ParticleTypes;
@@ -31,7 +33,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 
-public class GreatBowItem extends BowItem implements IotaHolderItem {
+public class GreatBowItem extends BowItem implements EngravableItem, RechargingItem {
 
     private static final String TAG_HEX_DATA = "data";
 
@@ -62,15 +64,14 @@ public class GreatBowItem extends BowItem implements IotaHolderItem {
         return false;
     }
 
+    protected boolean armsShots() {
+        return true;
+    }
+
 
     @Override
     public @Nullable CompoundTag readIotaTag(ItemStack stack) {
         return NBTHelper.getCompound(stack, TAG_HEX_DATA);
-    }
-
-    @Override
-    public boolean writeable(ItemStack stack) {
-        return true;
     }
 
     @Override
@@ -112,25 +113,31 @@ public class GreatBowItem extends BowItem implements IotaHolderItem {
         return Math.max(0L, Math.min(remaining, cooldownTicks));
     }
 
-    public static float rechargeFraction(ItemStack stack, Level level, float partialTick) {
+    public static @Nullable Recharge recharge(ItemStack stack, Level level, float partialTick) {
         if (!(stack.getItem() instanceof GreatBowItem bow)) {
-            return 0.0F;
+            return null;
         }
         int cooldown = runningCooldown(stack, bow.hexCooldownTicks());
-        long remaining = rechargeRemaining(stack, level, cooldown);
-        return Math.max(sweepOf(remaining, cooldown, partialTick),
-            bow.powerRechargeFraction(stack, level, partialTick));
-    }
-
-    protected float powerRechargeFraction(ItemStack stack, Level level, float partialTick) {
-        return 0.0F;
-    }
-
-    protected static float sweepOf(long remaining, int total, float partialTick) {
-        if (remaining <= 0L || total <= 0) {
-            return 0.0F;
+        Recharge hex = Recharge.of(rechargeRemaining(stack, level, cooldown), cooldown, partialTick);
+        Recharge power = bow.powerRecharge(stack, level, partialTick);
+        if (hex == null || power == null) {
+            return hex == null ? power : hex;
         }
-        return Math.min(1.0F, Math.max(0.0F, (remaining - partialTick) / total));
+        return power.remainingTicks() > hex.remainingTicks() ? power : hex;
+    }
+
+    @Override
+    public @Nullable Recharge recharge(ItemStack stack, LivingEntity holder, float partialTick) {
+        return recharge(stack, holder.level(), partialTick);
+    }
+
+    public static float rechargeFraction(ItemStack stack, Level level, float partialTick) {
+        Recharge recharge = recharge(stack, level, partialTick);
+        return recharge == null ? 0.0F : recharge.fraction();
+    }
+
+    protected @Nullable Recharge powerRecharge(ItemStack stack, Level level, float partialTick) {
+        return null;
     }
 
 
@@ -207,7 +214,7 @@ public class GreatBowItem extends BowItem implements IotaHolderItem {
     }
 
     private boolean arm(ItemStack bow, Level level, AbstractArrow arrow) {
-        if (!(arrow instanceof HexArrowEntity hexArrow)) {
+        if (!armsShots() || !(arrow instanceof HexArrowEntity hexArrow)) {
             return false;
         }
         if (rechargeRemaining(bow, level, runningCooldown(bow, hexCooldownTicks())) > 0L) {
@@ -255,11 +262,13 @@ public class GreatBowItem extends BowItem implements IotaHolderItem {
                     Component.translatable(this.quality.translationKey()).withStyle(this.quality.color()))
                 .withStyle(ChatFormatting.GRAY));
         }
-        int cooldown = hexCooldownTicks();
-        WeaponTooltips.add(tooltip, Component.translatable("tooltip.hexwright.archer_great_bow.cast"),
-            ChatFormatting.DARK_PURPLE);
-        WeaponTooltips.add(tooltip, Component.translatable("tooltip.hexwright.archer_great_bow.recharge",
-            String.format("%.1f", cooldown / 20.0F)), ChatFormatting.GRAY);
+        if (armsShots()) {
+            int cooldown = hexCooldownTicks();
+            WeaponTooltips.add(tooltip, Component.translatable("tooltip.hexwright.archer_great_bow.cast"),
+                ChatFormatting.DARK_PURPLE);
+            WeaponTooltips.add(tooltip, Component.translatable("tooltip.hexwright.archer_great_bow.recharge",
+                String.format("%.1f", cooldown / 20.0F)), ChatFormatting.GRAY);
+        }
 
         CompoundTag hex = readIotaTag(stack);
         if (hex == null || hex.isEmpty()) {

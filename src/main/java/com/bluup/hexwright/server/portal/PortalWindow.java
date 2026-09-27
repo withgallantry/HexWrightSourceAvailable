@@ -11,8 +11,6 @@ public final class PortalWindow {
 
     public static final double MIN_SPAN = 0.5;
 
-    public static final double MAX_SPAN = 8.0;
-
     private final Vec3 origin;
     private final Vec3 u;
     private final Vec3 v;

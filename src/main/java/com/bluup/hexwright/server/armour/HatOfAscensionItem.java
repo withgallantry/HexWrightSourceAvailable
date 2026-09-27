@@ -1,6 +1,7 @@
 package com.bluup.hexwright.server.armour;
 
 import com.bluup.hexwright.server.item.ArtifactItem;
+import com.bluup.hexwright.server.weapon.WeaponTooltips;
 import net.minecraft.ChatFormatting;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
@@ -37,7 +38,7 @@ public class HatOfAscensionItem extends ArmorItem implements ArtifactItem, Dyeab
     public void appendHoverText(ItemStack stack, @Nullable Level level, List<Component> tooltip,
                                 TooltipFlag flag) {
         tooltip.add(ArtifactItem.tooltipLine());
-        tooltip.add(Component.translatable("item.hexwright.hat_of_ascension.tip")
-            .withStyle(ChatFormatting.GRAY));
+        WeaponTooltips.add(tooltip, Component.translatable("item.hexwright.hat_of_ascension.tip"),
+            ChatFormatting.GRAY);
     }
 }

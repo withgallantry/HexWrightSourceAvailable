@@ -17,7 +17,7 @@ public abstract class CastingEnvironmentDungeonMixin {
         if (self instanceof AreaWard.Unsealed unsealed && unsealed.ignoresAreaWard()) {
             return;
         }
-        if (AreaWard.sealed(self.getWorld(), pos)) {
+        if (AreaWard.immovable(self.getWorld(), pos)) {
             cir.setReturnValue(false);
         }
     }

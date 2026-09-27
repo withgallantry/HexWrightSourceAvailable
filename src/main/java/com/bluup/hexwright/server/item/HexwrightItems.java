@@ -2,7 +2,6 @@ package com.bluup.hexwright.server.item;
 
 import com.bluup.hexwright.Hexwright;
 import com.bluup.hexwright.server.worldgen.dungeon.DungeonGroups;
-import net.fabricmc.fabric.api.itemgroup.v1.ItemGroupEvents;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.item.CreativeModeTabs;
@@ -47,15 +46,15 @@ public final class HexwrightItems {
         new PocketCasterItem(new Item.Properties().stacksTo(1).rarity(Rarity.RARE))
     );
 
-    public static final Item CRYSTALITE = Registry.register(
+    public static final Item KYANITE = Registry.register(
         BuiltInRegistries.ITEM,
-        Hexwright.id("crystalite"),
+        Hexwright.id("kyanite"),
         new Item(new Item.Properties().rarity(Rarity.UNCOMMON))
     );
 
-    public static final Item CRYSTALITE_NUGGET = Registry.register(
+    public static final Item KYANITE_NUGGET = Registry.register(
         BuiltInRegistries.ITEM,
-        Hexwright.id("crystalite_nugget"),
+        Hexwright.id("kyanite_nugget"),
         new Item(new Item.Properties())
     );
 
@@ -106,10 +105,38 @@ public final class HexwrightItems {
             new Item.Properties().stacksTo(1).rarity(Rarity.RARE))
     );
 
+    public static final Item CAT_POWER_ORB = Registry.register(
+        BuiltInRegistries.ITEM,
+        Hexwright.id("cat_power_orb"),
+        new com.bluup.hexwright.server.powerorb.PowerOrbItem(com.bluup.hexwright.server.powerorb.PowerOrbPower.CAT,
+            new Item.Properties().stacksTo(1).rarity(Rarity.RARE))
+    );
+
+    public static final Item GUARDIAN_POWER_ORB = Registry.register(
+        BuiltInRegistries.ITEM,
+        Hexwright.id("guardian_power_orb"),
+        new com.bluup.hexwright.server.powerorb.PowerOrbItem(com.bluup.hexwright.server.powerorb.PowerOrbPower.GUARDIAN,
+            new Item.Properties().stacksTo(1).rarity(Rarity.RARE))
+    );
+
     public static final Item SANCTUARY_POWER_ORB = Registry.register(
         BuiltInRegistries.ITEM,
         Hexwright.id("sanctuary_power_orb"),
         new com.bluup.hexwright.server.powerorb.PowerOrbItem(com.bluup.hexwright.server.powerorb.PowerOrbPower.SANCTUARY,
+            new Item.Properties().stacksTo(1).rarity(Rarity.RARE))
+    );
+
+    public static final Item TEETH_POWER_ORB = Registry.register(
+        BuiltInRegistries.ITEM,
+        Hexwright.id("teeth_power_orb"),
+        new com.bluup.hexwright.server.powerorb.PowerOrbItem(com.bluup.hexwright.server.powerorb.PowerOrbPower.TEETH,
+            new Item.Properties().stacksTo(1).rarity(Rarity.RARE))
+    );
+
+    public static final Item DUST_POWER_ORB = Registry.register(
+        BuiltInRegistries.ITEM,
+        Hexwright.id("dust_power_orb"),
+        new com.bluup.hexwright.server.powerorb.PowerOrbItem(com.bluup.hexwright.server.powerorb.PowerOrbPower.DUST,
             new Item.Properties().stacksTo(1).rarity(Rarity.RARE))
     );
 
@@ -298,6 +325,13 @@ public final class HexwrightItems {
         new com.bluup.hexwright.server.weapon.StarfallBowItem(artifactProperties())
     );
 
+    public static final Item FROSTBITE = Registry.register(
+        BuiltInRegistries.ITEM,
+        Hexwright.id("frostbite"),
+        new com.bluup.hexwright.server.weapon.FrostbiteItem(
+            4, -2.4F, artifactProperties())
+    );
+
     public static final Item ETERNAL_SCYTHE = Registry.register(
         BuiltInRegistries.ITEM,
         Hexwright.id("eternal_scythe"),
@@ -307,7 +341,7 @@ public final class HexwrightItems {
 
     public static final java.util.List<Item> ARTIFACT_WEAPONS = java.util.List.of(
         ETERNAL_WAR_HAMMER, ETERNAL_BATTLE_AXE, ETERNAL_GREAT_SWORD, ETERNAL_ODACHI,
-        ETERNAL_SCYTHE, ETERNAL_WAKIZASHI, ETERNAL_BOW, STARFALL_BOW);
+        ETERNAL_SCYTHE, ETERNAL_WAKIZASHI, FROSTBITE, ETERNAL_BOW, STARFALL_BOW);
 
     private static Item.Properties artifactProperties() {
         return new Item.Properties().stacksTo(1).rarity(Rarity.EPIC).fireResistant();
@@ -413,7 +447,7 @@ public final class HexwrightItems {
     }
 
     public static void register() {
-        ItemGroupEvents.modifyEntriesEvent(CreativeModeTabs.COMBAT).register(entries -> {
+        com.bluup.hexwright.server.item.HexwrightCreativeTab.addTo(CreativeModeTabs.COMBAT, entries -> {
             entries.accept(HAT_OF_ASCENSION);
             entries.accept(MANTLE_OF_ASCENSION);
             entries.accept(HAT_OF_PASSAGE);
@@ -435,15 +469,15 @@ public final class HexwrightItems {
             }
         });
 
-        ItemGroupEvents.modifyEntriesEvent(CreativeModeTabs.TOOLS_AND_UTILITIES).register(entries -> {
+        com.bluup.hexwright.server.item.HexwrightCreativeTab.addTo(CreativeModeTabs.TOOLS_AND_UTILITIES, entries -> {
             entries.accept(CONFIGURABLE_STAFF);
             entries.accept(HARMONIZED_PENTABOX);
             entries.accept(FIELD_JOURNAL);
             entries.accept(HEXICON);
             entries.accept(ENDLESS_POUCH);
             entries.accept(POCKET_CASTER);
-            entries.accept(CRYSTALITE);
-            entries.accept(CRYSTALITE_NUGGET);
+            entries.accept(KYANITE);
+            entries.accept(KYANITE_NUGGET);
             entries.accept(RESONANT_KEY);
             entries.accept(RESONANT_RING);
             entries.accept(RING_OF_NEGATION);
@@ -455,6 +489,8 @@ public final class HexwrightItems {
             entries.accept(WORLD_CRYSTAL);
             entries.accept(GOLEM_POWER_ORB);
             entries.accept(SANCTUARY_POWER_ORB);
+            entries.accept(TEETH_POWER_ORB);
+            entries.accept(DUST_POWER_ORB);
             entries.accept(FIELD_TUNER);
             entries.accept(VAULT_KEY);
             for (int rune = 0; rune < DungeonGroups.LETTERS.length(); rune++) {
@@ -504,7 +540,7 @@ public final class HexwrightItems {
             }
         });
 
-        ItemGroupEvents.modifyEntriesEvent(CreativeModeTabs.SPAWN_EGGS).register(entries -> {
+        com.bluup.hexwright.server.item.HexwrightCreativeTab.addTo(CreativeModeTabs.SPAWN_EGGS, entries -> {
             entries.accept(EXPERIMENTAL_CONSTRUCT_SPAWN_EGG);
             entries.accept(SERVITOR_CONSTRUCT_SPAWN_EGG);
             entries.accept(FRACTURED_CONSTRUCT_SPAWN_EGG);

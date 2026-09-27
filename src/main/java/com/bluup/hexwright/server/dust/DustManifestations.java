@@ -1,6 +1,10 @@
 package com.bluup.hexwright.server.dust;
 
+import at.petrak.hexcasting.api.casting.eval.vm.CastingImage;
+import at.petrak.hexcasting.api.casting.eval.vm.CastingVM;
+import at.petrak.hexcasting.api.casting.iota.Iota;
 import com.bluup.hexwright.inits.HexwrightNetworking;
+import com.bluup.hexwright.server.pocketcaster.PocketCasterCastEnv;
 import com.bluup.hexwright.server.region.Region;
 import net.fabricmc.fabric.api.entity.event.v1.ServerEntityWorldChangeEvents;
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
@@ -10,18 +14,22 @@ import net.fabricmc.fabric.api.networking.v1.EntityTrackingEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
 public final class DustManifestations {
 
     private static final Map<UUID, DustBody> ACTIVE = new HashMap<>();
+    private static final List<DustBody.Awaiting> DUE = new ArrayList<>();
 
     private DustManifestations() {
     }
@@ -62,13 +70,24 @@ public final class DustManifestations {
                     }
                     continue;
                 }
+                if (!DustLicence.licensed(caster)) {
+                    it.remove();
+                    HexwrightNetworking.broadcastDust(caster, DustPacket.release(caster.getId()));
+                    continue;
+                }
                 if (caster.level() instanceof ServerLevel level) {
                     body.tick(level);
+                    body.collectDue(DUE);
                 }
             }
+            for (DustBody.Awaiting awaiting : DUE) {
+                castAwaited(awaiting);
+            }
+            DUE.clear();
         });
         ServerLifecycleEvents.SERVER_STOPPED.register(server -> {
             ACTIVE.clear();
+            DUE.clear();
             DustSupport.clear(false);
         });
     }
@@ -121,6 +140,20 @@ public final class DustManifestations {
         }
     }
 
+    public static void impel(LivingEntity caster, Vec3 velocity) {
+        DustBody body = body(caster);
+        if (body != null) {
+            body.impel(velocity);
+        }
+    }
+
+    public static void move(LivingEntity caster, Vec3 center) {
+        DustBody body = body(caster);
+        if (body != null) {
+            body.move(center);
+        }
+    }
+
     public static void constrain(LivingEntity caster, boolean constrained) {
         DustBody body = body(caster);
         if (body != null) {
@@ -132,6 +165,34 @@ public final class DustManifestations {
         DustBody body = body(caster);
         if (body != null) {
             body.recall();
+        }
+    }
+
+    public static @Nullable DustBody.Awaited pending(LivingEntity caster) {
+        DustBody body = body(caster);
+        return body == null ? null : body.pending();
+    }
+
+    public static boolean canAwait(LivingEntity caster) {
+        DustBody body = body(caster);
+        return body != null && body.canAwait();
+    }
+
+    public static void await(LivingEntity caster, List<Iota> hex, CastingImage image) {
+        DustBody body = body(caster);
+        if (body != null) {
+            body.await(hex, image);
+        }
+    }
+
+    private static void castAwaited(DustBody.Awaiting awaiting) {
+        if (!(awaiting.caster() instanceof ServerPlayer player) || player.isRemoved()) {
+            return;
+        }
+        try {
+            CastingVM vm = new CastingVM(awaiting.image(), new PocketCasterCastEnv(player, InteractionHand.MAIN_HAND));
+            vm.queueExecuteAndWrapIotas(new ArrayList<>(awaiting.hex()), player.serverLevel());
+        } catch (RuntimeException ignored) {
         }
     }
 

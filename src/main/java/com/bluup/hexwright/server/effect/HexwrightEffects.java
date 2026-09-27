@@ -32,6 +32,10 @@ public final class HexwrightEffects {
 
     public static final MobEffect SPIRIT_GOLEM = register("spirit_golem", new StatusEffect(0x5FC681));
 
+    public static final MobEffect CAT_CONSTRUCT = register("cat_construct", new StatusEffect(0x3AE0B0));
+
+    public static final MobEffect GUARDIAN_CONSTRUCT = register("guardian_construct", new StatusEffect(0x2F9EED));
+
     private HexwrightEffects() {
     }
 

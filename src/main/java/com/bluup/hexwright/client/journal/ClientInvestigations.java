@@ -1,6 +1,10 @@
 package com.bluup.hexwright.client.journal;
 
+import com.bluup.hexwright.common.staff_assembly.calc.IngredientCategory;
+import net.minecraft.resources.ResourceLocation;
+
 import java.util.Collection;
+import java.util.Map;
 import java.util.Set;
 
 public final class ClientInvestigations {
@@ -38,5 +42,16 @@ public final class ClientInvestigations {
 
     public static Set<String> artifacts() {
         return artifacts;
+    }
+
+    private static volatile Map<IngredientCategory, Set<ResourceLocation>> essenceSources = Map.of();
+
+    public static void setEssenceSources(Map<IngredientCategory, Set<ResourceLocation>> sources) {
+        essenceSources = Map.copyOf(sources);
+        version++;
+    }
+
+    public static Map<IngredientCategory, Set<ResourceLocation>> essenceSources() {
+        return essenceSources;
     }
 }

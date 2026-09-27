@@ -2,19 +2,17 @@ package com.bluup.hexwright.server.block;
 
 import com.bluup.hexwright.Hexwright;
 import com.bluup.hexwright.server.item.WardingBoxItem;
-import net.fabricmc.fabric.api.itemgroup.v1.ItemGroupEvents;
 import net.fabricmc.fabric.api.object.builder.v1.block.FabricBlockSettings;
 import net.fabricmc.fabric.api.object.builder.v1.block.entity.FabricBlockEntityTypeBuilder;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.util.valueproviders.UniformInt;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.CreativeModeTabs;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Rarity;
+import net.minecraft.world.level.block.AmethystClusterBlock;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.DropExperienceBlock;
 import net.minecraft.world.level.block.SlabBlock;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.StairBlock;
@@ -80,23 +78,26 @@ public final class HexwrightBlocks {
 
     public static BlockEntityType<WardingBoxBlockEntity> WARDING_BOX_BLOCK_ENTITY;
 
-    public static final Block CRYSTALITE_ORE_BLOCK = new DropExperienceBlock(
-        FabricBlockSettings.copyOf(Blocks.DEEPSLATE_GOLD_ORE),
-        UniformInt.of(2, 5)
+    public static final Block KYANITE_CLUSTER_BLOCK = new AmethystClusterBlock(
+        7,
+        3,
+        BlockBehaviour.Properties.copy(Blocks.AMETHYST_CLUSTER)
+            .mapColor(MapColor.COLOR_LIGHT_BLUE)
+            .requiresCorrectToolForDrops()
     );
 
-    public static final Item CRYSTALITE_ORE_ITEM = new BlockItem(
-        CRYSTALITE_ORE_BLOCK,
+    public static final Item KYANITE_CLUSTER_ITEM = new BlockItem(
+        KYANITE_CLUSTER_BLOCK,
         new Item.Properties()
     );
 
-    public static final Block CRYSTALITE_NETHER_ORE_BLOCK = new DropExperienceBlock(
-        FabricBlockSettings.copyOf(Blocks.NETHER_GOLD_ORE),
-        UniformInt.of(2, 5)
+    public static final Block BUDDING_KYANITE_BLOCK = new BuddingKyaniteBlock(
+        BlockBehaviour.Properties.copy(Blocks.BUDDING_AMETHYST)
+            .mapColor(MapColor.COLOR_LIGHT_BLUE)
     );
 
-    public static final Item CRYSTALITE_NETHER_ORE_ITEM = new BlockItem(
-        CRYSTALITE_NETHER_ORE_BLOCK,
+    public static final Item BUDDING_KYANITE_ITEM = new BlockItem(
+        BUDDING_KYANITE_BLOCK,
         new Item.Properties()
     );
 
@@ -339,6 +340,16 @@ public final class HexwrightBlocks {
             .noLootTable()
     );
 
+    public static final VaultPlinthBlock PLINTH_BLOCK = new VaultPlinthBlock(
+        soft(Blocks.CHISELED_QUARTZ_BLOCK)
+            .noOcclusion()
+    );
+
+    public static final Item PLINTH_ITEM = new BlockItem(
+        PLINTH_BLOCK,
+        new Item.Properties()
+    );
+
     public static BlockEntityType<VaultPlinthBlockEntity> VAULT_PLINTH_BLOCK_ENTITY;
 
     public static final DecadentVaultExitBlock DECADENT_VAULT_EXIT_BLOCK = new DecadentVaultExitBlock(
@@ -413,6 +424,36 @@ public final class HexwrightBlocks {
     public static BlockEntityType<com.bluup.hexwright.server.fluid.LiquefactriumBlockEntity>
         LIQUEFACTRIUM_BLOCK_ENTITY;
 
+    public static final com.bluup.hexwright.server.cloak.ShieldGeneratorBlock SHIELD_GENERATOR_BLOCK =
+        new com.bluup.hexwright.server.cloak.ShieldGeneratorBlock(
+            soft(Blocks.COPPER_BLOCK)
+                .noOcclusion()
+        );
+
+    public static final Item SHIELD_GENERATOR_ITEM = new BlockItem(
+        SHIELD_GENERATOR_BLOCK,
+        new Item.Properties()
+    );
+
+    public static BlockEntityType<com.bluup.hexwright.server.cloak.ShieldGeneratorBlockEntity>
+        SHIELD_GENERATOR_BLOCK_ENTITY;
+
+    public static final WeaponRackBlock WEAPON_RACK_BLOCK = new WeaponRackBlock(
+        soft(Blocks.OAK_PLANKS)
+            .noOcclusion()
+            .isViewBlocking((state, level, pos) -> false)
+            .isSuffocating((state, level, pos) -> false)
+            .noLootTable()
+            .pushReaction(net.minecraft.world.level.material.PushReaction.BLOCK)
+    );
+
+    public static final Item WEAPON_RACK_ITEM = new BlockItem(
+        WEAPON_RACK_BLOCK,
+        new Item.Properties()
+    );
+
+    public static BlockEntityType<WeaponRackBlockEntity> WEAPON_RACK_BLOCK_ENTITY;
+
     public static void register() {
         Registry.register(BuiltInRegistries.BLOCK, Hexwright.id("staff_assembly"), STAFF_ASSEMBLY_BLOCK);
         Registry.register(BuiltInRegistries.ITEM, Hexwright.id("staff_assembly"), STAFF_ASSEMBLY_ITEM);
@@ -422,10 +463,10 @@ public final class HexwrightBlocks {
         Registry.register(BuiltInRegistries.ITEM, Hexwright.id("worktable"), WORKTABLE_ITEM);
         Registry.register(BuiltInRegistries.BLOCK, Hexwright.id("warding_box"), WARDING_BOX_BLOCK);
         Registry.register(BuiltInRegistries.ITEM, Hexwright.id("warding_box"), WARDING_BOX_ITEM);
-        Registry.register(BuiltInRegistries.BLOCK, Hexwright.id("crystalite_ore"), CRYSTALITE_ORE_BLOCK);
-        Registry.register(BuiltInRegistries.ITEM, Hexwright.id("crystalite_ore"), CRYSTALITE_ORE_ITEM);
-        Registry.register(BuiltInRegistries.BLOCK, Hexwright.id("crystalite_nether_ore"), CRYSTALITE_NETHER_ORE_BLOCK);
-        Registry.register(BuiltInRegistries.ITEM, Hexwright.id("crystalite_nether_ore"), CRYSTALITE_NETHER_ORE_ITEM);
+        Registry.register(BuiltInRegistries.BLOCK, Hexwright.id("kyanite_cluster"), KYANITE_CLUSTER_BLOCK);
+        Registry.register(BuiltInRegistries.ITEM, Hexwright.id("kyanite_cluster"), KYANITE_CLUSTER_ITEM);
+        Registry.register(BuiltInRegistries.BLOCK, Hexwright.id("budding_kyanite"), BUDDING_KYANITE_BLOCK);
+        Registry.register(BuiltInRegistries.ITEM, Hexwright.id("budding_kyanite"), BUDDING_KYANITE_ITEM);
         Registry.register(BuiltInRegistries.BLOCK, Hexwright.id("coalescer"), COALESCER_BLOCK);
         Registry.register(BuiltInRegistries.ITEM, Hexwright.id("coalescer"), COALESCER_ITEM);
         Registry.register(BuiltInRegistries.BLOCK, Hexwright.id("resonance_tower"), RESONANCE_TOWER_BLOCK);
@@ -478,12 +519,20 @@ public final class HexwrightBlocks {
         Registry.register(BuiltInRegistries.ITEM, Hexwright.id("alembix"), ALEMBIX_ITEM);
         Registry.register(BuiltInRegistries.BLOCK, Hexwright.id("liquefactrium"), LIQUEFACTRIUM_BLOCK);
         Registry.register(BuiltInRegistries.ITEM, Hexwright.id("liquefactrium"), LIQUEFACTRIUM_ITEM);
+        Registry.register(BuiltInRegistries.BLOCK, Hexwright.id("shield_generator"), SHIELD_GENERATOR_BLOCK);
+        Registry.register(BuiltInRegistries.ITEM, Hexwright.id("shield_generator"), SHIELD_GENERATOR_ITEM);
+        Registry.register(BuiltInRegistries.BLOCK, Hexwright.id("weapon_rack"), WEAPON_RACK_BLOCK);
+        Registry.register(BuiltInRegistries.ITEM, Hexwright.id("weapon_rack"), WEAPON_RACK_ITEM);
+        Registry.register(BuiltInRegistries.BLOCK, Hexwright.id("plinth"), PLINTH_BLOCK);
+        Registry.register(BuiltInRegistries.ITEM, Hexwright.id("plinth"), PLINTH_ITEM);
 
         VaultDecorBlocks.register();
 
         DungeonProp.register();
+        DungeonPropParts.register();
+        DungeonPropItems.register();
 
-        ItemGroupEvents.modifyEntriesEvent(CreativeModeTabs.FUNCTIONAL_BLOCKS).register(entries -> {
+        com.bluup.hexwright.server.item.HexwrightCreativeTab.addTo(CreativeModeTabs.FUNCTIONAL_BLOCKS, entries -> {
             entries.accept(STAFF_ASSEMBLY_ITEM);
             entries.accept(CRUCIBLE_ITEM);
             entries.accept(WORKTABLE_ITEM);
@@ -504,14 +553,16 @@ public final class HexwrightBlocks {
             entries.accept(HEXID_PIPE_ITEM);
             entries.accept(ALEMBIX_ITEM);
             entries.accept(LIQUEFACTRIUM_ITEM);
+            entries.accept(SHIELD_GENERATOR_ITEM);
+            entries.accept(PLINTH_ITEM);
         });
 
-        ItemGroupEvents.modifyEntriesEvent(CreativeModeTabs.NATURAL_BLOCKS).register(entries -> {
-            entries.accept(CRYSTALITE_ORE_ITEM);
-            entries.accept(CRYSTALITE_NETHER_ORE_ITEM);
+        com.bluup.hexwright.server.item.HexwrightCreativeTab.addTo(CreativeModeTabs.NATURAL_BLOCKS, entries -> {
+            entries.accept(BUDDING_KYANITE_ITEM);
+            entries.accept(KYANITE_CLUSTER_ITEM);
         });
 
-        ItemGroupEvents.modifyEntriesEvent(CreativeModeTabs.BUILDING_BLOCKS).register(entries -> {
+        com.bluup.hexwright.server.item.HexwrightCreativeTab.addTo(CreativeModeTabs.BUILDING_BLOCKS, entries -> {
             entries.accept(BINDSTONE_ITEM);
             entries.accept(BINDSTONE_COLUMN_ITEM);
             entries.accept(BINDSTONE_STAIRS_ITEM);
@@ -635,7 +686,7 @@ public final class HexwrightBlocks {
         VAULT_PLINTH_BLOCK_ENTITY = Registry.register(
             BuiltInRegistries.BLOCK_ENTITY_TYPE,
             Hexwright.id("vault_plinth"),
-            FabricBlockEntityTypeBuilder.create(VaultPlinthBlockEntity::new, VAULT_PLINTH_BLOCK).build()
+            FabricBlockEntityTypeBuilder.create(VaultPlinthBlockEntity::new, VAULT_PLINTH_BLOCK, PLINTH_BLOCK).build()
         );
 
         PLACED_BOTTLE_BLOCK_ENTITY = Registry.register(
@@ -669,6 +720,20 @@ public final class HexwrightBlocks {
             FabricBlockEntityTypeBuilder.create(
                 com.bluup.hexwright.server.fluid.LiquefactriumBlockEntity::new,
                 LIQUEFACTRIUM_BLOCK).build()
+        );
+
+        SHIELD_GENERATOR_BLOCK_ENTITY = Registry.register(
+            BuiltInRegistries.BLOCK_ENTITY_TYPE,
+            Hexwright.id("shield_generator"),
+            FabricBlockEntityTypeBuilder.create(
+                com.bluup.hexwright.server.cloak.ShieldGeneratorBlockEntity::new,
+                SHIELD_GENERATOR_BLOCK).build()
+        );
+
+        WEAPON_RACK_BLOCK_ENTITY = Registry.register(
+            BuiltInRegistries.BLOCK_ENTITY_TYPE,
+            Hexwright.id("weapon_rack"),
+            FabricBlockEntityTypeBuilder.create(WeaponRackBlockEntity::new, WEAPON_RACK_BLOCK).build()
         );
     }
 

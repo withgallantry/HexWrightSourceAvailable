@@ -2,7 +2,7 @@ package com.bluup.hexwright.compat.accessories;
 
 import at.petrak.hexcasting.common.items.ItemLens;
 import at.petrak.hexcasting.common.lib.HexAttributes;
-import com.bluup.hexwright.Hexwright;
+import at.petrak.hexcasting.common.lib.HexItems;
 import com.bluup.hexwright.server.item.HexwrightItems;
 import com.bluup.hexwright.server.accessory.WornAccessories;
 import com.bluup.hexwright.server.pentabox.PentaboxData;
@@ -15,9 +15,13 @@ import io.wispforest.accessories.api.attributes.AccessoryAttributeBuilder;
 import io.wispforest.accessories.api.events.CanEquipCallback;
 import io.wispforest.accessories.api.slot.SlotEntryReference;
 import io.wispforest.accessories.api.slot.SlotReference;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.util.TriState;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.ai.attributes.Attribute;
+import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
+import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
 
@@ -51,16 +55,47 @@ public final class AccessoriesCompat {
                 if (!WardersSpectaclesItem.hasScryingLens(stack)) {
                     return;
                 }
-                builder.addExclusive(HexAttributes.SCRY_SIGHT, SCRYING_SIGHT_ID,
-                    ItemLens.SCRY_SIGHT.getAmount(), ItemLens.SCRY_SIGHT.getOperation());
-                builder.addExclusive(HexAttributes.GRID_ZOOM, SCRYING_ZOOM_ID,
-                    ItemLens.GRID_ZOOM.getAmount(), ItemLens.GRID_ZOOM.getOperation());
+                builder.addExclusive(HexAttributes.SCRY_SIGHT, ItemLens.SCRY_SIGHT);
+                builder.addExclusive(HexAttributes.GRID_ZOOM, ItemLens.GRID_ZOOM);
+            }
+        });
+
+        ServerTickEvents.END_SERVER_TICK.register(server -> {
+            if (server.overworld().getGameTime() % LENS_REASSERT_INTERVAL_TICKS != 0L) {
+                return;
+            }
+            for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+                if (holdsOrWearsLens(player) || wearsFittedSpectacles(player)) {
+                    reassertLensModifier(player, HexAttributes.SCRY_SIGHT, ItemLens.SCRY_SIGHT);
+                    reassertLensModifier(player, HexAttributes.GRID_ZOOM, ItemLens.GRID_ZOOM);
+                }
             }
         });
     }
 
-    private static final ResourceLocation SCRYING_SIGHT_ID = Hexwright.id("spectacles_scry_sight");
-    private static final ResourceLocation SCRYING_ZOOM_ID = Hexwright.id("spectacles_grid_zoom");
+    private static final int LENS_REASSERT_INTERVAL_TICKS = 10;
+
+    private static boolean holdsOrWearsLens(LivingEntity entity) {
+        return entity.getMainHandItem().is(HexItems.SCRYING_LENS)
+            || entity.getOffhandItem().is(HexItems.SCRYING_LENS)
+            || entity.getItemBySlot(EquipmentSlot.HEAD).is(HexItems.SCRYING_LENS);
+    }
+
+    private static boolean wearsFittedSpectacles(LivingEntity entity) {
+        for (ItemStack stack : wornOn(entity)) {
+            if (stack.is(HexwrightItems.WARDERS_SPECTACLES) && WardersSpectaclesItem.hasScryingLens(stack)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static void reassertLensModifier(LivingEntity entity, Attribute attribute, AttributeModifier modifier) {
+        AttributeInstance instance = entity.getAttribute(attribute);
+        if (instance != null && !instance.hasModifier(modifier)) {
+            instance.addTransientModifier(modifier);
+        }
+    }
 
     private static List<ItemStack> wornOn(LivingEntity entity) {
         Optional<AccessoriesCapability> capability = AccessoriesCapability.getOptionally(entity);

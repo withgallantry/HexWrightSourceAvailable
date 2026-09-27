@@ -57,14 +57,14 @@ object HexwrightServer : ModInitializer {
         com.bluup.hexwright.server.media.MediaGrants.register()
         com.bluup.hexwright.server.hexicon.HexiconData.register()
         com.bluup.hexwright.server.hexpatterns.WielderActions.register()
+        com.bluup.hexwright.server.hexpatterns.EngraverActions.register()
         com.bluup.hexwright.server.armour.ArmourPowerActions.register()
         com.bluup.hexwright.server.powerorb.PowerOrbActions.register()
-        com.bluup.hexwright.server.powerorb.GolemOrbPower.register()
+        com.bluup.hexwright.server.powerorb.ConstructOrbPower.register()
         com.bluup.hexwright.server.armour.PassageStep.register()
         TalismanActions.register()
         com.bluup.hexwright.server.portal.PortalActions.register()
         com.bluup.hexwright.server.portal.PortalManager.register()
-        com.bluup.hexwright.server.hexpatterns.VoidTearActions.register()
         com.bluup.hexwright.server.portal.VoidTearManager.register()
         com.bluup.hexwright.server.hexpatterns.DustActions.register()
         com.bluup.hexwright.server.dust.DustManifestations.register()
@@ -85,11 +85,14 @@ object HexwrightServer : ModInitializer {
         com.bluup.hexwright.server.armour.HexwrightArmour.register()
         HexwrightBlocks.register()
         com.bluup.hexwright.server.fluid.HexidFluids.register()
+        com.bluup.hexwright.server.item.HexwrightCreativeTab.register()
         com.bluup.hexwright.server.fluid.HexidTankStorage.register()
         CauldronInteraction.WATER[HexwrightItems.SEALED_SATCHEL] = CauldronInteraction.DYED_ITEM
         CauldronInteraction.WATER[HexwrightItems.MANTLE_OF_ASCENSION] = CauldronInteraction.DYED_ITEM
         CauldronInteraction.WATER[HexwrightItems.HAT_OF_ASCENSION] = CauldronInteraction.DYED_ITEM
         CauldronInteraction.WATER[HexwrightItems.GOLEM_POWER_ORB] = CauldronInteraction.DYED_ITEM
+        CauldronInteraction.WATER[HexwrightItems.CAT_POWER_ORB] = CauldronInteraction.DYED_ITEM
+        CauldronInteraction.WATER[HexwrightItems.GUARDIAN_POWER_ORB] = CauldronInteraction.DYED_ITEM
         com.bluup.hexwright.server.worldgen.HexwrightWorldgen.register()
         com.bluup.hexwright.server.progression.TabletLoot.register()
         com.bluup.hexwright.server.progression.RecipeTablets.validate(
@@ -102,6 +105,12 @@ object HexwrightServer : ModInitializer {
         com.bluup.hexwright.server.journal.StarterJournal.register()
         com.bluup.hexwright.server.journal.JournalDebugCommand.register()
         com.bluup.hexwright.server.command.DebugCommand.register()
+        com.bluup.hexwright.server.cloak.CloakFieldShell.register()
+        com.bluup.hexwright.server.cloak.CloakFieldStore.register()
+        com.bluup.hexwright.server.cloak.CloakFieldImpacts.register()
+        com.bluup.hexwright.server.cloak.CloakFieldWear.register()
+        com.bluup.hexwright.server.cloak.CloakFieldExclusion.register()
+        com.bluup.hexwright.server.cloak.CloakFieldCommand.register()
         HexwrightEntities.register()
         com.bluup.hexwright.server.boss.HexwrightBossEntities.register()
         com.bluup.hexwright.server.boss.HexwrightBossEntities.registerAttributes()
@@ -120,10 +129,10 @@ object HexwrightServer : ModInitializer {
         ResourceManagerHelper.get(PackType.SERVER_DATA).registerReloadListener(AspectMappingLoader())
         ServerLifecycleEvents.SYNC_DATA_PACK_CONTENTS.register { player, _ ->
             HexwrightNetworking.sendAspectSync(player)
-            HexwrightNetworking.sendMasterySync(player)
             HexwrightNetworking.sendRecipeUnlockSync(player)
             HexwrightNetworking.sendInvestigationSync(player)
             HexwrightNetworking.sendArtifactSync(player)
+            HexwrightNetworking.sendEssenceSync(player)
             HexwrightNetworking.sendResonanceNames(player)
         }
         ServerLifecycleEvents.SERVER_STARTED.register { server ->

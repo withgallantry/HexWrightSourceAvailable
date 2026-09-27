@@ -2,7 +2,6 @@ package com.bluup.hexwright.server.progression;
 
 import com.bluup.hexwright.server.pocketcaster.PocketCasterData;
 import net.minecraft.nbt.CompoundTag;
-import org.jetbrains.annotations.Nullable;
 
 public final class PlayerMastery {
 
@@ -17,17 +16,6 @@ public final class PlayerMastery {
             return true;
         }
         return false;
-    }
-
-    public @Nullable PocketCasterData.Quality bestQuality() {
-        if (bestQuality < 0) {
-            return null;
-        }
-        return PocketCasterData.Quality.values()[bestQuality];
-    }
-
-    public boolean hasMastery(PocketCasterData.Quality required) {
-        return bestQuality >= required.ordinal();
     }
 
     public CompoundTag save() {

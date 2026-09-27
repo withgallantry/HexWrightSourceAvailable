@@ -1,6 +1,7 @@
 package com.bluup.hexwright.server.fluid;
 
 import com.bluup.hexwright.server.block.HexwrightBlocks;
+import com.bluup.hexwright.server.cloak.ShieldGeneratorBlock;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -237,6 +238,10 @@ public class HexidPipeBlock extends Block {
         }
         if (neighbour.is(HexwrightBlocks.LIQUEFACTRIUM_BLOCK)) {
             return LiquefactriumBlock.joins(neighbour, towards.getOpposite())
+                ? PipeJoint.TANK : PipeJoint.NONE;
+        }
+        if (neighbour.is(HexwrightBlocks.SHIELD_GENERATOR_BLOCK)) {
+            return ShieldGeneratorBlock.joins(neighbour, towards.getOpposite())
                 ? PipeJoint.TANK : PipeJoint.NONE;
         }
         if (!HexidTankColumn.isTank(neighbour)) {

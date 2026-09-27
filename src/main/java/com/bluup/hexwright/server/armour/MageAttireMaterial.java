@@ -36,7 +36,7 @@ public enum MageAttireMaterial implements ArmorMaterial {
 
     @Override
     public Ingredient getRepairIngredient() {
-        return Ingredient.of(HexwrightItems.CRYSTALITE);
+        return Ingredient.of(HexwrightItems.KYANITE);
     }
 
     @Override

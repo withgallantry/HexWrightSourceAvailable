@@ -95,8 +95,8 @@ public class GemArmourRecipe extends CustomRecipe {
                             return ItemStack.EMPTY;
                         }
                     }
-                    case ArmourCraftLayouts.CRYSTALITE -> {
-                        if (!stack.is(HexwrightItems.CRYSTALITE)) {
+                    case ArmourCraftLayouts.KYANITE -> {
+                        if (!stack.is(HexwrightItems.KYANITE)) {
                             return ItemStack.EMPTY;
                         }
                     }

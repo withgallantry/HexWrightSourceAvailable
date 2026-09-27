@@ -7,7 +7,6 @@ import net.minecraft.core.NonNullList;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.ContainerHelper;
 import net.minecraft.world.item.ItemStack;
-import org.jetbrains.annotations.Nullable;
 
 import java.util.Locale;
 
@@ -42,14 +41,6 @@ public final class PocketCasterData {
                 case EXQUISITE -> ChatFormatting.LIGHT_PURPLE;
                 case MASTERWORK -> ChatFormatting.GOLD;
             };
-        }
-
-        public @Nullable String advancementTitleKey() {
-            return this == CRUDE ? null : "advancements.hexwright.crafted_" + name().toLowerCase(Locale.ROOT) + ".title";
-        }
-
-        public @Nullable String advancementDescriptionKey() {
-            return this == CRUDE ? null : "advancements.hexwright.crafted_" + name().toLowerCase(Locale.ROOT) + ".description";
         }
 
         public static Quality byName(String name) {

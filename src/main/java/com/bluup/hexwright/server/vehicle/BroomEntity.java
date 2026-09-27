@@ -72,7 +72,18 @@ public class BroomEntity extends VehicleEntity {
     }
 
     private BroomSeats.@Nullable Seat seat(int seatIndex) {
-        return BroomSeats.seat(variant(), seatIndex);
+        BroomSeats.Seat seat = BroomSeats.seat(variant(), seatIndex);
+        if (seat == null) {
+            return null;
+        }
+        double tilt = Math.toRadians(getVisualTiltDegrees());
+        double cos = Math.cos(tilt);
+        double sin = Math.sin(tilt);
+        return new BroomSeats.Seat(
+            seat.sideways(),
+            seat.height() * cos + seat.forward() * sin,
+            seat.forward() * cos - seat.height() * sin
+        );
     }
 
     @Override
@@ -90,7 +101,11 @@ public class BroomEntity extends VehicleEntity {
     @Override
     protected double seatVerticalOffset(int seatIndex) {
         BroomSeats.Seat seat = seat(seatIndex);
-        return seat == null ? 0.0 : seat.vertical();
+        if (seat == null) {
+            return 0.0;
+        }
+        double seatAboveOrigin = VehicleConfig.VEHICLE_MODEL_HEIGHT_OFFSET + seat.height();
+        return seatAboveOrigin - VehicleConfig.SEATED_PLAYER_SEAT_HEIGHT - getRiderHeightOffset();
     }
 
     @Override

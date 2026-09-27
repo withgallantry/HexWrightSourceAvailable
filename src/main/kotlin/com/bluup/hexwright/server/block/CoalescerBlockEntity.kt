@@ -790,7 +790,7 @@ class CoalescerBlockEntity(
 
             var y = top
             for (entry in entries) {
-                val icon = ImageWidget(COST_ICON_X, y, COST_ICON_SIZE, COST_ICON_SIZE, ResourceTexture(aspectIcon(entry.aspect)))
+                val icon = ImageWidget(COST_ICON_X, y, COST_ICON_SIZE, COST_ICON_SIZE, ResourceTexture(EndlessPouchItem.aspectIcon(entry.aspect)))
                 panel.addWidget(icon)
                 costRows.add(icon)
 
@@ -847,9 +847,6 @@ class CoalescerBlockEntity(
             DrawerHelper.drawItemStack(graphics, ghost, pos.x + 1, pos.y + 1, tint, "")
         }
     }
-
-    private fun aspectIcon(aspect: IngredientCategory): ResourceLocation =
-        Hexwright.id("textures/gui/essence/${aspect.name.lowercase()}.png")
 
 
     private fun createFallbackUI(entityPlayer: Player): ModularUI {

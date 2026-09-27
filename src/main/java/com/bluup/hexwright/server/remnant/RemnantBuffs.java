@@ -20,6 +20,7 @@ import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.monster.Enemy;
+import net.minecraft.world.food.FoodData;
 import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
 
@@ -32,6 +33,8 @@ import java.util.UUID;
 public final class RemnantBuffs {
 
     private static final long SWEEP_INTERVAL_TICKS = 10L;
+
+    private static final int FULL_FOOD_LEVEL = 20;
 
     private static final double RIFT_RADIUS = 12.0;
 
@@ -148,6 +151,12 @@ public final class RemnantBuffs {
             }
             if (active.has(RemnantType.RIME, now)) {
                 player.setTicksFrozen(0);
+            }
+            if (active.has(RemnantType.REPAST, now)) {
+                FoodData food = player.getFoodData();
+                if (food.needsFood()) {
+                    food.setFoodLevel(FULL_FOOD_LEVEL);
+                }
             }
             if (active.has(RemnantType.TREMOR, now)) {
                 senseLife(player);

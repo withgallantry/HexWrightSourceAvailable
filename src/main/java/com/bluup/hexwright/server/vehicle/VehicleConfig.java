@@ -25,6 +25,7 @@ public final class VehicleConfig {
     public static final long BROOM_ARTIFACT_MEDIA_CAPACITY_BONUS = 16L * MediaConstants.DUST_UNIT;
     public static final double BROOM_RIDER_HEIGHT_OFFSET = 0.075;
     public static final double BROOM_RIDER_FORWARD_OFFSET = 0.15;
+    public static final double SEATED_PLAYER_SEAT_HEIGHT = 0.237;
     public static final double BROOM_VISUAL_TILT_DEGREES = 15.0;
 
     public static final double BROOM_LOAD_ONE_PASSENGER = 1.20;

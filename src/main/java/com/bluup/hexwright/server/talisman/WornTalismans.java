@@ -1,7 +1,7 @@
 package com.bluup.hexwright.server.talisman;
 
 import com.bluup.hexwright.server.accessory.WornAccessories;
-import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.ArrayList;
@@ -12,7 +12,7 @@ public final class WornTalismans {
     private WornTalismans() {
     }
 
-    public static List<ItemStack> getWorn(ServerPlayer player) {
+    public static List<ItemStack> getWorn(Player player) {
         List<ItemStack> contents = WornAccessories.slotContents(player, TalismanSlots.SLOT);
         int allowance = Math.min(TalismanSlots.allowance(player), contents.size());
         List<ItemStack> worn = new ArrayList<>();

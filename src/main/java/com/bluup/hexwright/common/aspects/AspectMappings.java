@@ -39,6 +39,10 @@ public final class AspectMappings {
         derived = Map.copyOf(mappings);
     }
 
+    public static Set<Item> mappedItems() {
+        return active.keySet();
+    }
+
     public static IngredientData lookupData(Item item) {
         AspectProfile profile = active.get(item);
         return profile == null ? null : profile.data();

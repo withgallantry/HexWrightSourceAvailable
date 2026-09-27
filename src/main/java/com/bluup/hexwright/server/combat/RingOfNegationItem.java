@@ -2,6 +2,7 @@ package com.bluup.hexwright.server.combat;
 
 import com.bluup.hexwright.server.accessory.WornAccessories;
 import com.bluup.hexwright.server.item.ArtifactItem;
+import com.bluup.hexwright.server.weapon.WeaponTooltips;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.LivingEntity;
@@ -68,14 +69,17 @@ public class RingOfNegationItem extends Item implements ArtifactItem {
         if (ArtifactItem.is(stack)) {
             tooltip.add(ArtifactItem.tooltipLine());
         }
-        tooltip.add(Component.translatable("item.hexwright.ring_of_negation.tip")
-            .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable("item.hexwright.ring_of_negation.tip.caps",
-            (int) SpellDamage.PER_HIT_CAP, (int) SpellDamage.PER_SECOND_CAP)
-            .withStyle(ChatFormatting.DARK_GRAY));
+        WeaponTooltips.add(tooltip, Component.translatable("item.hexwright.ring_of_negation.tip"),
+            ChatFormatting.GRAY);
+        WeaponTooltips.add(tooltip, Component.translatable("item.hexwright.ring_of_negation.tip.caps",
+            (int) SpellDamage.PER_HIT_CAP, (int) SpellDamage.PER_SECOND_CAP), ChatFormatting.DARK_GRAY);
+        WeaponTooltips.add(tooltip, Component.translatable("item.hexwright.ring_of_negation.tip.melee",
+            (int) SpellDamage.PLAYER_MELEE_PER_HIT_CAP), ChatFormatting.DARK_GRAY);
+        WeaponTooltips.add(tooltip, Component.translatable("item.hexwright.ring_of_negation.tip.dust"),
+            ChatFormatting.DARK_GRAY);
         if (this.kind == Kind.REPRISAL) {
-            tooltip.add(Component.translatable("item.hexwright.ring_of_reprisal.tip",
-                (int) (Reprisal.FRACTION * 100.0F)).withStyle(ChatFormatting.LIGHT_PURPLE));
+            WeaponTooltips.add(tooltip, Component.translatable("item.hexwright.ring_of_reprisal.tip",
+                (int) (Reprisal.FRACTION * 100.0F)), ChatFormatting.LIGHT_PURPLE);
         }
     }
 }

@@ -1,10 +1,12 @@
 package com.bluup.hexwright.server.item;
 
+import com.bluup.hexwright.Hexwright;
 import com.bluup.hexwright.common.staff_assembly.calc.IngredientCategory;
 import com.bluup.hexwright.server.crucible.EssencePouchData;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
@@ -45,6 +47,10 @@ public class EndlessPouchItem extends Item {
 
     public static Component aspectName(IngredientCategory aspect) {
         return Component.translatable("aspect.hexwright." + aspect.name().toLowerCase(Locale.ROOT));
+    }
+
+    public static ResourceLocation aspectIcon(IngredientCategory aspect) {
+        return Hexwright.id("textures/gui/essence/" + aspect.name().toLowerCase(Locale.ROOT) + ".png");
     }
 
     public static MutableComponent aspectLine(IngredientCategory aspect, double amount) {

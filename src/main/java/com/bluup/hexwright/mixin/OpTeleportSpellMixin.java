@@ -2,10 +2,12 @@ package com.bluup.hexwright.mixin;
 
 import at.petrak.hexcasting.api.casting.eval.CastingEnvironment;
 import at.petrak.hexcasting.api.mod.HexConfig;
+import com.bluup.hexwright.HexwrightDebug;
 import com.bluup.hexwright.server.block.ResonantAnchorBlockEntity;
 import com.bluup.hexwright.server.staff_assembly.StaffCorePatternPower;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.Vec3;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
@@ -48,7 +50,18 @@ public abstract class OpTeleportSpellMixin {
         if (hexwright$landedOnAnchor()) {
             return false;
         }
-        return !StaffCorePatternPower.travellerBenefitsApply(env, teleportee);
+        boolean spared = StaffCorePatternPower.travellerBenefitsApply(env, teleportee);
+        if (HexwrightDebug.on(HexwrightDebug.CASTING)) {
+            LivingEntity caster = env.getCastingEntity();
+            HexwrightDebug.log(HexwrightDebug.CASTING,
+                "[traveller] greater teleport of {} by {} in {} holding {}: splatter {}",
+                teleportee.getName().getString(),
+                caster == null ? "nobody" : caster.getName().getString(),
+                env.getClass().getSimpleName(),
+                caster == null ? "-" : caster.getItemInHand(env.getCastingHand()),
+                spared ? "spared" : "applies");
+        }
+        return !spared;
     }
 
     private boolean hexwright$landedOnAnchor() {

@@ -9,7 +9,7 @@ import java.util.List;
 public final class ArmourCraftLayouts {
 
     public static final char GEM = 'G';
-    public static final char CRYSTALITE = 'C';
+    public static final char KYANITE = 'C';
     public static final char LEATHER = 'L';
     public static final char EMPTY = ' ';
 
@@ -41,7 +41,7 @@ public final class ArmourCraftLayouts {
     public static ItemStack displayStack(char symbol, ItemStack gem) {
         return switch (symbol) {
             case GEM -> gem.copy();
-            case CRYSTALITE -> new ItemStack(HexwrightItems.CRYSTALITE);
+            case KYANITE -> new ItemStack(HexwrightItems.KYANITE);
             case LEATHER -> new ItemStack(Items.LEATHER);
             default -> ItemStack.EMPTY;
         };

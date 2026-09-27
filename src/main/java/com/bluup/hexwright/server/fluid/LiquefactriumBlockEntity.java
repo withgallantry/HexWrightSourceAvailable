@@ -68,16 +68,7 @@ public class LiquefactriumBlockEntity extends BlockEntity {
         if (level == null || port == null) {
             return List.of();
         }
-        BlockPos pos = worldPosition.relative(port);
-        BlockState state = level.getBlockState(pos);
-        if (HexidTankColumn.isTank(state)) {
-            HexidTankBlockEntity column = HexidTankColumn.controller(level, pos);
-            return column == null ? List.of() : List.of(column);
-        }
-        if (state.is(HexwrightBlocks.HEXID_PIPE_BLOCK)) {
-            return HexidPipeNetwork.tanksOn(level, pos);
-        }
-        return List.of();
+        return HexidPipeNetwork.columnsAt(level, worldPosition.relative(port));
     }
 
     private TankRemnants pooled(List<HexidTankBlockEntity> columns) {

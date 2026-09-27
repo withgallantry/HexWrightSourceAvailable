@@ -2,18 +2,22 @@ package com.bluup.hexwright.server.dust;
 
 import at.petrak.hexcasting.api.mod.HexTags;
 import com.bluup.hexwright.Hexwright;
+import com.bluup.hexwright.server.combat.RingOfNegationItem;
 import com.bluup.hexwright.server.region.RegionDistance;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.tags.TagKey;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.damagesource.DamageType;
 import net.minecraft.world.entity.Display;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.ExperienceOrb;
 import net.minecraft.world.entity.Interaction;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Marker;
+import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.decoration.HangingEntity;
 import net.minecraft.world.entity.projectile.AbstractHurtingProjectile;
 import net.minecraft.world.entity.projectile.Projectile;
@@ -28,7 +32,11 @@ public final class DustPhysics {
     public static final ResourceKey<DamageType> DUST_DAMAGE =
         ResourceKey.create(Registries.DAMAGE_TYPE, Hexwright.id("controlled_dust"));
 
-    private static final int MAX_SWEEP_SAMPLES = 8;
+    public static final TagKey<EntityType<?>> UNCAPTURABLE =
+        TagKey.create(Registries.ENTITY_TYPE, Hexwright.id("dust_uncapturable"));
+
+    private static final int MAX_SWEEP_SAMPLES = 16;
+    private static final double SWEEP_SPACING = 0.25;
 
     private DustPhysics() {
     }
@@ -39,7 +47,7 @@ public final class DustPhysics {
 
     public static double contact(DustBody body, ServerLevel level, AABB area, Shape shape, boolean hollow,
                                  boolean sparesCaster, @Nullable Shape oneWay, double strength,
-                                 double ux, double uy, double uz, double[] reaction) {
+                                 double heft, double ux, double uy, double uz, double[] reaction) {
         if (strength < 1.0e-3) {
             return 0.0;
         }
@@ -56,6 +64,9 @@ public final class DustPhysics {
                 continue;
             }
             AABB box = entity.getBoundingBox();
+            if (oneWay != null && DustTuning.constraintSparesCaster != 0 && isCaster(body, entity)) {
+                continue;
+            }
             if (oneWay != null && !crossingOutward(oneWay, box, entity.getDeltaMovement(), ux, uy, uz)) {
                 continue;
             }
@@ -71,6 +82,10 @@ public final class DustPhysics {
 
             double inertia = inertia(entity);
             double k = 1.0 - Math.exp(-DustTuning.dragRate * strength * immersion / inertia);
+            if (entity instanceof Projectile && d < 0.0
+                && strength >= DustTuning.projectileCatchStrength) {
+                k = 1.0;
+            }
             double rx = motion.x - ux;
             double ry = motion.y - uy;
             double rz = motion.z - uz;
@@ -84,6 +99,11 @@ public final class DustPhysics {
             if (impulse < DustTuning.freeImpulse) {
                 continue;
             }
+            double give = give(entity);
+            dvx *= give;
+            dvy *= give;
+            dvz *= give;
+            impulse *= give;
 
             push(entity, motion.x + dvx, motion.y + dvy, motion.z + dvz);
             if (entity instanceof AbstractHurtingProjectile fireball) {
@@ -102,8 +122,8 @@ public final class DustPhysics {
 
             double relativeSpeed = Math.sqrt(rx * rx + ry * ry + rz * rz);
             if (entity instanceof LivingEntity living && relativeSpeed > DustTuning.damageSpeed) {
-                float damage = (float) (DustTuning.damagePerSpeed * strength * immersion
-                    * (relativeSpeed - DustTuning.damageSpeed));
+                float damage = (float) (DustTuning.damagePeak * strength * immersion * heft
+                    * DustTuning.impact(relativeSpeed));
                 if (damage >= 0.5f && living.hurt(damageSource(level, caster), damage)) {
                     spent += damage * DustTuning.massPerDamage;
                 }
@@ -182,11 +202,14 @@ public final class DustPhysics {
         if (!sparesCaster && DustTuning.formationSparesCaster == 0) {
             return true;
         }
-        LivingEntity caster = body.caster;
-        if (entity.getRootVehicle() == caster.getRootVehicle()) {
+        if (isCaster(body, entity)) {
             return false;
         }
-        return !(entity instanceof Projectile projectile) || projectile.getOwner() != caster;
+        return !(entity instanceof Projectile projectile) || projectile.getOwner() != body.caster;
+    }
+
+    static boolean isCaster(DustBody body, Entity entity) {
+        return entity.getRootVehicle() == body.caster.getRootVehicle();
     }
 
     private static boolean crossingOutward(Shape region, AABB box, Vec3 motion,
@@ -209,9 +232,18 @@ public final class DustPhysics {
     }
 
     static boolean capturable(DustBody body, Entity entity) {
+        if (DustTuning.constraintSparesCaster != 0 && isCaster(body, entity)) {
+            return false;
+        }
         return affectable(body, entity, false)
             && !(entity instanceof Projectile)
-            && !entity.getType().is(HexTags.Entities.CANNOT_TELEPORT);
+            && !entity.getType().is(HexTags.Entities.CANNOT_TELEPORT)
+            && !entity.getType().is(UNCAPTURABLE)
+            && !negated(entity);
+    }
+
+    static boolean negated(Entity entity) {
+        return entity instanceof LivingEntity living && RingOfNegationItem.wornBy(living) != null;
     }
 
     static double inertia(Entity entity) {
@@ -223,12 +255,19 @@ public final class DustPhysics {
         return Math.max(Math.sqrt(Math.max(volume, 0.05)), 0.3);
     }
 
+    private static double give(Entity entity) {
+        if (!(entity instanceof LivingEntity living)) {
+            return 1.0;
+        }
+        return Math.max(0.0, 1.0 - living.getAttributeValue(Attributes.KNOCKBACK_RESISTANCE));
+    }
+
     private static double sweptDistance(Shape shape, AABB box, Vec3 motion) {
         double cx = (box.minX + box.maxX) * 0.5;
         double cy = (box.minY + box.maxY) * 0.5;
         double cz = (box.minZ + box.maxZ) * 0.5;
         double length = motion.length();
-        int samples = Math.min(MAX_SWEEP_SAMPLES, Math.max(1, (int) Math.ceil(length / 0.5)));
+        int samples = Math.min(MAX_SWEEP_SAMPLES, Math.max(1, (int) Math.ceil(length / SWEEP_SPACING)));
         double best = shape.distance(cx, cy, cz);
         for (int s = 1; s <= samples; s++) {
             double t = s / (double) samples;

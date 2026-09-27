@@ -14,7 +14,6 @@ data class EssenceForgeDisplay(
     val id: ResourceLocation,
     val name: Component,
     val steps: List<WorktableRecipes.InfusionStep>,
-    val requiredMastery: PocketCasterData.Quality?,
     val graded: Boolean,
     val outputs: List<ItemStack>,
     val pouch: ItemStack
@@ -29,7 +28,6 @@ data class EssenceForgeDisplay(
                 id = Hexwright.id("/essence_forge/" + recipe.nameKey.replace('.', '/')),
                 name = Component.translatable(recipe.nameKey),
                 steps = recipe.steps,
-                requiredMastery = recipe.requiredMastery,
                 graded = recipe.graded,
                 outputs = if (recipe.graded) {
                     PocketCasterData.Quality.values().map { grade -> recipe.assemble(grade) }

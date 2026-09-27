@@ -2,6 +2,7 @@ package com.bluup.hexwright.server.block
 
 import net.minecraft.core.BlockPos
 import net.minecraft.sounds.SoundEvents
+import net.minecraft.world.Containers
 import net.minecraft.sounds.SoundSource
 import net.minecraft.world.InteractionHand
 import net.minecraft.world.InteractionResult
@@ -31,6 +32,17 @@ class VaultPlinthBlock(properties: Properties) : Block(properties), EntityBlock 
 
     override fun newBlockEntity(pos: BlockPos, state: BlockState): BlockEntity {
         return VaultPlinthBlockEntity(pos, state)
+    }
+
+    @Suppress("DEPRECATION")
+    override fun onRemove(state: BlockState, level: Level, pos: BlockPos, newState: BlockState, isMoving: Boolean) {
+        if (!state.`is`(newState.block)) {
+            val plinth = level.getBlockEntity(pos) as? VaultPlinthBlockEntity
+            if (plinth != null && !plinth.displayed.isEmpty) {
+                Containers.dropItemStack(level, pos.x + 0.5, pos.y + 1.0, pos.z + 0.5, plinth.displayed)
+            }
+        }
+        super.onRemove(state, level, pos, newState, isMoving)
     }
 
     override fun use(

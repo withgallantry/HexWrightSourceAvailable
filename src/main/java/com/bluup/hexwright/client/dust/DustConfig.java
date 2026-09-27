@@ -70,7 +70,7 @@ public final class DustConfig {
     public static float reformedFraction = 0.85f;
     public static int returnMaxTicks = 80;
 
-    public static float massReference = 1000.0f;
+    public static float massReference = 100.0f;
     public static int minGrains = 24;
 
     public static float grainScale = 1.0f;
@@ -117,6 +117,9 @@ public final class DustConfig {
     public static float constructGlow = 0.08f;
     public static float constructSparkle = 1.0f;
     public static float constructLife = 1.0f;
+
+    public static int pigmentTint = 1;
+    public static float pigmentStrength = 0.3f;
 
     public static float impactMinSpeed = 0.12f;
     public static int impactCooldown = 6;

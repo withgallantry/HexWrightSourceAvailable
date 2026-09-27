@@ -136,6 +136,7 @@ public final class HexwrightClient implements ClientModInitializer {
         com.bluup.hexwright.client.weapon.WeaponSlashVisualClient.register();
         com.bluup.hexwright.client.weapon.SlashWaveVisualClient.register();
         com.bluup.hexwright.client.weapon.SkyfallVisualClient.register();
+        com.bluup.hexwright.client.weapon.FrostPursuitVisualClient.register();
         WardingBoxLensOverlay.register();
         BroomTrailVisualClient.register();
         com.bluup.hexwright.client.dust.DustClient.register();
@@ -147,12 +148,14 @@ public final class HexwrightClient implements ClientModInitializer {
         com.bluup.hexwright.client.block.VaultPlinthRenderer.register();
         com.bluup.hexwright.client.block.DungeonPropRenderer.register();
         com.bluup.hexwright.client.block.PlacedBottleRenderer.register();
+        com.bluup.hexwright.client.block.WeaponRackRenderer.register();
         com.bluup.hexwright.client.block.LiquefactriumRenderer.register();
         com.bluup.hexwright.client.block.HexidTankRenderer.register();
         com.bluup.hexwright.client.block.HexidPipePreview.register();
         com.bluup.hexwright.client.block.AlembixVesselVisualClient.register();
         com.bluup.hexwright.client.block.AlembixDebugCommands.register();
         com.bluup.hexwright.client.armour.MageAttireCommands.register();
+        com.bluup.hexwright.client.powerorb.PowerOrbBloomCommands.register();
         com.bluup.hexwright.client.armour.MageAttireRenderer.register();
         com.bluup.hexwright.client.armour.PassagePortalVisualClient.register();
         com.bluup.hexwright.client.render.TranslucentBlockOutline.register();
@@ -160,6 +163,7 @@ public final class HexwrightClient implements ClientModInitializer {
         com.bluup.hexwright.client.render.emissive.BlockGlow.register();
         com.bluup.hexwright.client.render.emissive.EmissiveBloom.register();
         com.bluup.hexwright.client.spellcasting.SpellcastingGridCommands.register();
+        com.bluup.hexwright.client.settings.SettingsCommand.register();
         com.bluup.hexwright.client.photon.PhotonSceneTextures.register();
         com.bluup.hexwright.client.portal.PortalOptions.load();
         com.bluup.hexwright.client.portal.PortalShaders.register();
@@ -169,6 +173,13 @@ public final class HexwrightClient implements ClientModInitializer {
         com.bluup.hexwright.client.portal.VoidTearRenderer.register();
         com.bluup.hexwright.client.portal.ClientVoidTears.register();
         com.bluup.hexwright.client.block.RuinedPortalRifts.register();
+        com.bluup.hexwright.client.cloak.CloakFieldShaders.register();
+        com.bluup.hexwright.client.cloak.CloakFieldRenderer.register();
+        com.bluup.hexwright.client.cloak.ClientCloakFields.register();
+        com.bluup.hexwright.client.cloak.CloakFieldHum.register();
+        com.bluup.hexwright.client.cloak.CloakFieldRipples.register();
+        net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents.BLOCK_OUTLINE.register((context, outline) ->
+            !com.bluup.hexwright.server.cloak.CloakFieldShell.isBarrier(outline.blockState()));
         com.bluup.hexwright.client.portal.PortalCrossingPredictor.register();
         com.bluup.hexwright.client.portal.ArrivalTrace.register();
         com.bluup.hexwright.client.portal.RemoteLevelManager.register();
@@ -176,12 +187,15 @@ public final class HexwrightClient implements ClientModInitializer {
         com.bluup.hexwright.client.portal.RemotePhotonVisuals.register();
 
         com.bluup.hexwright.compat.accessories.AccessoriesClientCompat.register();
+        com.bluup.hexwright.compat.ears.EarsCompat.register();
 
         BlockRenderLayerMap.INSTANCE.putBlock(HexwrightBlocks.WORKTABLE_BLOCK, RenderType.cutout());
         BlockRenderLayerMap.INSTANCE.putBlock(HexwrightBlocks.HEXID_TANK_BLOCK, RenderType.cutout());
         BlockRenderLayerMap.INSTANCE.putBlock(HexwrightBlocks.HEXID_PIPE_BLOCK, RenderType.cutout());
+        BlockRenderLayerMap.INSTANCE.putBlock(HexwrightBlocks.KYANITE_CLUSTER_BLOCK, RenderType.cutout());
         BlockRenderLayerMap.INSTANCE.putBlock(HexwrightBlocks.ALEMBIX_BLOCK, RenderType.translucent());
         BlockRenderLayerMap.INSTANCE.putBlock(HexwrightBlocks.LIQUEFACTRIUM_BLOCK, RenderType.cutout());
+        BlockRenderLayerMap.INSTANCE.putBlock(HexwrightBlocks.SHIELD_GENERATOR_BLOCK, RenderType.translucent());
         BlockRenderLayerMap.INSTANCE.putBlock(HexwrightBlocks.STAFF_ASSEMBLY_BLOCK, RenderType.cutout());
         BlockRenderLayerMap.INSTANCE.putBlock(HexwrightBlocks.RESONANCE_TOWER_BLOCK, RenderType.cutout());
         BlockRenderLayerMap.INSTANCE.putBlock(HexwrightBlocks.MANIFOLD_VAULT_BLOCK, RenderType.cutout());
@@ -269,6 +283,10 @@ public final class HexwrightClient implements ClientModInitializer {
             context -> new com.bluup.hexwright.client.mob.ConstructRenderer<>(context, "runestone_titan", 1.6f));
         EntityRendererRegistry.register(com.bluup.hexwright.server.powerorb.PowerOrbEntities.SPIRIT_GOLEM,
             com.bluup.hexwright.client.powerorb.SpiritGolemRenderer::new);
+        EntityRendererRegistry.register(com.bluup.hexwright.server.powerorb.PowerOrbEntities.CAT_CONSTRUCT,
+            com.bluup.hexwright.client.powerorb.CatConstructRenderer::new);
+        EntityRendererRegistry.register(com.bluup.hexwright.server.powerorb.PowerOrbEntities.GUARDIAN_CONSTRUCT,
+            com.bluup.hexwright.client.powerorb.GuardianConstructRenderer::new);
         EntityRendererRegistry.register(com.bluup.hexwright.server.powerorb.PowerOrbEntities.SPIRIT_WARD,
             com.bluup.hexwright.client.powerorb.SpiritWardRenderer::new);
         EntityRendererRegistry.register(com.bluup.hexwright.server.powerorb.PowerOrbEntities.SANCTUARY_HANDS,
@@ -307,6 +325,7 @@ public final class HexwrightClient implements ClientModInitializer {
         HudRenderCallback.EVENT.register(com.bluup.hexwright.client.vehicle.VehicleFlightHud::onHudRender);
         HudRenderCallback.EVENT.register(com.bluup.hexwright.client.vehicle.VehicleDebugOverlay::onHudRender);
         HudRenderCallback.EVENT.register(com.bluup.hexwright.client.debug.SpectaclesBlockOverlay::onHudRender);
+        HudRenderCallback.EVENT.register(com.bluup.hexwright.client.hud.CooldownHud::onHudRender);
         ItemTooltipCallback.EVENT.register((stack, context, lines) -> {
             Minecraft client = Minecraft.getInstance();
             if (isCrucibleScreenOpen(client)) {
@@ -354,7 +373,8 @@ public final class HexwrightClient implements ClientModInitializer {
                 return 0xFFFFFFFF;
             }
             return dyeable.getColor(stack);
-        }, HexwrightItems.GOLEM_POWER_ORB, HexwrightItems.SANCTUARY_POWER_ORB);
+        }, HexwrightItems.GOLEM_POWER_ORB, HexwrightItems.CAT_POWER_ORB, HexwrightItems.GUARDIAN_POWER_ORB,
+            HexwrightItems.SANCTUARY_POWER_ORB, HexwrightItems.TEETH_POWER_ORB, HexwrightItems.DUST_POWER_ORB);
 
         ItemProperties.register(HexwrightItems.HEXICON, HexAPI.modLoc("variant"),
             new ClampedItemPropertyFunction() {

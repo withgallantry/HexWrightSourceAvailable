@@ -18,6 +18,7 @@ public final class SceneSnapshot {
     public static final int SLOT_PORTAL_PANE = 4;
     public static final int SLOT_SHIELD_CONTACT = 5;
     public static final int SLOT_VOID_TEAR = 6;
+    public static final int SLOT_CLOAK_FIELD = 7;
     private static final int SLOTS = 8;
 
     private static TextureTarget snapshot;

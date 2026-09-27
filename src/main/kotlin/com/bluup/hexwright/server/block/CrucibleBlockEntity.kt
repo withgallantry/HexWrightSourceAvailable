@@ -275,10 +275,10 @@ class CrucibleBlockEntity(
         }
     }
 
-    private fun recordJournalEssence(aspect: IngredientCategory, amount: Double) {
+    private fun recordJournalEssence(aspect: IngredientCategory, amount: Double, source: Item) {
         val owner = lastOpener ?: return
         val server = (level as? ServerLevel)?.server ?: return
-        InvestigationProgress.recordCrucibleEssence(server, owner, aspect, amount)
+        InvestigationProgress.recordCrucibleEssence(server, owner, aspect, amount, source)
     }
 
     fun serverTick() {
@@ -330,7 +330,7 @@ class CrucibleBlockEntity(
                         val pouch = pouchStack()
                         for (aspect in profile.data().categories()) {
                             EssencePouchData.add(pouch, aspect, profile.essenceYield())
-                            recordJournalEssence(aspect, profile.essenceYield())
+                            recordJournalEssence(aspect, profile.essenceYield(), stack.item)
                         }
                         EssenceNetwork.pulseFlow(level, worldPosition, items[POUCH_SLOT], true)
 

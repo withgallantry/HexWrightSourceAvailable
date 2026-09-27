@@ -3,7 +3,6 @@ package com.bluup.hexwright.server.block
 import com.bluup.hexwright.Hexwright
 import com.bluup.hexwright.client.ldlib.widget.RuneTextWidget
 import com.bluup.hexwright.client.ldlib.widget.StaffItemDisplayWidget
-import com.bluup.hexwright.client.progression.ClientMastery
 import com.bluup.hexwright.client.progression.ClientRecipeUnlocks
 import com.bluup.hexwright.server.block.WorktableRecipes.RECIPES
 import com.lowdragmc.lowdraglib.gui.editor.configurator.IConfigurableWidget
@@ -158,10 +157,7 @@ class WorktableRecipeBrowser(
 
     private fun isRecipeListed(index: Int): Boolean {
         if (forge.level?.isClientSide != true) return true
-        val recipe = RECIPES[index]
-        if (!ClientRecipeUnlocks.isDiscovered(recipe.nameKey)) return false
-        val required = recipe.requiredMastery
-        return required == null || ClientMastery.hasMastery(required)
+        return ClientRecipeUnlocks.isDiscovered(RECIPES[index].nameKey)
     }
 
     fun refilter() {

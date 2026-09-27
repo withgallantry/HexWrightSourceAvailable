@@ -22,6 +22,28 @@ public final class PowerOrbEntities {
             .build()
     );
 
+    public static final EntityType<CatConstructEntity> CAT_CONSTRUCT = Registry.register(
+        BuiltInRegistries.ENTITY_TYPE,
+        Hexwright.id("cat_construct"),
+        FabricEntityTypeBuilder.<CatConstructEntity>create(MobCategory.MISC, CatConstructEntity::new)
+            .dimensions(EntityDimensions.fixed(0.875f, 1.7f))
+            .trackRangeBlocks(64)
+            .trackedUpdateRate(2)
+            .fireImmune()
+            .build()
+    );
+
+    public static final EntityType<GuardianConstructEntity> GUARDIAN_CONSTRUCT = Registry.register(
+        BuiltInRegistries.ENTITY_TYPE,
+        Hexwright.id("guardian_construct"),
+        FabricEntityTypeBuilder.<GuardianConstructEntity>create(MobCategory.MISC, GuardianConstructEntity::new)
+            .dimensions(EntityDimensions.fixed(0.6f, 1.8f))
+            .trackRangeBlocks(64)
+            .trackedUpdateRate(1)
+            .fireImmune()
+            .build()
+    );
+
     public static final EntityType<SpiritWardEntity> SPIRIT_WARD = Registry.register(
         BuiltInRegistries.ENTITY_TYPE,
         Hexwright.id("spirit_ward"),
@@ -49,5 +71,7 @@ public final class PowerOrbEntities {
 
     public static void register() {
         FabricDefaultAttributeRegistry.register(SPIRIT_GOLEM, SpiritGolemEntity.createAttributes());
+        FabricDefaultAttributeRegistry.register(CAT_CONSTRUCT, CatConstructEntity.createAttributes());
+        FabricDefaultAttributeRegistry.register(GUARDIAN_CONSTRUCT, GuardianConstructEntity.createAttributes());
     }
 }

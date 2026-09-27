@@ -1,7 +1,6 @@
 package com.bluup.hexwright.server.item;
 
 import at.petrak.hexcasting.api.casting.iota.Iota;
-import at.petrak.hexcasting.api.item.IotaHolderItem;
 import com.bluup.hexwright.common.staff_assembly.StaffPart;
 import com.bluup.hexwright.common.staff_assembly.StaffPartCategory;
 import com.bluup.hexwright.common.staff_assembly.StaffParts;
@@ -30,7 +29,7 @@ import org.jetbrains.annotations.Nullable;
 import java.util.List;
 import java.util.Optional;
 
-public class ConfigurableStaffItem extends ItemHexwrightStaff implements IotaHolderItem {
+public class ConfigurableStaffItem extends ItemHexwrightStaff implements EngravableItem {
     public ConfigurableStaffItem(Properties properties) {
         super(properties);
     }
@@ -45,11 +44,6 @@ public class ConfigurableStaffItem extends ItemHexwrightStaff implements IotaHol
             return HexiconData.readSelectedSpellTag(stack);
         }
         return null;
-    }
-
-    @Override
-    public boolean writeable(ItemStack stack) {
-        return StaffPowers.hasEntityListBindingCore(stack) || StaffPowers.hasHexiconCore(stack);
     }
 
     @Override

@@ -1,5 +1,7 @@
 package com.bluup.hexwright.mixin;
 
+import com.bluup.hexwright.common.weapon.MiningClickState;
+import com.bluup.hexwright.server.powerorb.GuardianConstructEntity;
 import com.bluup.hexwright.server.weapon.AnimatedWeapon;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
@@ -48,6 +50,15 @@ public abstract class ServerPlayerSwingMixin {
     @Inject(method = "handleAnimate", at = @At("TAIL"))
     private void hexwright$weaponAttackAnimation(ServerboundSwingPacket packet, CallbackInfo ci) {
         AnimatedWeapon.onSwing(this.player, packet.getHand(), this.hexwright$swingState);
+    }
+
+    @Inject(method = "handleAnimate", at = @At("TAIL"))
+    private void hexwright$guardianStrike(ServerboundSwingPacket packet, CallbackInfo ci) {
+        if (packet.getHand() == InteractionHand.MAIN_HAND
+            && !((MiningClickState) this.player.gameMode).hexwright$isMiningClick()
+            && !this.hexwright$swingState.interactedThisTick(this.player.server.getTickCount())) {
+            GuardianConstructEntity.wearerSwung(this.player);
+        }
     }
 
     @Inject(

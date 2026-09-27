@@ -26,6 +26,10 @@ public class SpiritGolemRenderer extends GeoEntityRenderer<SpiritGolemEntity> {
     public void render(SpiritGolemEntity entity, float entityYaw, float partialTick, PoseStack poseStack,
                        MultiBufferSource bufferSource, int packedLight) {
         super.render(entity, entityYaw, partialTick, poseStack, bufferSource, LightTexture.FULL_BRIGHT);
+        poseStack.pushPose();
+        poseStack.scale(SCALE, SCALE, SCALE);
+        PowerOrbBloom.capture(this, entity, poseStack, partialTick, PowerOrbBloom.Spirit.GOLEM);
+        poseStack.popPose();
     }
 
     @Override

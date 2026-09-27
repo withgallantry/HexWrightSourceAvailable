@@ -1,5 +1,6 @@
 package com.bluup.hexwright.client.dust;
 
+import at.petrak.hexcasting.api.pigment.ColorProvider;
 import com.bluup.hexwright.Hexwright;
 import com.bluup.hexwright.mixin.TileParticleAccessor;
 import com.bluup.hexwright.server.dust.DustSupport;
@@ -31,6 +32,7 @@ import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
+import org.joml.Vector4f;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -69,6 +71,8 @@ final class DustController {
     private final Vector3f sample = new Vector3f();
     private final Vector3f sizeScratch = new Vector3f();
     private final Vector3f scratch = new Vector3f();
+    private final float[] tintScratch = new float[3];
+    private @Nullable ColorProvider pigment;
 
     private float orbitWeight = 1.0f;
     private float regionWeight;
@@ -86,7 +90,7 @@ final class DustController {
     private float targetMass = DustConfig.massReference;
     private @Nullable RegionField shape;
     private boolean constrained;
-    private int ticksSinceRegion;
+    private int formationSerial;
     private boolean massKnown;
 
     private @Nullable DustConstruct construct;
@@ -152,7 +156,7 @@ final class DustController {
         float now = Math.max(current, 0.0f);
         float lost = mass - now;
         DustConstruct body = construct;
-        if (massKnown && body != null && body.build > 0.5f && lost > Math.max(1.0f, target * 0.02f)) {
+        if (massKnown && body != null && body.build > 0.5f && lost > Math.max(0.1f, target * 0.02f)) {
             float pick = (frame.time * 0.618034f) % 1.0f;
             if (body.destabilize(lost / Math.max(target, 1.0f), pick, surfacePoint)) {
                 queueBurst(body, surfacePoint[0], surfacePoint[1], surfacePoint[2], 0.3f);
@@ -163,7 +167,8 @@ final class DustController {
         massKnown = true;
     }
 
-    void setFormation(@Nullable CompoundTag regionTag, boolean constrain) {
+    void setFormation(@Nullable CompoundTag regionTag, int serial, boolean constrain, Vec3 drift,
+                      Vec3 driftVelocity, Vec3 driftTarget, @Nullable Vec3 destination) {
         Region region = null;
         if (regionTag != null) {
             try {
@@ -192,43 +197,30 @@ final class DustController {
             }
             return;
         }
-        if (previous != null && previous.shell == constrained && previous.region.equals(region)) {
-            return;
-        }
 
-        RegionField next = RegionField.build(region, constrained, previous);
-        boolean quick = previous != null && ticksSinceRegion <= 20;
-        if (quick) {
-            float ticks = Math.max(ticksSinceRegion, 1);
-            float vx = (float) (next.centerX - previous.centerX) / ticks;
-            float vy = (float) (next.centerY - previous.centerY) / ticks;
-            float vz = (float) (next.centerZ - previous.centerZ) / ticks;
-            boolean jump = vx * vx + vy * vy + vz * vz > 4.0f;
-            frame.regionVx = jump ? 0.0f : vx;
-            frame.regionVy = jump ? 0.0f : vy;
-            frame.regionVz = jump ? 0.0f : vz;
-        }
+        boolean reformed = previous == null || serial != formationSerial;
+        formationSerial = serial;
+        RegionField next = previous != null && previous.shell == constrained && !reformed
+            ? previous : RegionField.build(region, constrained, previous);
         shape = next;
         formation.field = next;
-        ticksSinceRegion = 0;
-        updateConstruct(next, quick);
-    }
-
-    private void updateConstruct(RegionField next, boolean quick) {
-        DustConstruct current = construct;
-        if (current != null && current.field.grid == next.grid) {
-            current.retarget(next);
-            return;
+        if (reformed) {
+            double fromX = construct != null ? construct.x : anchorX;
+            double fromY = construct != null ? construct.y : anchorY;
+            double fromZ = construct != null ? construct.z : anchorZ;
+            dissolveConstruct();
+            construct = new DustConstruct(next, fromX, fromY, fromZ);
+            DustFormSound.attach(construct);
+            settled = 0.0f;
+            if (mode == Mode.HOME) {
+                setMode(Mode.RETURNING);
+            }
+        } else if (construct != null && construct.field != next) {
+            construct.rebind(next);
         }
-        if (current != null && quick && !current.dissolving && current.build > 0.2f) {
-            current.reshape(next);
-            return;
+        if (construct != null) {
+            construct.drift(drift, driftVelocity, driftTarget, destination);
         }
-        double fromX = current != null ? current.x : anchorX;
-        double fromY = current != null ? current.y : anchorY;
-        double fromZ = current != null ? current.z : anchorZ;
-        dissolveConstruct();
-        construct = new DustConstruct(next, fromX, fromY, fromZ);
     }
 
     private void dissolveConstruct() {
@@ -237,6 +229,7 @@ final class DustController {
             current.dissolve();
             if (current.build > 0.0f) {
                 dissolving.add(current);
+                DustFormSound.attach(current);
             } else {
                 current.dispose();
             }
@@ -270,7 +263,6 @@ final class DustController {
     boolean tick(Minecraft mc, @Nullable Entity caster) {
         frame.time++;
         modeAge++;
-        ticksSinceRegion++;
 
         if (caster == null || caster.isRemoved()) {
             if (++missingTicks > MISSING_GRACE_TICKS && mode != Mode.DISPERSING) {
@@ -283,6 +275,7 @@ final class DustController {
         } else {
             missingTicks = 0;
             updateAnchor(caster);
+            pigment = DustTint.of(caster);
         }
         if (!hasAnchor) {
             return missingTicks < 200;
@@ -326,8 +319,10 @@ final class DustController {
 
     private void updateConstructs(Minecraft mc) {
         float settleTarget = mode == Mode.ATTACKING || (mode == Mode.RETURNING && shape != null) ? 0.0f : 1.0f;
-        float rate = DustTuning.formationRate;
+        float agility = construct != null ? construct.agility : 1.0f;
+        float rate = DustTuning.formationRate * agility;
         settled += OrbitFlow.clamp(settleTarget - settled, -rate, rate);
+        frame.formAgility = agility;
 
         boolean enabled = DustConstructRenderer.available();
         DustConstruct current = construct;
@@ -335,6 +330,7 @@ final class DustController {
         if (current != null) {
             boolean home = mode == Mode.HOME || mode == Mode.FORMING;
             current.tick(mass, envelopeFraction, home);
+            current.tint(DustTint.sample(pigment, frame.time, current.x, current.y, current.z));
             if (enabled && current.build > 0.3f && current.coverage > 0.05f) {
                 detectImpacts(mc, current);
             }
@@ -343,6 +339,7 @@ final class DustController {
         for (Iterator<DustConstruct> it = dissolving.iterator(); it.hasNext(); ) {
             DustConstruct old = it.next();
             old.tick(mass, 0.0f, false);
+            old.tint(DustTint.sample(pigment, frame.time, old.x, old.y, old.z));
             if (old.finished()) {
                 old.dispose();
                 it.remove();
@@ -509,9 +506,10 @@ final class DustController {
             return null;
         }
         RegionField shape = body.field;
+        Vec3 step = body.nextStep();
         return new DustSupport.Surface(level, shape.region,
             body.x - shape.centerX, body.y - shape.centerY, body.z - shape.centerZ, shape.shell,
-            hold, body.travelX(), body.travelY(), body.travelZ(), entityId);
+            hold, step.x, step.y, step.z, entityId);
     }
 
     void collectConstructs(List<DustConstruct> into) {
@@ -544,7 +542,7 @@ final class DustController {
         if (dustMass <= 0.0f) {
             return 0;
         }
-        float scale = (float) Math.sqrt(dustMass / Math.max(DustConfig.massReference, 1.0f));
+        float scale = (float) Math.sqrt(dustMass / Math.max(DustConfig.massReference, 0.1f));
         if (formed) {
             scale *= DustConfig.formationPopulationScale;
         }
@@ -606,10 +604,6 @@ final class DustController {
                 frame.regionVx = (float) (body.x - body.prevX);
                 frame.regionVy = (float) (body.y - body.prevY);
                 frame.regionVz = (float) (body.z - body.prevZ);
-            } else if (ticksSinceRegion > 1) {
-                frame.regionVx *= 0.85f;
-                frame.regionVy *= 0.85f;
-                frame.regionVz *= 0.85f;
             }
         } else {
             frame.attackOriginX = 0.0f;
@@ -626,9 +620,10 @@ final class DustController {
             culled = false;
             return;
         }
-        double x = shape != null ? shape.centerX : anchorX;
-        double y = shape != null ? shape.centerY : anchorY;
-        double z = shape != null ? shape.centerZ : anchorZ;
+        DustConstruct body = construct;
+        double x = body != null ? body.x : shape != null ? shape.centerX : anchorX;
+        double y = body != null ? body.y : shape != null ? shape.centerY : anchorY;
+        double z = body != null ? body.z : shape != null ? shape.centerZ : anchorZ;
         Vec3 camera = mc.gameRenderer.getMainCamera().getPosition();
         double dx = x - camera.x;
         double dy = y - camera.y;
@@ -738,6 +733,9 @@ final class DustController {
         frame.orbitRadiusScale += (radiusTarget - frame.orbitRadiusScale) * shapeRate;
         frame.orbitSpeedScale += (speedTarget - frame.orbitSpeedScale) * shapeRate;
         frame.orbitHeadAngle = (frame.orbitHeadAngle + OrbitFlow.angularSpeed(frame)) % (float) (Math.PI * 2.0);
+        if (formed) {
+            steerTarget = Math.min(steerTarget * frame.formAgility, 0.6f);
+        }
         steer += (steerTarget - steer) * 0.2f;
     }
 
@@ -853,6 +851,9 @@ final class DustController {
                             tile.setLocalPos(scratch.x, scratch.y, scratch.z, true);
                         }
                     }
+                    if (age <= 1 && pigment != null) {
+                        tintNewborn(tile, raw);
+                    }
 
                     if (lifetime > 0 && lifetime - age <= fadeTicks) {
                         fading++;
@@ -946,6 +947,20 @@ final class DustController {
         }
         envelopeFraction = counted == 0 ? 1.0f : inside / (float) counted;
         fadingGrains = fading;
+    }
+
+    private void tintNewborn(TileParticle tile, TileParticleAccessor raw) {
+        Vector4f colour = raw.hexwright$getInitialColor();
+        if (colour == null) {
+            return;
+        }
+        int rgb = DustTint.sample(pigment, frame.time, anchorX + grain.x, anchorY + grain.y, anchorZ + grain.z);
+        if (rgb < 0) {
+            return;
+        }
+        DustTint.recolour(colour.x, colour.y, colour.z, rgb, tintScratch, 0);
+        colour.set(tintScratch[0], tintScratch[1], tintScratch[2], colour.w);
+        tile.setColor(colour);
     }
 
     private final float[] placed = new float[6];
@@ -1157,7 +1172,7 @@ final class DustController {
                 shape != null && shape.shell ? "shell" : "fill",
                 DustSupport.hold(DustTuning.strength(density)));
         }
-        return String.format("mass %.0f/%.0f, %s%s, compacted %.2f%s", mass, targetMass, home, body, compacted,
+        return String.format("mass %.1f/%.0f, %s%s, compacted %.2f%s", mass, targetMass, home, body, compacted,
             dissolving.isEmpty() ? "" : ", " + dissolving.size() + " dissolving");
     }
 

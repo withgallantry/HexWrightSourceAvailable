@@ -5,7 +5,6 @@ import com.bluup.hexwright.client.block.AlembixVesselVisualClient
 import com.bluup.hexwright.server.fluid.HexidTank
 import com.bluup.hexwright.server.fluid.HexidTankBlockEntity
 import com.bluup.hexwright.server.fluid.HexidPipeNetwork
-import com.bluup.hexwright.server.fluid.HexidTankColumn
 import com.bluup.hexwright.server.fluid.LiquefactriumBlockEntity
 import com.bluup.hexwright.server.fluid.TankRemnants
 import com.bluup.hexwright.server.menu.MenuWidgets
@@ -96,15 +95,7 @@ class AlembixBlockEntity(
 
     fun columnsAt(side: Direction): List<HexidTankBlockEntity> {
         val level = this.level ?: return emptyList()
-        val pos = worldPosition.relative(side)
-        val state = level.getBlockState(pos)
-        if (HexidTankColumn.isTank(state)) {
-            return listOfNotNull(HexidTankColumn.controller(level, pos))
-        }
-        if (state.`is`(HexwrightBlocks.HEXID_PIPE_BLOCK)) {
-            return HexidPipeNetwork.tanksOn(level, pos)
-        }
-        return emptyList()
+        return HexidPipeNetwork.columnsAt(level, worldPosition.relative(side))
     }
 
     fun inputColumns(index: Int): List<HexidTankBlockEntity> = columnsAt(INPUT_SIDES[index])
@@ -320,11 +311,12 @@ class AlembixBlockEntity(
 
         val mixers = ArrayList<SliderWidget>(INPUTS)
         for (index in 0 until INPUTS) {
-            val mixer = MenuWidgets.firstById(byId, mixerId(index)) as? SliderWidget
-            if (mixer == null) {
-                Hexwright.LOGGER.warn("{}.ui is missing mixer '{}'", UI_PROJECT, mixerId(index))
+            val slot = MenuWidgets.firstById(byId, mixerId(index)) as? WidgetGroup
+            if (slot == null) {
+                Hexwright.LOGGER.warn("{}.ui is missing mixer slot '{}'", UI_PROJECT, mixerId(index))
                 return
             }
+            val mixer = buildMixer(slot)
             mixer.setClientSideWidget()
             mixers.add(mixer)
         }
@@ -349,6 +341,17 @@ class AlembixBlockEntity(
             panel.open()
             for (widget in pending) widget.updateScreen()
         }
+    }
+
+    private fun buildMixer(slot: WidgetGroup): SliderWidget {
+        val mixer = SliderWidget(0, 0, slot.sizeWidth, slot.sizeHeight)
+        mixer.maxAmount = TOTAL.toFloat()
+        mixer.valueStep = TOTAL
+        mixer.handleTexture = mixer.defaultSliderHandel
+        mixer.handleHoverTexture = mixer.defaultSliderHandelHover
+        mixer.setDefaultKeysVertical()
+        slot.addWidget(mixer)
+        return mixer
     }
 
     private fun bindText(
@@ -466,11 +469,7 @@ class AlembixBlockEntity(
         for (index in 0 until INPUTS) {
             val y = 26 + index * 24
             root.addWidget(TextTextureWidget(8, y, 60, 14).also { it.id = labelId(index) })
-            root.addWidget(SliderWidget(72, y, 140, 14).also {
-                it.id = mixerId(index)
-                it.maxAmount = TOTAL.toFloat()
-                it.valueStep = TOTAL
-            })
+            root.addWidget(WidgetGroup(72, y, 140, 14).also { it.id = mixerId(index) })
             root.addWidget(TextTextureWidget(216, y, 34, 14).also { it.id = amountId(index) })
         }
         root.addWidget(TextTextureWidget(8, 132, 60, 14).also { it.id = OUTPUT_ID })

@@ -114,8 +114,7 @@ public final class DungeonModules {
     public static final List<Module> BOSS_HALLS = List.of(
         hall("center_1", ALL),
         hall("premium_center_1", ALL),
-        hall("premium_center_2", ALL),
-        hall("premium_center_3", ALL));
+        hall("premium_center_2", ALL));
 
     public static final Module CORRUPT_HALL = hall("corrupt_boss_room", ALL);
 

@@ -34,6 +34,8 @@ public final class ClientPortalManager {
     }
 
     public static void register() {
+        net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK
+            .register(client -> sweep());
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> client.execute(() -> {
             ENTRIES.clear();
             boundLevel = null;
@@ -68,13 +70,12 @@ public final class ClientPortalManager {
     }
 
     private static long now() {
-        return Minecraft.getInstance().level != null
-            ? Minecraft.getInstance().level.getGameTime()
-            : 0L;
+        ClientLevel level = RemoteLevelManager.playerLevel();
+        return level != null ? level.getGameTime() : 0L;
     }
 
     private static void bindCurrentLevel() {
-        ClientLevel level = Minecraft.getInstance().level;
+        ClientLevel level = RemoteLevelManager.playerLevel();
         if (level != boundLevel) {
             ENTRIES.clear();
             boundLevel = level;
@@ -82,15 +83,22 @@ public final class ClientPortalManager {
     }
 
     public static List<Entry> entries() {
-        ClientLevel level = Minecraft.getInstance().level;
+        ClientLevel level = RemoteLevelManager.playerLevel();
         if (level == null || level != boundLevel) {
             return List.of();
+        }
+        return ENTRIES;
+    }
+
+    public static void sweep() {
+        ClientLevel level = RemoteLevelManager.playerLevel();
+        if (level == null || level != boundLevel) {
+            return;
         }
         if (ENTRIES.removeIf(entry -> entry.closing() && openProgress(entry, 1.0f) <= 0.0f)) {
             PortalViewRenderer.pruneTargets();
         }
         RemoteLevelManager.releaseDeferredForgets();
-        return ENTRIES;
     }
 
     public static boolean closingPaneNeeds(ResourceLocation dimension) {

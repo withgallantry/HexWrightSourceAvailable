@@ -4,6 +4,9 @@ import at.petrak.hexcasting.api.casting.iota.Iota;
 import at.petrak.hexcasting.api.casting.iota.PatternIota;
 import at.petrak.hexcasting.api.item.IotaHolderItem;
 import at.petrak.hexcasting.api.misc.MediaConstants;
+import com.bluup.hexwright.server.item.ArtifactItem;
+import com.bluup.hexwright.server.weapon.WeaponTooltips;
+import com.bluup.hexwright.server.portal.VoidTearManager;
 import net.minecraft.ChatFormatting;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
@@ -17,7 +20,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 
-public class PowerOrbItem extends Item implements IotaHolderItem, DyeableLeatherItem {
+public class PowerOrbItem extends Item implements IotaHolderItem, DyeableLeatherItem, ArtifactItem {
 
     private final PowerOrbPower power;
 
@@ -39,52 +42,83 @@ public class PowerOrbItem extends Item implements IotaHolderItem, DyeableLeather
     }
 
     @Override
-    public void appendHoverText(ItemStack stack, @Nullable Level level, List<Component> tooltip, TooltipFlag flag) {
-        tooltip.add(Component.translatable(this.power.subtitleKey()).withStyle(ChatFormatting.GRAY));
-        switch (this.power) {
-            case GOLEM -> appendGolemTooltip(stack, tooltip);
-            case SANCTUARY -> appendSanctuaryTooltip(stack, level, tooltip);
-        }
-        appendSigilTooltip(stack, tooltip, flag);
+    public Component getName(ItemStack stack) {
+        return super.getName(stack).copy().withStyle(ArtifactItem.COLOUR);
     }
 
-    private static void appendGolemTooltip(ItemStack stack, List<Component> tooltip) {
-        tooltip.add(Component.translatable("tooltip.hexwright.power_orb.golem.power")
-            .withStyle(ChatFormatting.DARK_AQUA));
-        if (PowerOrbData.holdsGolem(stack)) {
-            tooltip.add(Component.translatable(PowerOrbData.isActive(stack)
-                        ? "tooltip.hexwright.power_orb.golem.out"
-                        : "tooltip.hexwright.power_orb.golem.held",
-                    String.format("%.0f", Math.ceil(PowerOrbData.golemHealth(stack))),
-                    String.format("%.0f", SpiritGolemEntity.MAX_HEALTH))
-                .withStyle(ChatFormatting.GREEN));
+    @Override
+    public void appendHoverText(ItemStack stack, @Nullable Level level, List<Component> tooltip, TooltipFlag flag) {
+        tooltip.add(ArtifactItem.tooltipLine());
+        WeaponTooltips.add(tooltip, Component.translatable(this.power.subtitleKey()), ChatFormatting.GRAY);
+        switch (this.power) {
+            case GOLEM -> appendConstructTooltip(stack, level, tooltip, ConstructOrbPower.GOLEM);
+            case CAT -> appendConstructTooltip(stack, level, tooltip, ConstructOrbPower.CAT);
+            case GUARDIAN -> appendConstructTooltip(stack, level, tooltip, ConstructOrbPower.GUARDIAN);
+            case SANCTUARY -> appendSanctuaryTooltip(stack, level, tooltip);
+            case TEETH -> appendTeethTooltip(tooltip);
+            case DUST -> appendDustTooltip(tooltip);
+        }
+        if (this.power.bindsSigil()) {
+            appendSigilTooltip(stack, tooltip, flag);
+        }
+    }
+
+    private void appendConstructTooltip(ItemStack stack, @Nullable Level level, List<Component> tooltip,
+                                        ConstructOrbPower construct) {
+        String key = this.power.subtitleKey();
+        WeaponTooltips.add(tooltip, Component.translatable(key + ".power"), ChatFormatting.DARK_AQUA);
+        long left = level == null ? 0L : PowerOrbData.cooldownLeft(stack, level.getGameTime());
+        if (left > 0) {
+            WeaponTooltips.add(tooltip, Component.translatable(key + ".recovering", (left + 19) / 20),
+                ChatFormatting.GRAY);
+        } else if (PowerOrbData.holdsConstruct(stack)) {
+            WeaponTooltips.add(tooltip, Component.translatable(key + (PowerOrbData.isActive(stack) ? ".out" : ".held"),
+                    String.format("%.0f", Math.ceil(PowerOrbData.constructHealth(stack))),
+                    String.format("%.0f", construct.maxHealth())),
+                ChatFormatting.GREEN);
         } else {
-            tooltip.add(Component.translatable("tooltip.hexwright.power_orb.golem.cost",
-                    GolemOrbPower.SUMMON_COST / MediaConstants.DUST_UNIT)
-                .withStyle(ChatFormatting.DARK_GRAY));
+            WeaponTooltips.add(tooltip, Component.translatable(key + ".cost",
+                    ConstructOrbPower.SUMMON_COST / MediaConstants.DUST_UNIT, construct.slainCooldownTicks() / 20),
+                ChatFormatting.DARK_GRAY);
         }
     }
 
     private static void appendSanctuaryTooltip(ItemStack stack, @Nullable Level level, List<Component> tooltip) {
-        tooltip.add(Component.translatable("tooltip.hexwright.power_orb.sanctuary.power")
-            .withStyle(ChatFormatting.DARK_AQUA));
+        WeaponTooltips.add(tooltip, Component.translatable("tooltip.hexwright.power_orb.sanctuary.power"),
+            ChatFormatting.DARK_AQUA);
         long left = level == null ? 0L : PowerOrbData.cooldownLeft(stack, level.getGameTime());
         if (left > 0) {
-            tooltip.add(Component.translatable("tooltip.hexwright.power_orb.sanctuary.recovering",
-                    (left + 19) / 20)
-                .withStyle(ChatFormatting.GRAY));
+            WeaponTooltips.add(tooltip, Component.translatable("tooltip.hexwright.power_orb.sanctuary.recovering",
+                    (left + 19) / 20),
+                ChatFormatting.GRAY);
         } else {
-            tooltip.add(Component.translatable("tooltip.hexwright.power_orb.sanctuary.cost",
+            WeaponTooltips.add(tooltip, Component.translatable("tooltip.hexwright.power_orb.sanctuary.cost",
                     SanctuaryOrbPower.CAST_COST / MediaConstants.DUST_UNIT,
-                    SanctuaryOrbPower.COOLDOWN_TICKS / 20)
-                .withStyle(ChatFormatting.DARK_GRAY));
+                    SanctuaryOrbPower.COOLDOWN_TICKS / 20),
+                ChatFormatting.DARK_GRAY);
         }
+    }
+
+    private static void appendTeethTooltip(List<Component> tooltip) {
+        WeaponTooltips.add(tooltip, Component.translatable("tooltip.hexwright.power_orb.teeth.power"),
+            ChatFormatting.DARK_AQUA);
+        WeaponTooltips.add(tooltip, Component.translatable("tooltip.hexwright.power_orb.teeth.cost",
+                String.format("%.2f", (double) TeethOrbPower.TEAR_COST / MediaConstants.DUST_UNIT),
+                VoidTearManager.MAX_TEARS_PER_CASTER),
+            ChatFormatting.DARK_GRAY);
+    }
+
+    private static void appendDustTooltip(List<Component> tooltip) {
+        WeaponTooltips.add(tooltip, Component.translatable("tooltip.hexwright.power_orb.dust.power"),
+            ChatFormatting.DARK_AQUA);
+        WeaponTooltips.add(tooltip, Component.translatable("tooltip.hexwright.power_orb.dust.licence"),
+            ChatFormatting.DARK_GRAY);
     }
 
     private void appendSigilTooltip(ItemStack stack, List<Component> tooltip, TooltipFlag flag) {
         if (PowerOrbData.getPattern(stack) == null) {
-            tooltip.add(Component.translatable("tooltip.hexwright.power_orb.sigil_unbound")
-                .withStyle(ChatFormatting.DARK_GRAY));
+            WeaponTooltips.add(tooltip, Component.translatable("tooltip.hexwright.power_orb.sigil_unbound"),
+                ChatFormatting.DARK_GRAY);
             return;
         }
         IotaHolderItem.appendHoverText(this, stack, tooltip, flag);
@@ -98,16 +132,19 @@ public class PowerOrbItem extends Item implements IotaHolderItem, DyeableLeather
 
     @Override
     public boolean writeable(ItemStack stack) {
-        return true;
+        return this.power.bindsSigil();
     }
 
     @Override
     public boolean canWrite(ItemStack stack, @Nullable Iota iota) {
-        return iota == null || iota instanceof PatternIota;
+        return this.power.bindsSigil() && (iota == null || iota instanceof PatternIota);
     }
 
     @Override
     public void writeDatum(ItemStack stack, @Nullable Iota iota) {
+        if (!this.power.bindsSigil()) {
+            return;
+        }
         if (iota instanceof PatternIota patternIota) {
             PowerOrbData.setPattern(stack, patternIota.getPattern());
         } else {

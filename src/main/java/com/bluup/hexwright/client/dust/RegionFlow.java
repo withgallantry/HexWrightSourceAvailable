@@ -22,7 +22,7 @@ final class RegionFlow implements DustFlowField {
         float px = grain.x - frame.regionOffX;
         float py = grain.y - frame.regionOffY;
         float pz = grain.z - frame.regionOffZ;
-        float max = DustConfig.regionMaxSpeed;
+        float max = DustConfig.regionMaxSpeed * frame.formAgility;
         float follow = DustConfig.regionFollow;
 
         int part = shape.partFor(grain.speed);

@@ -6,6 +6,7 @@ import at.petrak.hexcasting.api.item.IotaHolderItem;
 import at.petrak.hexcasting.api.misc.MediaConstants;
 import com.bluup.hexwright.client.armour.ClientArmourWearer;
 import com.bluup.hexwright.server.item.ArtifactItem;
+import com.bluup.hexwright.server.weapon.WeaponTooltips;
 import net.minecraft.ChatFormatting;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
@@ -66,8 +67,8 @@ public class CapeOfPassageItem extends ArmorItem implements ArtifactItem, IotaHo
         appendSetTooltip(level, tooltip);
         tooltip.add(Component.empty());
         if (ArmourPowerToggle.getPattern(stack) == null) {
-            tooltip.add(Component.translatable("tooltip.hexwright.cape_of_passage.sigil_unbound")
-                .withStyle(ChatFormatting.DARK_GRAY));
+            WeaponTooltips.add(tooltip, Component.translatable("tooltip.hexwright.cape_of_passage.sigil_unbound"),
+                ChatFormatting.DARK_GRAY);
         } else {
             IotaHolderItem.appendHoverText(this, stack, tooltip, flag);
         }
@@ -81,8 +82,8 @@ public class CapeOfPassageItem extends ArmorItem implements ArtifactItem, IotaHo
         tooltip.add(Component.translatable("tooltip.hexwright.armour.set_power", 2,
                 Component.translatable("tooltip.hexwright.cape_of_passage.power"))
             .withStyle(ChatFormatting.DARK_PURPLE));
-        tooltip.add(Component.translatable("tooltip.hexwright.cape_of_passage.power.how")
-            .withStyle(ChatFormatting.GRAY));
+        WeaponTooltips.add(tooltip, Component.translatable("tooltip.hexwright.cape_of_passage.power.how"),
+            ChatFormatting.GRAY);
         tooltip.add(Component.translatable("tooltip.hexwright.cape_of_passage.power.cost",
                 String.format("%.1f", MEDIA_PER_STEP / (double) MediaConstants.DUST_UNIT))
             .withStyle(ChatFormatting.DARK_GRAY));

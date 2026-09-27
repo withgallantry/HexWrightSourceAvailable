@@ -112,10 +112,6 @@ public final class PortalPlaneRenderer {
             return;
         }
 
-        if (RemoteLevelManager.isRemotePassActive()) {
-            return;
-        }
-
         boolean inPortalPass = PortalViewRenderer.isRenderingView();
 
         PortalViewRenderer.ViewKey skipPane = PortalViewRenderer.activeDestinationPane();

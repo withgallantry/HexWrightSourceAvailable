@@ -66,11 +66,11 @@ public final class HexwrightNetworking {
     public static final ResourceLocation HEXICON_APPLY_C2S = Hexwright.id("hexicon_apply_c2s");
     public static final ResourceLocation HEXICON_OPEN_MENU_C2S = Hexwright.id("hexicon_open_menu_c2s");
     public static final ResourceLocation ASPECT_SYNC_S2C = Hexwright.id("aspect_sync_s2c");
-    public static final ResourceLocation MASTERY_SYNC_S2C = Hexwright.id("mastery_sync_s2c");
     public static final ResourceLocation RECIPE_UNLOCK_SYNC_S2C = Hexwright.id("recipe_unlock_sync_s2c");
     public static final ResourceLocation INVESTIGATION_SYNC_S2C = Hexwright.id("investigation_sync_s2c");
     public static final ResourceLocation JOURNAL_TOAST_S2C = Hexwright.id("journal_toast_s2c");
     public static final ResourceLocation JOURNAL_ARTIFACT_SYNC_S2C = Hexwright.id("journal_artifact_sync_s2c");
+    public static final ResourceLocation JOURNAL_ESSENCE_SYNC_S2C = Hexwright.id("journal_essence_sync_s2c");
     public static final ResourceLocation RESONANCE_NAMES_SYNC_S2C = Hexwright.id("resonance_names_sync_s2c");
     public static final ResourceLocation ARTISAN_SIGNET_SIGN_C2S = Hexwright.id("artisan_signet_sign_c2s");
     public static final ResourceLocation TALISMAN_DESIGN_C2S = Hexwright.id("talisman_design_c2s");
@@ -89,11 +89,14 @@ public final class HexwrightNetworking {
     public static final ResourceLocation COG_SCORCH_S2C = Hexwright.id("cog_scorch_s2c");
     public static final ResourceLocation PASSAGE_PORTAL_S2C = Hexwright.id("passage_portal_s2c");
     public static final ResourceLocation SKYFALL_VFX_S2C = Hexwright.id("skyfall_vfx_s2c");
+    public static final ResourceLocation FROST_PURSUIT_VFX_S2C = Hexwright.id("frost_pursuit_vfx_s2c");
     public static final ResourceLocation VEHICLE_DESCEND_INPUT_C2S = Hexwright.id("vehicle_descend_input_c2s");
     public static final ResourceLocation VEHICLE_DEBUG_REQUEST_C2S = Hexwright.id("vehicle_debug_request_c2s");
     public static final ResourceLocation VEHICLE_DEBUG_S2C = Hexwright.id("vehicle_debug_s2c");
     public static final ResourceLocation PORTAL_SYNC_S2C = Hexwright.id("portal_sync_s2c");
     public static final ResourceLocation VOID_TEAR_S2C = Hexwright.id("void_tear_s2c");
+    public static final ResourceLocation CLOAK_FIELDS_S2C = Hexwright.id("cloak_fields_s2c");
+    public static final ResourceLocation CLOAK_RIPPLE_S2C = Hexwright.id("cloak_ripple_s2c");
     public static final ResourceLocation DUST_S2C = Hexwright.id("dust_s2c");
     public static final ResourceLocation PORTAL_USE_C2S = Hexwright.id("portal_use_c2s");
     public static final ResourceLocation PORTAL_ATTACK_C2S = Hexwright.id("portal_attack_c2s");
@@ -117,14 +120,6 @@ public final class HexwrightNetworking {
         FriendlyByteBuf buf = PacketByteBufs.create();
         com.bluup.hexwright.common.aspects.AspectMappings.write(buf);
         ServerPlayNetworking.send(player, ASPECT_SYNC_S2C, buf);
-    }
-
-    public static void sendMasterySync(ServerPlayer player) {
-        com.bluup.hexwright.server.pocketcaster.PocketCasterData.Quality best =
-            com.bluup.hexwright.server.progression.Mastery.of(player).bestQuality();
-        FriendlyByteBuf buf = PacketByteBufs.create();
-        buf.writeVarInt(best == null ? -1 : best.ordinal());
-        ServerPlayNetworking.send(player, MASTERY_SYNC_S2C, buf);
     }
 
     public static void sendRecipeUnlockSync(ServerPlayer player) {
@@ -157,6 +152,18 @@ public final class HexwrightNetworking {
             buf.writeUtf(id);
         }
         ServerPlayNetworking.send(player, JOURNAL_ARTIFACT_SYNC_S2C, buf);
+    }
+
+    public static void sendEssenceSync(ServerPlayer player) {
+        Map<com.bluup.hexwright.common.staff_assembly.calc.IngredientCategory, java.util.Set<ResourceLocation>> sources =
+            com.bluup.hexwright.server.journal.InvestigationProgress.essenceSourcesFor(player);
+        FriendlyByteBuf buf = PacketByteBufs.create();
+        buf.writeVarInt(sources.size());
+        for (var aspect : sources.entrySet()) {
+            buf.writeEnum(aspect.getKey());
+            buf.writeCollection(aspect.getValue(), FriendlyByteBuf::writeResourceLocation);
+        }
+        ServerPlayNetworking.send(player, JOURNAL_ESSENCE_SYNC_S2C, buf);
     }
 
     public static void sendJournalToast(ServerPlayer player,
@@ -705,11 +712,6 @@ public final class HexwrightNetworking {
             });
         });
 
-        ClientPlayNetworking.registerGlobalReceiver(MASTERY_SYNC_S2C, (client, handler, buf, responseSender) -> {
-            int bestQuality = buf.readVarInt();
-            client.execute(() -> com.bluup.hexwright.client.progression.ClientMastery.setBestQuality(bestQuality));
-        });
-
         ClientPlayNetworking.registerGlobalReceiver(RECIPE_UNLOCK_SYNC_S2C, (client, handler, buf, responseSender) -> {
             int count = buf.readVarInt();
             List<String> unlocked = new ArrayList<>(count);
@@ -735,6 +737,17 @@ public final class HexwrightNetworking {
                 found.add(buf.readUtf());
             }
             client.execute(() -> com.bluup.hexwright.client.journal.ClientInvestigations.setArtifacts(found));
+        });
+
+        ClientPlayNetworking.registerGlobalReceiver(JOURNAL_ESSENCE_SYNC_S2C, (client, handler, buf, responseSender) -> {
+            var sources = new java.util.EnumMap<com.bluup.hexwright.common.staff_assembly.calc.IngredientCategory,
+                java.util.Set<ResourceLocation>>(com.bluup.hexwright.common.staff_assembly.calc.IngredientCategory.class);
+            int count = buf.readVarInt();
+            for (int i = 0; i < count; i++) {
+                var aspect = buf.readEnum(com.bluup.hexwright.common.staff_assembly.calc.IngredientCategory.class);
+                sources.put(aspect, java.util.Set.copyOf(buf.readList(FriendlyByteBuf::readResourceLocation)));
+            }
+            client.execute(() -> com.bluup.hexwright.client.journal.ClientInvestigations.setEssenceSources(sources));
         });
 
         ClientPlayNetworking.registerGlobalReceiver(JOURNAL_TOAST_S2C, (client, handler, buf, responseSender) -> {
@@ -865,6 +878,15 @@ public final class HexwrightNetworking {
                 .handle(kind, at, yaw, variant));
         });
 
+        ClientPlayNetworking.registerGlobalReceiver(FROST_PURSUIT_VFX_S2C, (client, handler, buf, responseSender) -> {
+            int kind = buf.readByte();
+            Vec3 at = new Vec3(buf.readDouble(), buf.readDouble(), buf.readDouble());
+            float yaw = buf.readFloat();
+            int variant = buf.readByte();
+            client.execute(() -> com.bluup.hexwright.client.weapon.FrostPursuitVisualClient
+                .handle(kind, at, yaw, variant));
+        });
+
         ClientPlayNetworking.registerGlobalReceiver(HEXICON_BOOK_OPEN_S2C, (client, handler, buf, responseSender) -> {
             UUID playerId = buf.readUUID();
             boolean open = buf.readBoolean();
@@ -910,6 +932,18 @@ public final class HexwrightNetworking {
             com.bluup.hexwright.server.portal.VoidTear tear =
                 com.bluup.hexwright.server.portal.VoidTear.read(buf, 0L);
             client.execute(() -> com.bluup.hexwright.client.portal.ClientVoidTears.add(tear));
+        });
+
+        ClientPlayNetworking.registerGlobalReceiver(CLOAK_FIELDS_S2C, (client, handler, buf, responseSender) -> {
+            List<com.bluup.hexwright.server.cloak.CloakField> fields =
+                buf.readList(com.bluup.hexwright.server.cloak.CloakField::read);
+            client.execute(() -> com.bluup.hexwright.client.cloak.ClientCloakFields.set(fields));
+        });
+
+        ClientPlayNetworking.registerGlobalReceiver(CLOAK_RIPPLE_S2C, (client, handler, buf, responseSender) -> {
+            UUID fieldId = buf.readUUID();
+            Vec3 point = new Vec3(buf.readDouble(), buf.readDouble(), buf.readDouble());
+            client.execute(() -> com.bluup.hexwright.client.cloak.CloakFieldRipples.add(fieldId, point));
         });
 
 
@@ -1037,6 +1071,22 @@ public final class HexwrightNetworking {
             tear.write(buf);
             ServerPlayNetworking.send(player, VOID_TEAR_S2C, buf);
         }
+    }
+
+    public static void sendCloakFields(ServerPlayer player,
+                                       java.util.Collection<com.bluup.hexwright.server.cloak.CloakField> fields) {
+        FriendlyByteBuf buf = PacketByteBufs.create();
+        buf.writeCollection(fields, (out, field) -> field.write(out));
+        ServerPlayNetworking.send(player, CLOAK_FIELDS_S2C, buf);
+    }
+
+    public static void sendCloakRipple(ServerPlayer player, UUID fieldId, Vec3 point) {
+        FriendlyByteBuf buf = PacketByteBufs.create();
+        buf.writeUUID(fieldId);
+        buf.writeDouble(point.x);
+        buf.writeDouble(point.y);
+        buf.writeDouble(point.z);
+        ServerPlayNetworking.send(player, CLOAK_RIPPLE_S2C, buf);
     }
 
     public static void broadcastPortalRemove(ServerLevel level, UUID pairId) {
@@ -1273,6 +1323,19 @@ public final class HexwrightNetworking {
             buf.writeFloat(yaw);
             buf.writeByte(variant);
             ServerPlayNetworking.send(tracking, SKYFALL_VFX_S2C, buf);
+        }
+    }
+
+    public static void sendFrostPursuitVfx(ServerLevel level, int kind, Vec3 at, float yaw, int variant) {
+        for (ServerPlayer tracking : PlayerLookup.tracking(level, BlockPos.containing(at))) {
+            FriendlyByteBuf buf = PacketByteBufs.create();
+            buf.writeByte(kind);
+            buf.writeDouble(at.x);
+            buf.writeDouble(at.y);
+            buf.writeDouble(at.z);
+            buf.writeFloat(yaw);
+            buf.writeByte(variant);
+            ServerPlayNetworking.send(tracking, FROST_PURSUIT_VFX_S2C, buf);
         }
     }
 

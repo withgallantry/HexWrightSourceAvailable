@@ -2,7 +2,10 @@ package com.bluup.hexwright.server.journal;
 
 import com.bluup.hexwright.Hexwright;
 import com.bluup.hexwright.client.ldlib.widget.StaffItemDisplayWidget;
+import com.bluup.hexwright.common.aspects.AspectMappings;
+import com.bluup.hexwright.common.staff_assembly.calc.IngredientCategory;
 import com.bluup.hexwright.mixin.WidgetHoverTextureAccessor;
+import com.bluup.hexwright.server.item.EndlessPouchItem;
 import com.bluup.hexwright.server.item.JournalItem;
 import com.bluup.hexwright.server.menu.MenuWidgets;
 import com.bluup.hexwright.server.menu.MenuWidgets.SilentButtonWidget;
@@ -13,6 +16,7 @@ import com.lowdragmc.lowdraglib.gui.factory.UIFactory;
 import com.lowdragmc.lowdraglib.gui.modular.IUIHolder;
 import com.lowdragmc.lowdraglib.gui.modular.ModularUI;
 import com.lowdragmc.lowdraglib.gui.texture.IGuiTexture;
+import com.lowdragmc.lowdraglib.gui.texture.ResourceTexture;
 import com.lowdragmc.lowdraglib.gui.widget.DraggableScrollableWidgetGroup;
 import com.lowdragmc.lowdraglib.gui.widget.ImageWidget;
 import com.lowdragmc.lowdraglib.gui.widget.TextBoxWidget;
@@ -23,10 +27,12 @@ import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.Style;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.player.Player;
@@ -38,6 +44,8 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
@@ -79,12 +87,25 @@ public final class JournalUIFactory extends UIFactory<JournalUIFactory.Holder> {
     private static final String ARTIFACT_LOCATION_ROW_ID = "found_in_item";
     private static final String ARTIFACT_LOCATION_TEXT_ID = "lost_location";
 
+    private static final String ESSENCE_LIST_ID = "essence_items_container";
+    private static final String ESSENCE_ROW_ID = "essence_list_item";
+    private static final String ESSENCE_ROW_ICON_ID = "essence_icon";
+    private static final String ESSENCE_DETAIL_ICON_ID = "essence_detail_icon";
+    private static final String ESSENCE_DETAIL_NAME_ID = "essence_detail_name";
+    private static final String ESSENCE_SOURCES_ID = "essence_detail_list";
+    private static final String ESSENCE_SOURCE_ROW_ID = "essence_source_entry";
+    private static final String ESSENCE_SOURCE_ITEM_ID = "essence_item";
+    private static final String ESSENCE_SOURCE_NAME_ID = "essence_source_name";
+    private static final String ESSENCE_SOURCE_AMOUNT_ID = "essence_num";
+
     private static final String INVESTIGATIONS_SECTION_ID = "investigations_pages";
     private static final String LORE_SECTION_ID = "lore_pages";
     private static final String ARTIFACT_SECTION_ID = "item_pages";
+    private static final String ESSENCE_SECTION_ID = "essence_pages";
     private static final String INVESTIGATIONS_TAB_ID = "invest_tab_container";
     private static final String LORE_TAB_ID = "lore_tab_container";
     private static final String ARTIFACT_TAB_ID = "artifact_tab_container";
+    private static final String ESSENCE_TAB_ID = "essence_tab_container";
 
     private static final int CELL_GAP = 2;
 
@@ -119,6 +140,7 @@ public final class JournalUIFactory extends UIFactory<JournalUIFactory.Holder> {
         bindInvestigations(root, entityPlayer);
         bindLore(sectionOrRoot(root, LORE_SECTION_ID), entityPlayer);
         bindArtifacts(sectionOrRoot(root, ARTIFACT_SECTION_ID), entityPlayer);
+        bindEssences(sectionOrRoot(root, ESSENCE_SECTION_ID), entityPlayer);
         bindSections(root, entityPlayer);
         return new ModularUI(root, holder, entityPlayer);
     }
@@ -233,6 +255,7 @@ public final class JournalUIFactory extends UIFactory<JournalUIFactory.Holder> {
             {INVESTIGATIONS_SECTION_ID, INVESTIGATIONS_TAB_ID},
             {LORE_SECTION_ID, LORE_TAB_ID},
             {ARTIFACT_SECTION_ID, ARTIFACT_TAB_ID},
+            {ESSENCE_SECTION_ID, ESSENCE_TAB_ID},
         };
         List<Widget> sections = new ArrayList<>(ids.length);
         List<Tab> tabs = new ArrayList<>(ids.length);
@@ -888,6 +911,189 @@ public final class JournalUIFactory extends UIFactory<JournalUIFactory.Holder> {
             return best;
         }
     }
+
+
+    private static void bindEssences(WidgetGroup section, Player player) {
+        Widget listWidget = section.getFirstWidgetById("^" + ESSENCE_LIST_ID + "$");
+        if (!(listWidget instanceof WidgetGroup list)) {
+            Hexwright.LOGGER.warn("journal.ui is missing its '{}' group", ESSENCE_LIST_ID);
+            return;
+        }
+        Widget cellWidget = list.getFirstWidgetById("^" + ESSENCE_ROW_ID + "$");
+        if (!(cellWidget instanceof WidgetGroup cellTemplate)) {
+            Hexwright.LOGGER.warn("journal.ui is missing its '{}' cell template", ESSENCE_ROW_ID);
+            return;
+        }
+
+        CompoundTag cellTag = ((IConfigurableWidget) cellTemplate).serializeWrapper();
+        int left = cellTemplate.getSelfPositionX();
+        int top = cellTemplate.getSelfPositionY();
+        int cellWidth = cellTemplate.getSizeWidth();
+        int cellHeight = cellTemplate.getSizeHeight();
+        int columns = Math.max(1, (list.getSizeWidth() - left + CELL_GAP) / (cellWidth + CELL_GAP));
+        list.removeWidget(cellTemplate);
+
+        RowSelection selection = RowSelection.of(cellTemplate);
+        EssencePage page = EssencePage.of(section);
+        Map<IngredientCategory, Set<ResourceLocation>> discovered = InvestigationProgress.essenceSourcesFor(player);
+
+        List<Runnable> selectors = new ArrayList<>();
+        int bottom = 0;
+        for (IngredientCategory aspect : IngredientCategory.values()) {
+            Set<ResourceLocation> sources = discovered.getOrDefault(aspect, Set.of());
+            if (sources.isEmpty()) {
+                continue;
+            }
+            IConfigurableWidget wrapper = IConfigurableWidget.deserializeWrapper(cellTag);
+            if (wrapper == null || !(wrapper.widget() instanceof WidgetGroup cell)) {
+                continue;
+            }
+            int index = selectors.size();
+            cell.setId(ESSENCE_ROW_ID + "_" + aspect.name().toLowerCase(Locale.ROOT));
+            int y = top + (index / columns) * (cellHeight + CELL_GAP);
+            cell.setSelfPosition(left + (index % columns) * (cellWidth + CELL_GAP), y);
+            bottom = Math.max(bottom, y + cellHeight);
+
+            if (cell.getFirstWidgetById("^" + ESSENCE_ROW_ICON_ID + "$") instanceof ImageWidget icon) {
+                icon.setImage(new ResourceTexture(EndlessPouchItem.aspectIcon(aspect)));
+            }
+
+            Runnable select = () -> {
+                selection.select(cell);
+                if (page != null) {
+                    page.show(aspect, sources);
+                }
+            };
+            selectors.add(select);
+
+            SilentButtonWidget button = new SilentButtonWidget(0, 0, cell.getSizeWidth(), cell.getSizeHeight(),
+                clickData -> {
+                    player.playSound(HexwrightSoundEvents.journalClick(), 1.0F, 1.0F);
+                    select.run();
+                });
+            button.setHoverTooltips(EndlessPouchItem.aspectName(aspect));
+            cell.addWidget(button.setClientSideWidget());
+
+            list.addWidget(cell);
+        }
+
+        if (bottom > 0) {
+            list.addWidget(new WidgetGroup(left, bottom, 1, ROW_BORDER_INSET));
+        }
+        if (!selectors.isEmpty()) {
+            selectors.get(0).run();
+        } else if (page != null) {
+            page.clear();
+        }
+
+        if (list instanceof DraggableScrollableWidgetGroup scrollable) {
+            scrollable.computeMax();
+        }
+    }
+
+    private static final class EssencePage {
+
+        private final @Nullable ImageWidget icon;
+        private final @Nullable Widget name;
+        private final DraggableScrollableWidgetGroup sources;
+        private final CompoundTag rowTag;
+        private final int rowLeft;
+        private final int rowTop;
+        private final int rowStride;
+        private final List<Widget> shownRows = new ArrayList<>();
+
+        private record Source(ItemStack stack, double amount) {
+        }
+
+        private EssencePage(@Nullable ImageWidget icon, @Nullable Widget name, DraggableScrollableWidgetGroup sources,
+                            CompoundTag rowTag, int rowLeft, int rowTop, int rowStride) {
+            this.icon = icon;
+            this.name = name;
+            this.sources = sources;
+            this.rowTag = rowTag;
+            this.rowLeft = rowLeft;
+            this.rowTop = rowTop;
+            this.rowStride = rowStride;
+        }
+
+        static @Nullable EssencePage of(WidgetGroup section) {
+            if (!(section.getFirstWidgetById("^" + ESSENCE_SOURCES_ID + "$") instanceof DraggableScrollableWidgetGroup list)) {
+                Hexwright.LOGGER.warn("journal.ui is missing its '{}' scroll group", ESSENCE_SOURCES_ID);
+                return null;
+            }
+            if (!(list.getFirstWidgetById("^" + ESSENCE_SOURCE_ROW_ID + "$") instanceof WidgetGroup rowTemplate)) {
+                Hexwright.LOGGER.warn("journal.ui's '{}' has no '{}' template", ESSENCE_SOURCES_ID, ESSENCE_SOURCE_ROW_ID);
+                return null;
+            }
+            CompoundTag rowTag = ((IConfigurableWidget) rowTemplate).serializeWrapper();
+            int rowLeft = rowTemplate.getSelfPositionX();
+            int rowTop = rowTemplate.getSelfPositionY();
+            int rowStride = rowTemplate.getSizeHeight() + CELL_GAP;
+            list.removeWidget(rowTemplate);
+
+            ImageWidget icon = section.getFirstWidgetById("^" + ESSENCE_DETAIL_ICON_ID + "$") instanceof ImageWidget found
+                ? found : null;
+            Widget name = section.getFirstWidgetById("^" + ESSENCE_DETAIL_NAME_ID + "$");
+            if (name instanceof TextTextureWidget) {
+                name.setClientSideWidget();
+            }
+            return new EssencePage(icon, name, list, rowTag, rowLeft, rowTop, rowStride);
+        }
+
+        void show(IngredientCategory aspect, Set<ResourceLocation> sourceIds) {
+            if (icon != null) {
+                icon.setImage(new ResourceTexture(EndlessPouchItem.aspectIcon(aspect)));
+            }
+            writeText(name, EndlessPouchItem.aspectName(aspect));
+            setRows(ranked(aspect, sourceIds));
+        }
+
+        void clear() {
+            if (icon != null) {
+                icon.setImage(IGuiTexture.EMPTY);
+            }
+            writeText(name, Component.empty());
+            setRows(List.of());
+        }
+
+        private static List<Source> ranked(IngredientCategory aspect, Set<ResourceLocation> sourceIds) {
+            List<Source> ranked = new ArrayList<>(sourceIds.size());
+            for (ResourceLocation id : sourceIds) {
+                BuiltInRegistries.ITEM.getOptional(id).ifPresent(item -> AspectMappings.profileFor(item)
+                    .filter(profile -> profile.essenceYield() > 0 && profile.data().categories().contains(aspect))
+                    .ifPresent(profile -> ranked.add(new Source(new ItemStack(item), profile.essenceYield()))));
+            }
+            ranked.sort(Comparator.comparingDouble(Source::amount).reversed()
+                .thenComparing(source -> BuiltInRegistries.ITEM.getKey(source.stack().getItem()).toString()));
+            return ranked;
+        }
+
+        private void setRows(List<Source> ranked) {
+            for (Widget shown : shownRows) {
+                sources.removeWidget(shown);
+            }
+            shownRows.clear();
+            sources.setScrollYOffset(0);
+
+            for (int index = 0; index < ranked.size(); index++) {
+                Source source = ranked.get(index);
+                IConfigurableWidget wrapper = IConfigurableWidget.deserializeWrapper(rowTag);
+                if (wrapper == null || !(wrapper.widget() instanceof WidgetGroup row)) {
+                    continue;
+                }
+                row.setId(ESSENCE_SOURCE_ROW_ID + "_" + index);
+                row.setSelfPosition(rowLeft, rowTop + index * rowStride);
+                showItem(row, ESSENCE_SOURCE_ITEM_ID, source::stack, false);
+                writeRowText(row, ESSENCE_SOURCE_NAME_ID, source.stack().getHoverName());
+                writeRowText(row, ESSENCE_SOURCE_AMOUNT_ID,
+                    Component.literal("x" + EndlessPouchItem.formatAmount(source.amount())));
+                sources.addWidget(row);
+                shownRows.add(row);
+            }
+            sources.computeMax();
+        }
+    }
+
 
     private static final class RowSelection {
 

@@ -9,7 +9,6 @@ import net.fabricmc.fabric.api.event.player.UseEntityCallback;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.world.InteractionResult;
-import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.Vec3;
 
 public final class TalismanEvents {
@@ -27,22 +26,6 @@ public final class TalismanEvents {
             for (ServerPlayer player : server.getPlayerList().getPlayers()) {
                 TalismanSlots.sync(player);
             }
-        });
-
-        ServerLivingEntityEvents.ALLOW_DAMAGE.register((entity, source, amount) -> {
-            if (TalismanCasting.isCasting()) {
-                return true;
-            }
-            if (entity instanceof ServerPlayer player) {
-                TalismanCasting.onTrigger(player, TalismanData.Trigger.STRUCK,
-                    source.getEntity(), (double) amount);
-            }
-            Entity attacker = source.getEntity();
-            if (attacker instanceof ServerPlayer dealer && dealer != entity) {
-                TalismanCasting.onTrigger(dealer, TalismanData.Trigger.HURT,
-                    entity, (double) amount);
-            }
-            return true;
         });
 
         ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {

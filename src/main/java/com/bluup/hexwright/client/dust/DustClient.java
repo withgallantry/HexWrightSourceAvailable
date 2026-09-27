@@ -58,7 +58,8 @@ public final class DustClient {
         switch (packet.op()) {
             case DustPacket.OP_STATE -> {
                 controller.setMass(packet.mass(), packet.targetMass());
-                controller.setFormation(packet.region(), packet.constrained());
+                controller.setFormation(packet.region(), packet.formationSerial(), packet.constrained(),
+                    packet.drift(), packet.vector(), packet.driftTarget(), packet.destination());
             }
             case DustPacket.OP_MASS -> controller.setMass(packet.mass(), packet.targetMass());
             case DustPacket.OP_DIRECT -> controller.direct(packet.vector().x, packet.vector().y,

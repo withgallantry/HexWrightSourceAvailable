@@ -77,6 +77,11 @@ class VaultPlinthBlockEntity(
         }
     }
 
-    override fun getUpdateTag(): CompoundTag = saveWithoutMetadata()
+    override fun getUpdateTag(): CompoundTag {
+        val tag = saveWithoutMetadata()
+        tag.put(TAG_ITEM, displayed.save(CompoundTag()))
+        return tag
+    }
+
     override fun getUpdatePacket(): Packet<ClientGamePacketListener> = ClientboundBlockEntityDataPacket.create(this)
 }

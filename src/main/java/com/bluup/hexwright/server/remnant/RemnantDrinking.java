@@ -16,13 +16,11 @@ public final class RemnantDrinking {
 
     private static final int MIN_DURATION_TICKS = 100;
 
-    private static final double REPAST_ANCHOR_DRAMS = 600.0;
-
-    private static final int REPAST_ANCHOR_TICKS = 3600;
-
-    private static final int REPAST_MIN_DURATION_TICKS = 20;
-
     private static final double DRAMS_PER_HALF_HEART = 20.0;
+
+    private static final double DRAMS_PER_FOOD_POINT = 20.0;
+
+    private static final float REPAST_SATURATION_MODIFIER = 0.8f;
 
     private static final double AMPLIFIER_STEP = 200.0;
 
@@ -32,10 +30,6 @@ public final class RemnantDrinking {
     }
 
     public static int durationTicks(Remnant remnant) {
-        if (remnant.type() == RemnantType.REPAST) {
-            double ratio = remnant.drams() / REPAST_ANCHOR_DRAMS;
-            return Math.max(REPAST_MIN_DURATION_TICKS, (int) (REPAST_ANCHOR_TICKS * ratio * ratio));
-        }
         return Math.max(MIN_DURATION_TICKS, (int) (remnant.drams() * TICKS_PER_DRAM));
     }
 
@@ -47,12 +41,20 @@ public final class RemnantDrinking {
         return (float) (remnant.drams() / DRAMS_PER_HALF_HEART);
     }
 
+    public static int feeding(Remnant remnant) {
+        return Math.max(1, (int) (remnant.drams() / DRAMS_PER_FOOD_POINT));
+    }
+
     public static void drink(Player player, Remnant remnant) {
         RemnantType type = remnant.type();
 
         if (type == RemnantType.VITALITY) {
             player.heal(healing(remnant));
             return;
+        }
+
+        if (type == RemnantType.REPAST) {
+            player.getFoodData().eat(feeding(remnant), REPAST_SATURATION_MODIFIER);
         }
 
         MobEffect effect = type.effect();
@@ -76,6 +78,10 @@ public final class RemnantDrinking {
         if (remnant.type() == RemnantType.VITALITY) {
             return Component.translatable("tooltip.hexwright.remnant.instant",
                 String.format("%.1f", healing(remnant) / 2.0f));
+        }
+        if (remnant.type() == RemnantType.REPAST) {
+            return Component.translatable("tooltip.hexwright.remnant.repast",
+                String.format("%.1f", feeding(remnant) / 2.0f), durationTicks(remnant) / 20);
         }
         return Component.translatable("tooltip.hexwright.remnant.duration",
             durationTicks(remnant) / 20, amplifier(remnant) + 1);

@@ -116,12 +116,15 @@ loom {
 }
 
 dependencies {
+    modCompileOnly("maven.modrinth:ears:${project.ears_modrinth_version}") { transitive = false }
     modCompileOnly("maven.modrinth:iris:1.7.6+1.20.1") { transitive = false }
     modCompileOnly("maven.modrinth:sodium:mc1.20.1-0.5.13-fabric") { transitive = false }
     modCompileOnly "maven.modrinth:accessories:${project.accessories_modrinth_version}"
 
     modCompileOnly "mezz.jei:jei-${project.minecraft_version}-fabric-api:${project.jei_version}"
     modCompileOnly "dev.emi:emi-fabric:${project.emi_version}:api"
+
+    modCompileOnly("maven.modrinth:jade:11.13.3+fabric") { transitive = false }
 
     if (devJei) {
         modLocalRuntime("mezz.jei:jei-${project.minecraft_version}-fabric:${project.jei_version}") {

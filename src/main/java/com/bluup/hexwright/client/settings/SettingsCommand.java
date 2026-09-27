@@ -3,13 +3,13 @@ package com.bluup.hexwright.client.settings;
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
+import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.multiplayer.ClientPacketListener;
 
 @Environment(EnvType.CLIENT)
 public final class SettingsCommand {
@@ -31,11 +31,7 @@ public final class SettingsCommand {
         return Command.SINGLE_SUCCESS;
     }
 
-    private static int passToServer(CommandContext<FabricClientCommandSource> ctx) {
-        ClientPacketListener connection = ctx.getSource().getClient().getConnection();
-        if (connection != null) {
-            connection.sendCommand(ctx.getInput());
-        }
-        return Command.SINGLE_SUCCESS;
+    private static int passToServer(CommandContext<FabricClientCommandSource> ctx) throws CommandSyntaxException {
+        throw CommandSyntaxException.BUILT_IN_EXCEPTIONS.dispatcherUnknownCommand().create();
     }
 }

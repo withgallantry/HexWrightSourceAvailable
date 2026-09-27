@@ -1,6 +1,7 @@
 package com.bluup.hexwright.server.talisman;
 
 import com.bluup.hexwright.server.item.ArtifactItem;
+import com.bluup.hexwright.server.weapon.WeaponTooltips;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
@@ -35,7 +36,7 @@ public class ReprieveTalismanItem extends TalismanItem implements ArtifactItem {
     public void appendHoverText(ItemStack stack, @Nullable Level level, List<Component> tooltip, TooltipFlag flag) {
         tooltip.add(ArtifactItem.tooltipLine());
         super.appendHoverText(stack, level, tooltip, flag);
-        tooltip.add(Component.translatable("tooltip.hexwright.talisman.reprieve")
-            .withStyle(ChatFormatting.GRAY));
+        WeaponTooltips.add(tooltip, Component.translatable("tooltip.hexwright.talisman.reprieve"),
+            ChatFormatting.GRAY);
     }
 }

@@ -266,6 +266,28 @@ public final class PortalViewRenderer {
 
     private static @Nullable String refusalReason;
 
+    private static @Nullable net.minecraft.client.multiplayer.ClientLevel levelOf(
+        net.minecraft.client.renderer.LevelRenderer renderer) {
+        return renderer == null ? null : ((LevelRendererAccessor) renderer).hexwright$level();
+    }
+
+    private static boolean reportedLevellessRenderer;
+
+    private static void reportLevellessRenderer(int depth, SelectedView view) {
+        if (reportedLevellessRenderer) {
+            return;
+        }
+        reportedLevellessRenderer = true;
+        Minecraft mc = Minecraft.getInstance();
+        com.bluup.hexwright.Hexwright.LOGGER.warn(
+            "[portal] refusing a pass: the level renderer has no level. depth={} pane={} "
+                + "remoteDimension={} remotePassActive={} mc.level={} mainRendererHasLevel={}",
+            depth, view.key(), view.remoteDimension(),
+            RemoteLevelManager.isRemotePassActive(),
+            mc.level == null ? null : mc.level.dimension().location(),
+            levelOf(RemoteLevelManager.mainRendererForDiagnostics()) != null);
+    }
+
     private static boolean refuse(int depth, String reason) {
         if (depth == 0 && !reason.equals(refusalReason)) {
             refusalReason = reason;
@@ -350,6 +372,7 @@ public final class PortalViewRenderer {
             pendingTopLevelPasses = 0;
             chunkBuildBudget = CHUNK_BUILD_BUDGET_PER_FRAME;
             expireStaleTargets();
+            ClientPortalManager.sweep();
         }
         if (depth >= maxDepth()) {
             refuse(depth, "the Portal Views setting allows no pass at this depth");
@@ -359,6 +382,10 @@ public final class PortalViewRenderer {
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null || mc.player == null) {
             refuse(depth, "no level or player yet");
+            return;
+        }
+        if (((LevelRendererAccessor) mc.levelRenderer).hexwright$level() == null) {
+            refuse(depth, "the level renderer has no level yet - mid dimension change");
             return;
         }
         if (IrisCompat.isRenderingShadowPass()) {
@@ -466,6 +493,10 @@ public final class PortalViewRenderer {
                     holder.target.clear(Minecraft.ON_OSX);
                     holder.target.bindWrite(true);
                     PortalPassTrace.probe("before renderLevel", holder.target, parentTarget);
+                    if (levelOf(mc.levelRenderer) == null) {
+                        reportLevellessRenderer(depth, view);
+                        continue;
+                    }
                     gameRenderer.renderLevel(partialTick, nanos, new PoseStack());
                     PortalPassTrace.probe("after renderLevel", holder.target, parentTarget);
                     PortalPassTrace.viewReadiness(passKey.toString(), ++holder.diagnosticPasses, holder.target);

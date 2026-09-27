@@ -3,6 +3,7 @@ package com.bluup.hexwright.mixin;
 import com.bluup.hexwright.server.worldgen.AreaWard;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.Explosion;
 import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.Nullable;
@@ -30,8 +31,12 @@ public abstract class ExplosionDungeonMixin {
     @Shadow
     public abstract List<BlockPos> getToBlow();
 
+    @Shadow
+    @Nullable
+    public abstract LivingEntity getIndirectSourceEntity();
+
     @Inject(method = "explode", at = @At("TAIL"))
     private void hexwright$sealDungeon(CallbackInfo ci) {
-        AreaWard.prune(this.level, this.getToBlow(), this.source);
+        AreaWard.prune(this.level, this.getToBlow(), this.source, this.getIndirectSourceEntity());
     }
 }

@@ -17,12 +17,16 @@ import at.petrak.hexcasting.api.casting.mishaps.MishapInvalidIota;
 import at.petrak.hexcasting.api.misc.MediaConstants;
 import at.petrak.hexcasting.xplat.IXplatAbstractions;
 import com.bluup.hexwright.Hexwright;
+import net.fabricmc.fabric.api.gamerule.v1.GameRuleFactory;
+import net.fabricmc.fabric.api.gamerule.v1.GameRuleRegistry;
 import net.minecraft.Util;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Registry;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 
@@ -47,6 +51,9 @@ public final class PortalActions {
     private static final double MIN_SEPARATION = 16.0;
 
     private static final long SHUTTER_COST = MediaConstants.DUST_UNIT / 10;
+
+    public static final GameRules.Key<GameRules.IntegerValue> MAX_SPAN = GameRuleRegistry.register(
+        "hexwrightJanusMaxSpan", GameRules.Category.MISC, GameRuleFactory.createIntRule(14, 1));
 
     private PortalActions() {
     }
@@ -84,12 +91,14 @@ public final class PortalActions {
             UUID caster = env.getCastingEntity() != null
                 ? env.getCastingEntity().getUUID()
                 : Util.NIL_UUID;
+            boolean fixture = isCreativeCast(env);
+
             PortalPair coincidentFirst = manager.findCoincident(first);
             PortalPair coincidentSecond = manager.findCoincident(second);
-            if (coincidentFirst != null && !coincidentFirst.caster().equals(caster)) {
+            if (!fixture && coincidentFirst != null && !coincidentFirst.caster().equals(caster)) {
                 throw MishapInvalidIota.of(args.get(0), getArgc() - 1, "hexwright.portal_occupied");
             }
-            if (coincidentSecond != null && !coincidentSecond.caster().equals(caster)) {
+            if (!fixture && coincidentSecond != null && !coincidentSecond.caster().equals(caster)) {
                 throw MishapInvalidIota.of(args.get(1), getArgc() - 2, "hexwright.portal_occupied");
             }
 
@@ -113,9 +122,10 @@ public final class PortalActions {
                         manager.removePair(level, coincidentSecond.id());
                     }
                     long created = level.getGameTime();
-                    manager.addPair(level, new PortalPair(
-                        UUID.randomUUID(), caster, first, second, created,
-                        created + PortalPair.OPEN_TICKS + openTicks));
+                    manager.addPair(level, fixture
+                        ? PortalPair.fixture(UUID.randomUUID(), first, second, created)
+                        : new PortalPair(UUID.randomUUID(), caster, first, second, created,
+                            created + PortalPair.OPEN_TICKS + openTicks));
                 }
 
                 @Override
@@ -148,6 +158,9 @@ public final class PortalActions {
             if (target == null) {
                 throw MishapInvalidIota.of(args.get(0), 0, "hexwright.portal_absent");
             }
+            if (target.isFixed() && !isCreativeCast(env)) {
+                throw MishapInvalidIota.of(args.get(0), 0, "hexwright.portal_fixed");
+            }
 
             return new Result(new RenderedSpell() {
                 @Override
@@ -174,6 +187,10 @@ public final class PortalActions {
         }
     }
 
+    private static boolean isCreativeCast(CastingEnvironment env) {
+        return env.getCastingEntity() instanceof Player player && player.isCreative();
+    }
+
     private static double maxSeparation(ServerLevel level) {
         int viewChunks = level.getServer().getPlayerList().getViewDistance();
         return Math.max(MIN_SEPARATION, (viewChunks - VIEW_DISTANCE_SLACK_CHUNKS) * 16.0);
@@ -197,9 +214,9 @@ public final class PortalActions {
         if (window == null) {
             throw MishapInvalidIota.of(raw, blame, "hexwright.portal_flat");
         }
-        if (window.width() > PortalWindow.MAX_SPAN || window.height() > PortalWindow.MAX_SPAN) {
-            throw MishapInvalidIota.of(raw, blame, "hexwright.portal_size",
-                String.format("%.0f", PortalWindow.MAX_SPAN));
+        int maxSpan = env.getWorld().getGameRules().getInt(MAX_SPAN);
+        if (window.width() > maxSpan || window.height() > maxSpan) {
+            throw MishapInvalidIota.of(raw, blame, "hexwright.portal_size", String.valueOf(maxSpan));
         }
         if (intersectsPhysicalWorld(env.getWorld(), window)) {
             throw MishapInvalidIota.of(raw, blame, "hexwright.portal_blocked");
@@ -223,8 +240,9 @@ public final class PortalActions {
     }
 
     private static List<BlockPos> horizontalColumns(PortalWindow window) {
-        Vec3 start = window.origin();
-        Vec3 end = start.add(window.u());
+        Vec3 inset = window.uHat().scale(1.0e-6);
+        Vec3 start = window.origin().add(inset);
+        Vec3 end = window.origin().add(window.u()).subtract(inset);
         int steps = Math.max(1, (int) Math.ceil(window.width() / 0.2));
         Set<Long> seen = new HashSet<>();
         List<BlockPos> columns = new ArrayList<>();

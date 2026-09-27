@@ -50,6 +50,7 @@ public final class PocketCasterCasting {
         }
 
         List<ItemEntity> spawned = new ArrayList<>();
+        List<Integer> sourceSlots = new ArrayList<>();
         for (int slot = PocketCasterContainer.ITEM_FIRST; slot < container.getContainerSize(); slot++) {
             ItemStack stack = container.getItem(slot);
             if (stack.isEmpty()) {
@@ -60,6 +61,7 @@ public final class PocketCasterCasting {
             entity.setPickUpDelay(40);
             level.addFreshEntity(entity);
             spawned.add(entity);
+            sourceSlots.add(slot);
             container.setItem(slot, ItemStack.EMPTY);
         }
         if (spawned.isEmpty()) {
@@ -69,23 +71,28 @@ public final class PocketCasterCasting {
 
         executeHex(player, hand, hex, spawned);
 
+        boolean casterStillHeld = player.getItemInHand(hand) == caster;
         int returned = 0;
         int consumed = 0;
-        for (ItemEntity entity : spawned) {
+        for (int i = 0; i < spawned.size(); i++) {
+            ItemEntity entity = spawned.get(i);
             if (!entity.isAlive()) {
                 consumed++;
                 continue;
             }
             ItemStack remaining = entity.getItem().copy();
             entity.discard();
-            if (!remaining.isEmpty()) {
-                if (!player.getInventory().add(remaining) && !remaining.isEmpty()) {
-                    player.drop(remaining, false);
-                }
-                returned++;
-            } else {
+            if (remaining.isEmpty()) {
                 consumed++;
+                continue;
             }
+            if (casterStillHeld) {
+                remaining = returnToSlot(container, sourceSlots.get(i), remaining);
+            }
+            if (!remaining.isEmpty()) {
+                dropAtFeet(player, remaining);
+            }
+            returned++;
         }
         container.setChanged();
 
@@ -129,6 +136,21 @@ public final class PocketCasterCasting {
         }
     }
 
+    private static ItemStack returnToSlot(PocketCasterContainer container, int slot, ItemStack stack) {
+        if (!container.getItem(slot).isEmpty() || !container.canPlaceItem(slot, stack)) {
+            return stack;
+        }
+        int limit = Math.min(container.getMaxStackSize(), stack.getMaxStackSize());
+        container.setItem(slot, stack.split(limit));
+        return stack;
+    }
+
+    private static void dropAtFeet(ServerPlayer player, ItemStack stack) {
+        ItemEntity entity = new ItemEntity(player.level(), player.getX(), player.getY(), player.getZ(), stack);
+        entity.setDeltaMovement(Vec3.ZERO);
+        entity.setDefaultPickUpDelay();
+        player.level().addFreshEntity(entity);
+    }
 
     private static void feedback(ServerPlayer player, String key, ChatFormatting color, Object... args) {
         player.displayClientMessage(Component.translatable(key, args).withStyle(color), true);

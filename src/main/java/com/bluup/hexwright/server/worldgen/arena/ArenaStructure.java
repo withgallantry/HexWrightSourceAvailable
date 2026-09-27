@@ -1,18 +1,16 @@
 package com.bluup.hexwright.server.worldgen.arena;
 
 import com.bluup.hexwright.server.worldgen.HexwrightWorldgen;
+import com.bluup.hexwright.server.worldgen.SiteSurvey;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.ChunkPos;
-import net.minecraft.world.level.NoiseColumn;
 import net.minecraft.world.level.block.Rotation;
-import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.levelgen.WorldgenRandom;
 import net.minecraft.world.level.levelgen.structure.BoundingBox;
 import net.minecraft.world.level.levelgen.structure.Structure;
 import net.minecraft.world.level.levelgen.structure.StructureType;
-import org.jetbrains.annotations.Nullable;
 
 import java.util.Optional;
 
@@ -66,14 +64,15 @@ public class ArenaStructure extends Structure {
         int originX = chunk.getMinBlockX();
         int originZ = chunk.getMinBlockZ();
 
-        Survey site = survey(context, originX, originZ, 0, 0, width - 1, length - 1);
+        SiteSurvey site = SiteSurvey.of(context, originX, originZ,
+            originX + width - 1, originZ + length - 1, SAMPLES);
         if (site == null || site.spread() > this.siteFlatness) {
             return Optional.empty();
         }
 
         BoundingBox arena = arenaFootprint(rotation);
-        Survey pit = survey(context, originX, originZ,
-            arena.minX(), arena.minZ(), arena.maxX(), arena.maxZ());
+        SiteSurvey pit = SiteSurvey.of(context, originX + arena.minX(), originZ + arena.minZ(),
+            originX + arena.maxX(), originZ + arena.maxZ(), SAMPLES);
         if (pit == null || pit.spread() > this.flatness) {
             return Optional.empty();
         }
@@ -85,40 +84,6 @@ public class ArenaStructure extends Structure {
             originX, pit.mean() - ArenaPiece.GROUND_Y + ArenaPiece.LIFT, originZ);
         return Optional.of(new GenerationStub(origin, builder ->
             builder.addPiece(new ArenaPiece(context.structureTemplateManager(), origin, rotation, chunk))));
-    }
-
-    private record Survey(int lowest, int highest, int mean) {
-        int spread() {
-            return this.highest - this.lowest;
-        }
-    }
-
-    @Nullable
-    private Survey survey(GenerationContext context, int originX, int originZ,
-                          int fromX, int fromZ, int toX, int toZ) {
-        int lowest = Integer.MAX_VALUE;
-        int highest = Integer.MIN_VALUE;
-        long total = 0L;
-        int count = 0;
-        for (int sx = 0; sx < SAMPLES; sx++) {
-            for (int sz = 0; sz < SAMPLES; sz++) {
-                int x = originX + fromX + sx * (toX - fromX) / (SAMPLES - 1);
-                int z = originZ + fromZ + sz * (toZ - fromZ) / (SAMPLES - 1);
-                int surface = context.chunkGenerator().getFirstOccupiedHeight(
-                    x, z, Heightmap.Types.WORLD_SURFACE_WG, context.heightAccessor(),
-                    context.randomState());
-                NoiseColumn column = context.chunkGenerator().getBaseColumn(
-                    x, z, context.heightAccessor(), context.randomState());
-                if (!column.getBlock(surface).getFluidState().isEmpty()) {
-                    return null;
-                }
-                lowest = Math.min(lowest, surface);
-                highest = Math.max(highest, surface);
-                total += surface;
-                count++;
-            }
-        }
-        return new Survey(lowest, highest, (int) (total / count));
     }
 
     private static BoundingBox arenaFootprint(Rotation rotation) {

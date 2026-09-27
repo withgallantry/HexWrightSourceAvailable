@@ -1,13 +1,16 @@
 package com.bluup.hexwright.server.journal;
 
+import com.bluup.hexwright.common.staff_assembly.calc.IngredientCategory;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.StringTag;
 import net.minecraft.nbt.Tag;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.level.saveddata.SavedData;
 
 import java.util.Collections;
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -22,12 +25,14 @@ public class InvestigationState extends SavedData {
     private static final String COUNTERS_KEY = "Counters";
     private static final String ISSUED_KEY = "Issued";
     private static final String ARTIFACTS_KEY = "Artifacts";
+    private static final String ESSENCES_KEY = "Essences";
     private static final String PLAYERS_KEY = "Players";
 
     private final Map<UUID, Set<String>> completed = new HashMap<>();
     private final Map<UUID, Map<String, Integer>> counters = new HashMap<>();
     private final Set<UUID> issued = new HashSet<>();
     private final Map<UUID, Set<String>> artifacts = new HashMap<>();
+    private final Map<UUID, Map<IngredientCategory, Set<ResourceLocation>>> essenceSources = new HashMap<>();
 
     public static InvestigationState get(MinecraftServer server) {
         return server.overworld().getDataStorage()
@@ -109,6 +114,30 @@ public class InvestigationState extends SavedData {
         return true;
     }
 
+    public Map<IngredientCategory, Set<ResourceLocation>> essenceSources(UUID player) {
+        Map<IngredientCategory, Set<ResourceLocation>> theirs = essenceSources.get(player);
+        return theirs == null ? Map.of() : Collections.unmodifiableMap(theirs);
+    }
+
+    public boolean discoverEssenceSource(UUID player, IngredientCategory aspect, ResourceLocation item) {
+        if (!essenceSources.computeIfAbsent(player, id -> new EnumMap<>(IngredientCategory.class))
+            .computeIfAbsent(aspect, unused -> new HashSet<>()).add(item)) {
+            return false;
+        }
+        setDirty();
+        return true;
+    }
+
+    public boolean forgetEssenceSources(UUID player) {
+        Map<IngredientCategory, Set<ResourceLocation>> theirs = essenceSources.get(player);
+        if (theirs == null || theirs.isEmpty()) {
+            return false;
+        }
+        theirs.clear();
+        setDirty();
+        return true;
+    }
+
     public int counter(UUID player, String key) {
         Map<String, Integer> theirs = counters.get(player);
         return theirs == null ? 0 : theirs.getOrDefault(key, 0);
@@ -163,6 +192,19 @@ public class InvestigationState extends SavedData {
                 entry.put(ARTIFACTS_KEY, list);
             }
 
+            Map<IngredientCategory, Set<ResourceLocation>> sources = essenceSources.getOrDefault(player, Map.of());
+            if (!sources.isEmpty()) {
+                CompoundTag essences = new CompoundTag();
+                for (Map.Entry<IngredientCategory, Set<ResourceLocation>> aspect : sources.entrySet()) {
+                    ListTag items = new ListTag();
+                    for (ResourceLocation item : aspect.getValue()) {
+                        items.add(StringTag.valueOf(item.toString()));
+                    }
+                    essences.put(aspect.getKey().name(), items);
+                }
+                entry.put(ESSENCES_KEY, essences);
+            }
+
             players.put(player.toString(), entry);
         }
         tag.put(PLAYERS_KEY, players);
@@ -199,6 +241,24 @@ public class InvestigationState extends SavedData {
                 }
             }
 
+            CompoundTag essences = entry.getCompound(ESSENCES_KEY);
+            for (String aspectName : essences.getAllKeys()) {
+                IngredientCategory aspect;
+                try {
+                    aspect = IngredientCategory.valueOf(aspectName);
+                } catch (IllegalArgumentException ignored) {
+                    continue;
+                }
+                ListTag items = essences.getList(aspectName, Tag.TAG_STRING);
+                for (int i = 0; i < items.size(); i++) {
+                    ResourceLocation item = ResourceLocation.tryParse(items.getString(i));
+                    if (item != null) {
+                        state.essenceSources.computeIfAbsent(player, id -> new EnumMap<>(IngredientCategory.class))
+                            .computeIfAbsent(aspect, unused -> new HashSet<>()).add(item);
+                    }
+                }
+            }
+
             CompoundTag tallies = entry.getCompound(COUNTERS_KEY);
             if (!tallies.isEmpty()) {
                 Map<String, Integer> theirs = state.counters.computeIfAbsent(player, id -> new HashMap<>());
@@ -215,6 +275,7 @@ public class InvestigationState extends SavedData {
         all.addAll(counters.keySet());
         all.addAll(issued);
         all.addAll(artifacts.keySet());
+        all.addAll(essenceSources.keySet());
         return all;
     }
 }

@@ -2,6 +2,8 @@ package com.bluup.hexwright.server.worldgen;
 
 import com.bluup.hexwright.Hexwright;
 import com.bluup.hexwright.mixin.EntitySharedFlagAccessor;
+import com.bluup.hexwright.server.cloak.CloakFieldExclusion;
+import com.bluup.hexwright.server.cloak.CloakFieldShell;
 import com.bluup.hexwright.server.worldgen.dungeon.DungeonBlast;
 import com.bluup.hexwright.server.worldgen.dungeon.DungeonClears;
 import com.bluup.hexwright.server.worldgen.dungeon.DungeonPiece;
@@ -85,17 +87,19 @@ public final class AreaWard {
     public static void register() {
         ServerTickEvents.END_SERVER_TICK.register(AreaWard::tick);
         AttackBlockCallback.EVENT.register((player, level, hand, pos, direction) -> {
-            if (!refusesEdit(player, level, pos)) {
+            String refusal = refusal(player, level, pos);
+            if (refusal == null) {
                 return InteractionResult.PASS;
             }
-            notifyImmovable((ServerPlayer) player);
+            player.displayClientMessage(Component.translatable(refusal), true);
             return InteractionResult.FAIL;
         });
         PlayerBlockBreakEvents.BEFORE.register((level, player, pos, state, entity) -> {
-            if (!refusesEdit(player, level, pos)) {
+            String refusal = refusal(player, level, pos);
+            if (refusal == null) {
                 return true;
             }
-            notifyImmovable((ServerPlayer) player);
+            player.displayClientMessage(Component.translatable(refusal), true);
             return false;
         });
         ServerPlayConnectionEvents.DISCONNECT.register((handler, server) ->
@@ -143,6 +147,10 @@ public final class AreaWard {
         return sealed(level, BlockPos.containing(point));
     }
 
+    public static boolean immovable(Level level, BlockPos pos) {
+        return sealed(level, pos) || (level instanceof ServerLevel server && CloakFieldShell.holds(server, pos));
+    }
+
     private static boolean inArea(ServerLevel level, BlockPos pos) {
         if (AREAS.isEmpty()) {
             return false;
@@ -167,11 +175,14 @@ public final class AreaWard {
         return false;
     }
 
-    public static void prune(Level level, List<BlockPos> positions, @Nullable Entity source) {
+    public static void prune(Level level, List<BlockPos> positions, @Nullable Entity source,
+                             @Nullable Entity igniter) {
         if (positions.isEmpty() || !(level instanceof ServerLevel server)) {
             return;
         }
         boolean breaks = source instanceof DungeonBlast blast && blast.hexwright$breaksDungeon();
+        positions.removeIf(pos -> CloakFieldShell.holds(server, pos));
+        CloakFieldExclusion.pruneBlast(server, positions, igniter);
         if (AREAS.isEmpty() && (breaks || seal(server).structure() == null)) {
             return;
         }
@@ -251,16 +262,18 @@ public final class AreaWard {
         return boxes;
     }
 
-    private static boolean refusesEdit(Player player, Level level, BlockPos pos) {
-        if (level.isClientSide || !(player instanceof ServerPlayer server)
-            || server.isSpectator() || server.isCreative()) {
-            return false;
+    private static @Nullable String refusal(Player player, Level level, BlockPos pos) {
+        if (!(level instanceof ServerLevel server) || !(player instanceof ServerPlayer serverPlayer)
+            || serverPlayer.isSpectator() || serverPlayer.isCreative()) {
+            return null;
         }
-        return sealed(level, pos);
-    }
-
-    private static void notifyImmovable(ServerPlayer player) {
-        player.displayClientMessage(Component.translatable("message.hexwright.dungeon.immovable"), true);
+        if (sealed(level, pos)) {
+            return "message.hexwright.dungeon.immovable";
+        }
+        if (CloakFieldShell.holds(server, pos)) {
+            return "message.hexwright.cloak.immovable";
+        }
+        return CloakFieldExclusion.excludes(server, Vec3.atCenterOf(pos), player) ? "message.hexwright.cloak.not_yours" : null;
     }
 
     private static void tick(MinecraftServer server) {

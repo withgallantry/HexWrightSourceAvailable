@@ -1,19 +1,32 @@
 from importlib.resources import Package
 
-from hexdoc.plugin import HookReturn, ModPlugin, ModPluginImpl, ModPluginWithBook, hookimpl
+from hexdoc.plugin import (
+    HookReturn,
+    LoadTaggedUnionsImpl,
+    ModPlugin,
+    ModPluginImpl,
+    ModPluginWithBook,
+    hookimpl,
+)
 from typing_extensions import override
 
 import hexdoc_hexwright
 
+from . import pages
 from .__gradle_version__ import FULL_VERSION, GRADLE_VERSION
 from .__version__ import PY_VERSION
 
 
-class HexwrightPlugin(ModPluginImpl):
+class HexwrightPlugin(LoadTaggedUnionsImpl, ModPluginImpl):
     @staticmethod
     @hookimpl
     def hexdoc_mod_plugin(branch: str) -> ModPlugin:
         return HexwrightModPlugin(branch=branch)
+
+    @staticmethod
+    @hookimpl
+    def hexdoc_load_tagged_unions() -> HookReturn[Package]:
+        return pages
 
 
 class HexwrightModPlugin(ModPluginWithBook):

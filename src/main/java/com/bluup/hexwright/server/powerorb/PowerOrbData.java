@@ -1,6 +1,9 @@
 package com.bluup.hexwright.server.powerorb;
 
+import at.petrak.hexcasting.api.casting.iota.IotaType;
+import at.petrak.hexcasting.api.casting.iota.PatternIota;
 import at.petrak.hexcasting.api.casting.math.HexPattern;
+import at.petrak.hexcasting.common.lib.hex.HexIotaTypes;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.world.item.ItemStack;
@@ -10,7 +13,7 @@ public final class PowerOrbData {
     private static final String TAG_ROOT = "hexwright_power_orb";
     private static final String TAG_PATTERN = "Pattern";
     private static final String TAG_ACTIVE = "Active";
-    private static final String TAG_GOLEM_HEALTH = "GolemHealth";
+    private static final String TAG_CONSTRUCT_HEALTH = "GolemHealth";
     private static final String TAG_READY_AT = "ReadyAt";
 
     private PowerOrbData() {
@@ -19,21 +22,25 @@ public final class PowerOrbData {
 
     @Nullable
     public static CompoundTag getPatternTag(ItemStack orb) {
-        CompoundTag root = orb.getTagElement(TAG_ROOT);
-        if (root == null || !root.contains(TAG_PATTERN, Tag.TAG_COMPOUND)) {
-            return null;
-        }
-        return root.getCompound(TAG_PATTERN);
+        HexPattern pattern = getPattern(orb);
+        return pattern == null ? null : IotaType.serialize(new PatternIota(pattern));
     }
 
     @Nullable
     public static HexPattern getPattern(ItemStack orb) {
-        CompoundTag patternTag = getPatternTag(orb);
-        return patternTag != null && HexPattern.isPattern(patternTag) ? HexPattern.fromNBT(patternTag) : null;
+        CompoundTag root = orb.getTagElement(TAG_ROOT);
+        if (root == null || !root.contains(TAG_PATTERN, Tag.TAG_COMPOUND)) {
+            return null;
+        }
+        CompoundTag stored = root.getCompound(TAG_PATTERN);
+        CompoundTag patternTag = IotaType.getTypeFromTag(stored) == HexIotaTypes.PATTERN
+            ? stored.getCompound(HexIotaTypes.KEY_DATA)
+            : stored;
+        return HexPattern.isPattern(patternTag) ? HexPattern.fromNBT(patternTag) : null;
     }
 
     public static void setPattern(ItemStack orb, HexPattern pattern) {
-        orb.getOrCreateTagElement(TAG_ROOT).put(TAG_PATTERN, pattern.serializeToNBT());
+        orb.getOrCreateTagElement(TAG_ROOT).put(TAG_PATTERN, IotaType.serialize(new PatternIota(pattern)));
     }
 
     public static void clearPattern(ItemStack orb) {
@@ -58,24 +65,24 @@ public final class PowerOrbData {
     }
 
 
-    public static boolean holdsGolem(ItemStack orb) {
+    public static boolean holdsConstruct(ItemStack orb) {
         CompoundTag root = orb.getTagElement(TAG_ROOT);
-        return root != null && root.contains(TAG_GOLEM_HEALTH, Tag.TAG_ANY_NUMERIC);
+        return root != null && root.contains(TAG_CONSTRUCT_HEALTH, Tag.TAG_ANY_NUMERIC);
     }
 
-    public static float golemHealth(ItemStack orb) {
+    public static float constructHealth(ItemStack orb) {
         CompoundTag root = orb.getTagElement(TAG_ROOT);
-        return root == null ? 0.0F : root.getFloat(TAG_GOLEM_HEALTH);
+        return root == null ? 0.0F : root.getFloat(TAG_CONSTRUCT_HEALTH);
     }
 
-    public static void setGolemHealth(ItemStack orb, float health) {
-        orb.getOrCreateTagElement(TAG_ROOT).putFloat(TAG_GOLEM_HEALTH, health);
+    public static void setConstructHealth(ItemStack orb, float health) {
+        orb.getOrCreateTagElement(TAG_ROOT).putFloat(TAG_CONSTRUCT_HEALTH, health);
     }
 
-    public static void clearGolem(ItemStack orb) {
+    public static void clearConstruct(ItemStack orb) {
         CompoundTag root = orb.getTagElement(TAG_ROOT);
         if (root != null) {
-            root.remove(TAG_GOLEM_HEALTH);
+            root.remove(TAG_CONSTRUCT_HEALTH);
         }
     }
 

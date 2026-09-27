@@ -43,6 +43,7 @@ public final class WeaponSlashVisualClient {
         ClientTickEvents.END_CLIENT_TICK.register(WeaponSlashVisualClient::onClientTick);
         WorldRenderEvents.AFTER_ENTITIES.register(WeaponSlashVisualClient::render);
         SlashBloomCommands.register();
+        SlashBloom.register();
     }
 
     public static void onSwingStarted(AbstractClientPlayer player, String clipName, float clipSpeed) {

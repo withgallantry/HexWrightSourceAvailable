@@ -5,7 +5,9 @@ import at.petrak.hexcasting.api.casting.RenderedSpell;
 import at.petrak.hexcasting.api.casting.castables.SpellAction;
 import at.petrak.hexcasting.api.casting.eval.CastingEnvironment;
 import at.petrak.hexcasting.api.casting.eval.vm.CastingImage;
+import at.petrak.hexcasting.api.casting.iota.DoubleIota;
 import at.petrak.hexcasting.api.casting.iota.Iota;
+import at.petrak.hexcasting.api.casting.iota.ListIota;
 import at.petrak.hexcasting.api.casting.iota.Vec3Iota;
 import at.petrak.hexcasting.api.casting.mishaps.MishapInvalidIota;
 import at.petrak.hexcasting.api.casting.mishaps.MishapOthersName;
@@ -14,6 +16,8 @@ import com.bluup.hexwright.server.block.PlacedBottleBlockEntity;
 import com.bluup.hexwright.server.block.ResonanceTowerBlockEntity;
 import com.bluup.hexwright.server.block.ResonantAnchorBlockEntity;
 import com.bluup.hexwright.server.block.WardingBoxBlockEntity;
+import com.bluup.hexwright.server.cloak.CloakField;
+import com.bluup.hexwright.server.cloak.ShieldGeneratorBlockEntity;
 import com.bluup.hexwright.common.remnant.Remnant;
 import com.bluup.hexwright.server.fluid.HexidTankBlockEntity;
 import com.bluup.hexwright.server.fluid.TankRemnants;
@@ -155,6 +159,52 @@ public abstract class OpTheCoolerWriteMixin {
             @Override
             public void cast(CastingEnvironment castEnv) {
                 anchor.attune(key);
+            }
+
+            @Override
+            public CastingImage cast(CastingEnvironment castEnv, CastingImage image) {
+                cast(castEnv);
+                return image;
+            }
+        }, 0L, List.of(ParticleSpray.burst(Vec3.atCenterOf(pos), 0.5, 10)), 0L));
+    }
+
+    @Inject(
+        method = "execute(Ljava/util/List;Lat/petrak/hexcasting/api/casting/eval/CastingEnvironment;)Lat/petrak/hexcasting/api/casting/castables/SpellAction$Result;",
+        at = @At("HEAD"),
+        cancellable = true,
+        remap = false
+    )
+    private void hexwright$writeShieldGenerator(List<? extends Iota> args, CastingEnvironment env,
+                                                CallbackInfoReturnable<SpellAction.Result> cir) {
+        if (args.size() < 2 || !(args.get(0) instanceof Vec3Iota vecIota)) {
+            return;
+        }
+        Vec3 vec = vecIota.getVec3();
+        BlockPos pos = BlockPos.containing(vec);
+        if (!(env.getWorld().getBlockEntity(pos) instanceof ShieldGeneratorBlockEntity generator)) {
+            return;
+        }
+
+        env.assertVecInRange(vec);
+
+        Iota datum = args.get(1);
+        if (!(datum instanceof ListIota list) || list.getList().size() != 3
+            || !(list.getList().getAt(0) instanceof Vec3Iota center)
+            || !(list.getList().getAt(1) instanceof DoubleIota radius)
+            || !(list.getList().getAt(2) instanceof DoubleIota height)
+            || !CloakField.validSize(radius.getDouble(), height.getDouble())) {
+            throw MishapInvalidIota.ofType(datum, 0, "hexwright.shield_spec");
+        }
+        if (!CloakField.encloses(center.getVec3(), radius.getDouble(), height.getDouble(), Vec3.atCenterOf(pos))) {
+            env.assertVecInRange(center.getVec3());
+        }
+        UUID owner = env.getCastingEntity() == null ? null : env.getCastingEntity().getUUID();
+
+        cir.setReturnValue(new SpellAction.Result(new RenderedSpell() {
+            @Override
+            public void cast(CastingEnvironment castEnv) {
+                generator.configure(center.getVec3(), (float) radius.getDouble(), (float) height.getDouble(), owner);
             }
 
             @Override

@@ -33,14 +33,14 @@ public final class DungeonPlanner {
                             Fittings fittings) {
     }
 
-    public record Fittings(boolean crystaliteChest, boolean caveTap, DungeonModules.Fixture fixture,
+    public record Fittings(boolean kyaniteChest, boolean caveTap, DungeonModules.Fixture fixture,
                            boolean miniboss, DungeonTraps.Spec trap, boolean anchor, boolean servitor,
                            boolean titan) {
         static final Fittings NONE = new Fittings(false, false, null, false, null, false, false, false);
     }
 
-    private static final int MIN_CRYSTALITE_CHESTS = 3;
-    private static final int MAX_CRYSTALITE_CHESTS = 4;
+    private static final int MIN_KYANITE_CHESTS = 3;
+    private static final int MAX_KYANITE_CHESTS = 4;
 
     private static final int CAVE_TAPS = 2;
 
@@ -114,8 +114,8 @@ public final class DungeonPlanner {
                                            Predicate<DungeonModules.Module> titanRoom, RandomSource random) {
         int topLevel = floors - 1;
         Set<Integer> bossRooms = new HashSet<>(List.of(hallIndex, corruptIndex));
-        Set<Integer> crystalite = pick(random, placements, MIN_CRYSTALITE_CHESTS
-            + random.nextInt(MAX_CRYSTALITE_CHESTS - MIN_CRYSTALITE_CHESTS + 1),
+        Set<Integer> kyanite = pick(random, placements, MIN_KYANITE_CHESTS
+            + random.nextInt(MAX_KYANITE_CHESTS - MIN_KYANITE_CHESTS + 1),
             p -> !p.module().isStairs(), bossRooms);
         Set<Integer> taps = pick(random, placements, CAVE_TAPS, p -> p.level() == topLevel, Set.of(corruptIndex));
         Integer anchorRoom = taps.isEmpty() ? null : taps.iterator().next();
@@ -147,7 +147,7 @@ public final class DungeonPlanner {
                 : null;
             out.add(new Placement(placement.module(), placement.rotation(), placement.cellX(),
                 placement.level(), placement.cellZ(),
-                new Fittings(crystalite.contains(index), taps.contains(index), fixture, index == hallIndex,
+                new Fittings(kyanite.contains(index), taps.contains(index), fixture, index == hallIndex,
                     traps.contains(index) ? DungeonTraps.roll(random) : null,
                     anchorRoom != null && anchorRoom == index,
                     servitors.contains(index) && !titans.contains(index), titans.contains(index))));

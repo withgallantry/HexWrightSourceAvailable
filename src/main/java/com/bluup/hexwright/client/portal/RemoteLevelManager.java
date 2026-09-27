@@ -606,6 +606,18 @@ public final class RemoteLevelManager {
         return remotePassActive;
     }
 
+    public static @Nullable net.minecraft.client.renderer.LevelRenderer mainRendererForDiagnostics() {
+        return remotePassActive && savedMainRenderer != null
+            ? savedMainRenderer
+            : Minecraft.getInstance().levelRenderer;
+    }
+
+    public static @Nullable ClientLevel playerLevel() {
+        return remotePassActive && savedMainLevel != null
+            ? savedMainLevel
+            : Minecraft.getInstance().level;
+    }
+
     static String describeActiveRegion(Vec3 anchor) {
         RemoteLevel remote = activeRemote;
         if (remote == null || anchor == null) return "local";
@@ -681,7 +693,8 @@ public final class RemoteLevelManager {
         }
         Minecraft mc = Minecraft.getInstance();
         RemoteLevel remote = levelHolding(dimension.location(), anchor);
-        if (remote == null || mc.level == null) {
+        if (remote == null || mc.level == null
+            || ((LevelRendererAccessor) remote.renderer).hexwright$level() == null) {
             return false;
         }
         long cameraChunk = ChunkPos.asLong(

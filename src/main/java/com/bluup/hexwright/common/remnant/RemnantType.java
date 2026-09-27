@@ -173,7 +173,6 @@ public enum RemnantType {
             case LEVITY -> MobEffects.SLOW_FALLING;
             case GUILE -> MobEffects.INVISIBILITY;
             case SLIPSTREAM -> MobEffects.DOLPHINS_GRACE;
-            case REPAST -> MobEffects.SATURATION;
             case ELOQUENCE -> MobEffects.HERO_OF_THE_VILLAGE;
             default -> null;
         };

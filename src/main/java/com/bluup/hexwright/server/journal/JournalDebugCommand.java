@@ -38,6 +38,8 @@ public final class JournalDebugCommand {
                     .then(Commands.literal("artifacts")
                         .then(Commands.literal("reveal").executes(JournalDebugCommand::revealArtifacts))
                         .then(Commands.literal("clear").executes(JournalDebugCommand::clearArtifacts)))
+                    .then(Commands.literal("essences")
+                        .then(Commands.literal("clear").executes(JournalDebugCommand::clearEssences)))
                     .then(Commands.literal("toast")
                         .then(Commands.argument("id", StringArgumentType.string())
                             .suggests(JournalDebugCommand::suggestEntries)
@@ -115,6 +117,20 @@ public final class JournalDebugCommand {
         source.sendSuccess(() -> Component.literal(changed
                 ? "Forgot your recorded artifacts. Any you are carrying will be recorded again within a second."
                 : "You had no recorded artifacts to forget.")
+            .withStyle(ChatFormatting.AQUA), false);
+        return SINGLE_SUCCESS;
+    }
+
+    private static int clearEssences(CommandContext<CommandSourceStack> ctx) {
+        CommandSourceStack source = ctx.getSource();
+        ServerPlayer player = playerOrFail(source);
+        if (player == null) {
+            return 0;
+        }
+        boolean changed = InvestigationProgress.forgetEssenceSources(player);
+        source.sendSuccess(() -> Component.literal(changed
+                ? "Forgot your recorded essences."
+                : "You had no recorded essences to forget.")
             .withStyle(ChatFormatting.AQUA), false);
         return SINGLE_SUCCESS;
     }

@@ -24,6 +24,8 @@ public final class HexwrightSoundEvents {
     private static final ResourceLocation AREA_CAST_ACTIVATE_ID = Hexwright.id("area_cast_activate");
     private static final ResourceLocation RECIPE_UNLOCK_ID = Hexwright.id("recipe_unlock");
     private static final ResourceLocation JOURNAL_CLICK_ID = Hexwright.id("journal_click");
+    private static final ResourceLocation DUST_FORM_ID = Hexwright.id("dust_form");
+    private static final ResourceLocation CLOAK_FIELD_HUM_ID = Hexwright.id("cloak_field_hum");
 
     private static SoundEvent staffCoreProjectileFire = SoundEvents.BLAZE_SHOOT;
     private static SoundEvent portalOpenClose = SoundEvents.PORTAL_TRIGGER;
@@ -41,6 +43,8 @@ public final class HexwrightSoundEvents {
     private static SoundEvent areaCastActivate = SoundEvents.AMETHYST_BLOCK_CHIME;
     private static SoundEvent recipeUnlock = SoundEvents.ENCHANTMENT_TABLE_USE;
     private static SoundEvent journalClick = SoundEvents.BOOK_PAGE_TURN;
+    private static SoundEvent dustForm = SoundEvents.SAND_BREAK;
+    private static SoundEvent cloakFieldHum = SoundEvents.BEACON_AMBIENT;
     private static boolean registered;
 
     private HexwrightSoundEvents() {
@@ -67,11 +71,14 @@ public final class HexwrightSoundEvents {
         areaCastActivate = registerOrReuse(AREA_CAST_ACTIVATE_ID, areaCastActivate);
         recipeUnlock = registerOrReuse(RECIPE_UNLOCK_ID, recipeUnlock);
         journalClick = registerOrReuse(JOURNAL_CLICK_ID, journalClick);
+        dustForm = registerOrReuse(DUST_FORM_ID, dustForm);
+        cloakFieldHum = registerOrReuse(CLOAK_FIELD_HUM_ID, cloakFieldHum);
         com.bluup.hexwright.server.boss.ancient.AncientSounds.register();
         com.bluup.hexwright.server.boss.storm.WitherStormSounds.register();
         com.bluup.hexwright.server.boss.cog.CogSentinelSounds.register();
         com.bluup.hexwright.server.boss.corrupt.CorruptExperimentSounds.register();
         com.bluup.hexwright.server.weapon.StarfallSounds.register();
+        com.bluup.hexwright.server.weapon.FrostbiteSounds.register();
         com.bluup.hexwright.server.powerorb.PowerOrbSounds.register();
         registered = true;
     }
@@ -156,5 +163,13 @@ public final class HexwrightSoundEvents {
 
     public static SoundEvent journalClick() {
         return journalClick;
+    }
+
+    public static SoundEvent dustForm() {
+        return dustForm;
+    }
+
+    public static SoundEvent cloakFieldHum() {
+        return cloakFieldHum;
     }
 }

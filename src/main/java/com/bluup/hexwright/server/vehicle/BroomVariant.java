@@ -3,56 +3,42 @@ package com.bluup.hexwright.server.vehicle;
 import com.bluup.hexwright.server.item.HexwrightItems;
 import com.bluup.hexwright.server.pocketcaster.PocketCasterData;
 import net.minecraft.world.item.ItemStack;
-import org.jetbrains.annotations.Nullable;
 
 import java.util.Locale;
 
 public enum BroomVariant {
 
 
-    ETHEREAL("ethereal", null, Render.ITEM_MODEL),
-    STARRY("starry", PocketCasterData.Quality.SOUND, Render.ITEM_MODEL),
-    NOCTURNE("nocturne", PocketCasterData.Quality.FINE, Render.ITEM_MODEL),
-    SWEET_ENCHANTRESS("sweet_enchantress", PocketCasterData.Quality.EXQUISITE, Render.ITEM_MODEL),
+    ETHEREAL("ethereal", Render.ITEM_MODEL, false),
+    STARRY("starry", Render.ITEM_MODEL, false),
+    NOCTURNE("nocturne", Render.ITEM_MODEL, false),
+    SWEET_ENCHANTRESS("sweet_enchantress", Render.ITEM_MODEL, false),
 
 
-    SPLINTERED_SWEEPER("splintered_sweeper", null, Render.GECKOLIB),
-    BRISTLEBACK("bristleback", PocketCasterData.Quality.SOUND, Render.GECKOLIB),
-    CROOKED_COMBER("crooked_comber", PocketCasterData.Quality.SOUND, Render.GECKOLIB),
-    WHISPERWIND("whisperwind", PocketCasterData.Quality.FINE, Render.GECKOLIB),
-    GLEAMGLIDE("gleamglide", PocketCasterData.Quality.EXQUISITE, Render.GECKOLIB),
+    SPLINTERED_SWEEPER("splintered_sweeper", Render.GECKOLIB, false),
+    BRISTLEBACK("bristleback", Render.GECKOLIB, false),
+    CROOKED_COMBER("crooked_comber", Render.GECKOLIB, false),
+    WHISPERWIND("whisperwind", Render.GECKOLIB, false),
+    GLEAMGLIDE("gleamglide", Render.GECKOLIB, false),
 
-    STARBEAM("starbeam", Render.GECKOLIB),
-    NIGHTSWEEP("nightsweep", Render.GECKOLIB),
-    TWIN_WHISK("twin_whisk", Render.GECKOLIB);
+    STARBEAM("starbeam", Render.GECKOLIB, true),
+    NIGHTSWEEP("nightsweep", Render.GECKOLIB, true),
+    TWIN_WHISK("twin_whisk", Render.GECKOLIB, true);
 
     public enum Render { ITEM_MODEL, GECKOLIB }
 
     private final String id;
-    private final @Nullable PocketCasterData.Quality requiredMastery;
     private final Render render;
     private final boolean artifact;
 
-    BroomVariant(String id, @Nullable PocketCasterData.Quality requiredMastery, Render render) {
+    BroomVariant(String id, Render render, boolean artifact) {
         this.id = id;
-        this.requiredMastery = requiredMastery;
         this.render = render;
-        this.artifact = false;
-    }
-
-    BroomVariant(String id, Render render) {
-        this.id = id;
-        this.requiredMastery = null;
-        this.render = render;
-        this.artifact = true;
+        this.artifact = artifact;
     }
 
     public String id() {
         return id;
-    }
-
-    public @Nullable PocketCasterData.Quality requiredMastery() {
-        return requiredMastery;
     }
 
     public boolean isArtifact() {

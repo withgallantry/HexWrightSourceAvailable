@@ -45,10 +45,6 @@ public final class DustConstructRenderer implements SimpleSynchronousResourceRel
     private static final int NOISE_UNIT = 6;
     private static final float PROXY_PAD = 0.3f;
 
-    private static final float[] COLOR_DARK = {0.42f, 0.31f, 0.49f};
-    private static final float[] COLOR_LIGHT = {0.87f, 0.75f, 0.91f};
-    private static final float[] COLOR_GLOW = {0.98f, 0.82f, 1.0f};
-
     private static @Nullable ShaderInstance shader;
     private static boolean failed;
     private static int boundProgram = -1;
@@ -197,9 +193,12 @@ public final class DustConstructRenderer implements SimpleSynchronousResourceRel
         float quality = Math.max(DustConfig.constructQuality, 0.15f);
         program.safeGetUniform("Quality").set(Math.round(64 * quality), 0.9f, Math.round(10 * quality),
             0.03f / quality);
-        set(program, "ColorDark", COLOR_DARK[0], COLOR_DARK[1], COLOR_DARK[2]);
-        set(program, "ColorLight", COLOR_LIGHT[0], COLOR_LIGHT[1], COLOR_LIGHT[2]);
-        set(program, "ColorGlow", COLOR_GLOW[0], COLOR_GLOW[1], COLOR_GLOW[2]);
+        set(program, "ColorDark", construct.colour(0, partialTick), construct.colour(1, partialTick),
+            construct.colour(2, partialTick));
+        set(program, "ColorLight", construct.colour(3, partialTick), construct.colour(4, partialTick),
+            construct.colour(5, partialTick));
+        set(program, "ColorGlow", construct.colour(6, partialTick), construct.colour(7, partialTick),
+            construct.colour(8, partialTick));
 
         int id = program.getId();
         GlStateManager._glUseProgram(id);

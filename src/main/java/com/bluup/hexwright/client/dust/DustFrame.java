@@ -30,6 +30,7 @@ public final class DustFrame {
 
     public float formCalm;
     public float constructSolidity;
+    public float formAgility = 1.0f;
     public float constructOuter;
     public int impactCount;
     public final float[] impactX = new float[DustConstruct.MAX_IMPACTS];

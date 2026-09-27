@@ -1,7 +1,6 @@
 package com.bluup.hexwright.server.block;
 
 import com.bluup.hexwright.Hexwright;
-import net.fabricmc.fabric.api.itemgroup.v1.ItemGroupEvents;
 import net.fabricmc.fabric.api.object.builder.v1.block.FabricBlockSettings;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -83,7 +82,7 @@ public final class VaultDecorBlocks {
         ITEMS.forEach((id, item) ->
             Registry.register(BuiltInRegistries.ITEM, Hexwright.id(id), item));
 
-        ItemGroupEvents.modifyEntriesEvent(CreativeModeTabs.BUILDING_BLOCKS).register(entries -> {
+        com.bluup.hexwright.server.item.HexwrightCreativeTab.addTo(CreativeModeTabs.BUILDING_BLOCKS, entries -> {
             for (Item item : ITEMS.values()) {
                 entries.accept(item);
             }

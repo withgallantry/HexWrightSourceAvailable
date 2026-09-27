@@ -2,7 +2,6 @@ package com.bluup.hexwright.server.armour;
 
 import com.bluup.hexwright.Hexwright;
 import com.bluup.hexwright.server.pocketcaster.PocketCasterData;
-import net.fabricmc.fabric.api.itemgroup.v1.ItemGroupEvents;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.item.CreativeModeTabs;
@@ -67,7 +66,7 @@ public final class HexwrightArmour {
     }
 
     public static void register() {
-        ItemGroupEvents.modifyEntriesEvent(CreativeModeTabs.COMBAT).register(entries -> {
+        com.bluup.hexwright.server.item.HexwrightCreativeTab.addTo(CreativeModeTabs.COMBAT, entries -> {
             for (ArmourSet set : ArmourSet.values()) {
                 entries.accept(ArmourGemData.create(gem(set), PocketCasterData.Quality.FINE));
                 for (ArmourTier tier : ArmourTier.values()) {

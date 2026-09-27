@@ -5,19 +5,19 @@ import java.util.Map;
 
 public final class BroomSeats {
 
-    public record Seat(double sideways, double vertical, double forward) {
+    public record Seat(double sideways, double height, double forward) {
     }
 
     private static final Map<BroomVariant, List<Seat>> PASSENGER_SEATS = Map.of(
         BroomVariant.GLEAMGLIDE, List.of(
-            new Seat(0.0, 0.140781, -0.947031)),
+            new Seat(0.0, -0.214271, -0.947031)),
         BroomVariant.NIGHTSWEEP, List.of(
-            new Seat(0.0, 0.324626, -0.662409)),
+            new Seat(0.0, -0.296051, -0.662409)),
         BroomVariant.STARBEAM, List.of(
-            new Seat(0.0, 0.356501, -0.638502)),
+            new Seat(0.0, -0.211051, -0.638502)),
         BroomVariant.TWIN_WHISK, List.of(
-            new Seat(-0.677344, -0.199219, -0.911172),
-            new Seat(0.677344, -0.199219, -0.911172))
+            new Seat(-0.677344, -0.554271, -0.911172),
+            new Seat(0.677344, -0.554271, -0.911172))
     );
 
     private BroomSeats() {

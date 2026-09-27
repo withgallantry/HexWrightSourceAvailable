@@ -2,7 +2,6 @@ package com.bluup.hexwright.server.block
 
 import com.bluup.hexwright.Hexwright
 import com.bluup.hexwright.server.menu.UiTemplates
-import com.bluup.hexwright.client.progression.ClientMastery
 import com.bluup.hexwright.client.progression.ClientRecipeUnlocks
 import com.bluup.hexwright.common.staff_assembly.calc.IngredientCategory
 import com.bluup.hexwright.server.block.WorktableRecipes.InfusionStep
@@ -59,7 +58,6 @@ import net.minecraft.world.entity.player.Player
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.block.entity.BlockEntity
 import net.minecraft.world.level.block.state.BlockState
-import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -250,12 +248,6 @@ class WorktableBlockEntity(
         val level = this.level ?: return
         if (!RecipeUnlocks.canCraft(player, recipe().nameKey)) {
             judgementKey = "gui.hexwright.worktable.judgement.undiscovered"
-            setChanged()
-            return
-        }
-        val requiredMastery = recipe().requiredMastery
-        if (requiredMastery != null && !Mastery.hasMastery(player, requiredMastery)) {
-            judgementKey = "gui.hexwright.worktable.judgement.locked"
             setChanged()
             return
         }
@@ -532,8 +524,6 @@ class WorktableBlockEntity(
         return current
     }
 
-    private fun aspectIcon(aspect: IngredientCategory): ResourceLocation =
-        Hexwright.id("textures/gui/essence/${aspect.name.lowercase(Locale.ROOT)}.png")
 
     private inner class MiniGameWidget(x: Int, y: Int, width: Int, height: Int) : Widget(x, y, width, height) {
         private val scale = 0.7f
@@ -583,7 +573,7 @@ class WorktableBlockEntity(
 
             val headerWidth = iconSize + 2 + (font.width(header) * scale).roundToInt()
             val headerX = pos.x + (size.width - headerWidth) / 2
-            drawAspectIcon(graphics, aspectIcon(step.aspect), headerX, lineY)
+            drawAspectIcon(graphics, EndlessPouchItem.aspectIcon(step.aspect), headerX, lineY)
             drawScaled(graphics, font, header, headerX + iconSize + 2, lineY, TEXT_COLOR)
             lineY += headerHeight + 4
 
@@ -664,8 +654,6 @@ class WorktableBlockEntity(
 
         private var lastUnlockVersion = -1
 
-        private var lastMasteryVersion = -1
-
         private var displayedRecipe = -1
         private var displayStack: ItemStack = ItemStack.EMPTY
 
@@ -736,10 +724,8 @@ class WorktableBlockEntity(
 
         private fun updateVisibleRows() {
             val unlockVersion = ClientRecipeUnlocks.version()
-            val masteryVersion = ClientMastery.version()
-            if (unlockVersion == lastUnlockVersion && masteryVersion == lastMasteryVersion) return
+            if (unlockVersion == lastUnlockVersion) return
             lastUnlockVersion = unlockVersion
-            lastMasteryVersion = masteryVersion
             browser?.refilter()
         }
 
@@ -776,7 +762,7 @@ class WorktableBlockEntity(
             for (step in steps) {
                 val have = if (hasPouch) EssencePouchData.get(pouch, step.aspect) else 0.0
                 val enough = have >= step.amount
-                val icon = ImageWidget(2, y, 8, 8, ResourceTexture(aspectIcon(step.aspect)))
+                val icon = ImageWidget(2, y, 8, 8, ResourceTexture(EndlessPouchItem.aspectIcon(step.aspect)))
                 group.addWidget(icon)
                 essenceRows.add(icon)
                 val line = "${EndlessPouchItem.aspectName(step.aspect).string}: " +

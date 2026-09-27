@@ -4,6 +4,8 @@ import com.bluup.hexwright.server.dust.DustFormation;
 import com.bluup.hexwright.server.dust.DustTuning;
 import com.mojang.blaze3d.platform.GlStateManager;
 import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
+import org.jetbrains.annotations.Nullable;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL12;
 import org.lwjgl.opengl.GL30;
@@ -20,10 +22,16 @@ final class DustConstruct {
     RegionField field;
     private double fillVolume;
     private double shellVolume;
+    float agility = 1.0f;
 
     private double offsetX;
     private double offsetY;
     private double offsetZ;
+    private double driftVx;
+    private double driftVy;
+    private double driftVz;
+    private Vec3 driftTarget = Vec3.ZERO;
+    private @Nullable Vec3 destination;
     float migrating;
     float travelX;
     float travelY = 1.0f;
@@ -41,11 +49,15 @@ final class DustConstruct {
 
     float build;
     boolean dissolving;
+    @Nullable DustFormSound sound;
     float coverage;
     float age;
     final float dirX;
     final float dirY;
     final float dirZ;
+
+    private final float[] colours = DustTint.AUTHORED.clone();
+    private final float[] prevColours = DustTint.AUTHORED.clone();
 
     final float[] impactX = new float[MAX_IMPACTS];
     final float[] impactY = new float[MAX_IMPACTS];
@@ -89,24 +101,27 @@ final class DustConstruct {
         bandHalf = targetBandHalf();
     }
 
-    void retarget(RegionField next) {
-        offsetX += field.centerX - next.centerX;
-        offsetY += field.centerY - next.centerY;
-        offsetZ += field.centerZ - next.centerZ;
+    void rebind(RegionField next) {
         field = next;
         measure(next);
     }
 
-    void reshape(RegionField next) {
-        field = next;
-        measure(next);
-        build *= 0.85f;
+    void drift(Vec3 drift, Vec3 velocity, Vec3 target, @Nullable Vec3 destination) {
+        driftTarget = target;
+        this.destination = destination;
+        offsetX = drift.x;
+        offsetY = drift.y;
+        offsetZ = drift.z;
+        driftVx = velocity.x;
+        driftVy = velocity.y;
+        driftVz = velocity.z;
     }
 
     private void measure(RegionField next) {
         DustFormation formation = new DustFormation(next.region);
         fillVolume = formation.fillVolume;
         shellVolume = formation.shellVolume;
+        agility = (float) formation.agility;
     }
 
     void dissolve() {
@@ -117,19 +132,19 @@ final class DustConstruct {
         prevX = x;
         prevY = y;
         prevZ = z;
-        double length = Math.sqrt(offsetX * offsetX + offsetY * offsetY + offsetZ * offsetZ);
-        double speed = DustTuning.migrationSpeed;
-        if (length > 1.0e-6) {
-            double keep = Math.max(0.0, length - speed) / length;
-            offsetX *= keep;
-            offsetY *= keep;
-            offsetZ *= keep;
-        }
-        migrating = (float) Math.min(1.0, length / Math.max(speed, 1.0e-3));
-        if (length > 1.0e-4) {
-            travelX = (float) (-offsetX / length);
-            travelY = (float) (-offsetY / length);
-            travelZ = (float) (-offsetZ / length);
+        Vec3 velocity = DustTuning.accelerate(driftVx, driftVy, driftVz, requestedVelocity(), agility);
+        driftVx = velocity.x;
+        driftVy = velocity.y;
+        driftVz = velocity.z;
+        offsetX += driftVx;
+        offsetY += driftVy;
+        offsetZ += driftVz;
+        double speed = Math.sqrt(driftVx * driftVx + driftVy * driftVy + driftVz * driftVz);
+        migrating = (float) Math.min(1.0, speed / Math.max(DustTuning.maxDriftSpeed, 1.0e-3));
+        if (speed > 1.0e-4) {
+            travelX = (float) (driftVx / speed);
+            travelY = (float) (driftVy / speed);
+            travelZ = (float) (driftVz / speed);
         }
         x = field.centerX + offsetX;
         y = field.centerY + offsetY;
@@ -139,7 +154,7 @@ final class DustConstruct {
         if (dissolving) {
             build = Math.max(0.0f, build - 1.0f / Math.max(DustConfig.constructDissolveTicks, 1.0f));
         } else if (forming) {
-            float rate = (0.25f + 0.75f * arrival) / Math.max(DustConfig.constructBuildTicks, 1.0f);
+            float rate = (0.25f + 0.75f * arrival) * agility / Math.max(DustConfig.constructBuildTicks, 1.0f);
             build = Math.min(1.0f, build + rate);
         }
 
@@ -194,16 +209,16 @@ final class DustConstruct {
         return Math.max(field.shell ? shellVolume : fillVolume, 1.0e-3);
     }
 
-    double travelX() {
-        return x - prevX;
+    Vec3 nextStep() {
+        Vec3 velocity = DustTuning.accelerate(driftVx, driftVy, driftVz, requestedVelocity(), agility);
+        double dx = field.centerX + offsetX + velocity.x - x;
+        double dy = field.centerY + offsetY + velocity.y - y;
+        double dz = field.centerZ + offsetZ + velocity.z - z;
+        return dx * dx + dy * dy + dz * dz > 4.0 ? Vec3.ZERO : new Vec3(dx, dy, dz);
     }
 
-    double travelY() {
-        return y - prevY;
-    }
-
-    double travelZ() {
-        return z - prevZ;
+    private Vec3 requestedVelocity() {
+        return destination != null ? DustTuning.seek(offsetX, offsetY, offsetZ, destination, agility) : driftTarget;
     }
 
     boolean visible() {
@@ -265,6 +280,19 @@ final class DustConstruct {
         }
         addImpact(out[0], out[1], out[2], 0.7f + strength, strength, false);
         return true;
+    }
+
+    void tint(int rgb) {
+        System.arraycopy(colours, 0, prevColours, 0, colours.length);
+        if (rgb < 0) {
+            System.arraycopy(DustTint.AUTHORED, 0, colours, 0, colours.length);
+        } else {
+            DustTint.palette(rgb, colours);
+        }
+    }
+
+    float colour(int i, float partialTick) {
+        return prevColours[i] + (colours[i] - prevColours[i]) * partialTick;
     }
 
     float impactIntensity(int i) {

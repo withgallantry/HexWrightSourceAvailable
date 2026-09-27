@@ -14,9 +14,10 @@ public final class HexwrightDebug {
     public static final String CONTENT = "content";
     public static final String RENDER = "render";
     public static final String WEAPON = "weapon";
+    public static final String CLOAK = "cloak";
 
     public static final Set<String> AREAS =
-        Set.of(PORTAL, VAULT, CASTING, CONTENT, RENDER, WEAPON);
+        Set.of(PORTAL, VAULT, CASTING, CONTENT, RENDER, WEAPON, CLOAK);
 
     private static final String PROPERTY = "hexwright.debug";
 

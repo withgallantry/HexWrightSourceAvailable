@@ -1,6 +1,8 @@
 package com.bluup.hexwright.server.dust;
 
 import at.petrak.hexcasting.api.addldata.ADMediaHolder;
+import at.petrak.hexcasting.api.casting.eval.vm.CastingImage;
+import at.petrak.hexcasting.api.casting.iota.Iota;
 import at.petrak.hexcasting.api.utils.MediaHelper;
 import com.bluup.hexwright.inits.HexwrightNetworking;
 import com.bluup.hexwright.server.region.Region;
@@ -14,11 +16,22 @@ import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 
 public final class DustBody {
 
     enum Phase { HOME, SURGE, RETURN }
+
+    public enum Awaited {
+        LASH,
+        ARRIVAL
+    }
+
+    public record Awaiting(LivingEntity caster, Awaited event, int homeSerial, List<Iota> hex, CastingImage image) {
+    }
+
+    public static final int MAX_AWAITING = 16;
 
     final LivingEntity caster;
 
@@ -34,6 +47,18 @@ public final class DustBody {
     private double offsetX;
     private double offsetY;
     private double offsetZ;
+    private double driftVx;
+    private double driftVy;
+    private double driftVz;
+    private Vec3 driftTarget = Vec3.ZERO;
+    private @Nullable Vec3 destination;
+    private int driftSyncTimer;
+    private static final int DRIFT_SYNC_INTERVAL = 20;
+    private int formationSerial;
+    private int homeSerial;
+    private boolean lastCommandThrow;
+    private boolean lashed;
+    private final List<Awaiting> awaiting = new ArrayList<>();
     private double homeX;
     private double homeY;
     private double homeZ;
@@ -109,6 +134,7 @@ public final class DustBody {
         surgeSpeed = Math.min(DustTuning.surgeBaseSpeed + surgeReach * DustTuning.surgeSpeedPerBlock,
             DustTuning.surgeMaxSpeed);
         surgeDuration = DustTuning.SURGE_DURATION_TICKS;
+        lastCommandThrow = true;
         if (phase == Phase.HOME) {
             slugX = homeX;
             slugY = homeY;
@@ -126,18 +152,92 @@ public final class DustBody {
     }
 
     void form(Region region) {
-        double fromX = homeX;
-        double fromY = homeY;
-        double fromZ = homeZ;
-        DustFormation next = new DustFormation(region);
-        formation = next;
-        offsetX = fromX - next.centerX;
-        offsetY = fromY - next.centerY;
-        offsetZ = fromZ - next.centerZ;
-        if (constrained) {
-            capture();
+        boolean holding = formation != null && formation.region.equals(region)
+            && offsetX == 0.0 && offsetY == 0.0 && offsetZ == 0.0;
+        if (!holding) {
+            unsettle();
+            formation = new DustFormation(region);
+            formationSerial++;
+            homeSerial++;
+            captured.clear();
+            surface = null;
         }
+        lastCommandThrow = false;
+        stopDrift();
         syncState();
+    }
+
+    void impel(Vec3 velocity) {
+        if (formation == null) {
+            return;
+        }
+        if (destination != null) {
+            destination = null;
+            homeSerial++;
+        }
+        driftTarget = velocity;
+        surface = buildSurface();
+        syncState();
+    }
+
+    void move(Vec3 center) {
+        if (formation == null) {
+            return;
+        }
+        destination = new Vec3(center.x - formation.centerX, center.y - formation.centerY,
+            center.z - formation.centerZ);
+        driftTarget = Vec3.ZERO;
+        homeSerial++;
+        lastCommandThrow = false;
+        surface = buildSurface();
+        syncState();
+    }
+
+    private void stopDrift() {
+        offsetX = 0.0;
+        offsetY = 0.0;
+        offsetZ = 0.0;
+        driftVx = 0.0;
+        driftVy = 0.0;
+        driftVz = 0.0;
+        driftTarget = Vec3.ZERO;
+        destination = null;
+    }
+
+    private boolean drifting() {
+        return driftVx != 0.0 || driftVy != 0.0 || driftVz != 0.0 || driftTarget.lengthSqr() > 0.0
+            || destination != null;
+    }
+
+    private Vec3 requestedVelocity(DustFormation current) {
+        return destination != null
+            ? DustTuning.seek(offsetX, offsetY, offsetZ, destination, current.agility)
+            : driftTarget;
+    }
+
+    private void finishMove() {
+        if (destination == null) {
+            return;
+        }
+        double dx = destination.x - offsetX;
+        double dy = destination.y - offsetY;
+        double dz = destination.z - offsetZ;
+        if (dx * dx + dy * dy + dz * dz > 1.0e-6
+            || driftVx * driftVx + driftVy * driftVy + driftVz * driftVz > 1.0e-8) {
+            return;
+        }
+        offsetX = destination.x;
+        offsetY = destination.y;
+        offsetZ = destination.z;
+        driftVx = 0.0;
+        driftVy = 0.0;
+        driftVz = 0.0;
+        destination = null;
+        syncState();
+    }
+
+    private boolean arrived() {
+        return phase == Phase.HOME && settled >= 1.0 && destination == null;
     }
 
     void recall() {
@@ -148,6 +248,20 @@ public final class DustBody {
         double dy = homeY - anchorY;
         double dz = homeZ - anchorZ;
         if (phase == Phase.HOME && dx * dx + dy * dy + dz * dz > 9.0) {
+            unsettle();
+        }
+        formation = null;
+        homeSerial++;
+        lastCommandThrow = false;
+        constrained = false;
+        captured.clear();
+        surface = null;
+        stopDrift();
+        syncState();
+    }
+
+    private void unsettle() {
+        if (phase == Phase.HOME) {
             slugX = homeX;
             slugY = homeY;
             slugZ = homeZ;
@@ -159,13 +273,8 @@ public final class DustBody {
             slugVz = homeVz;
             phase = Phase.RETURN;
             phaseAge = 0;
-            settled = 0.0;
         }
-        formation = null;
-        constrained = false;
-        captured.clear();
-        surface = null;
-        syncState();
+        settled = 0.0;
     }
 
     void setConstrained(boolean value) {
@@ -182,9 +291,13 @@ public final class DustBody {
 
     void changedWorld() {
         formation = null;
+        homeSerial++;
+        lastCommandThrow = false;
+        awaiting.clear();
         constrained = false;
         captured.clear();
         surface = null;
+        stopDrift();
         phase = Phase.HOME;
         settled = 1.0;
         hasAnchor = false;
@@ -198,6 +311,44 @@ public final class DustBody {
     }
 
 
+    @Nullable Awaited pending() {
+        if (lastCommandThrow) {
+            return phase == Phase.SURGE ? Awaited.LASH : null;
+        }
+        return arrived() ? null : Awaited.ARRIVAL;
+    }
+
+    boolean canAwait() {
+        return awaiting.size() < MAX_AWAITING;
+    }
+
+    void await(List<Iota> hex, CastingImage image) {
+        Awaited event = pending();
+        awaiting.add(new Awaiting(caster, event == null ? Awaited.ARRIVAL : event, homeSerial, hex, image));
+    }
+
+    void collectDue(List<Awaiting> into) {
+        boolean home = arrived();
+        Iterator<Awaiting> it = awaiting.iterator();
+        while (it.hasNext()) {
+            Awaiting next = it.next();
+            boolean due;
+            if (next.event() == Awaited.LASH) {
+                due = lashed;
+            } else if (next.homeSerial() != homeSerial) {
+                it.remove();
+                continue;
+            } else {
+                due = home;
+            }
+            if (due) {
+                it.remove();
+                into.add(next);
+            }
+        }
+    }
+
+
     void tick(ServerLevel level) {
         updateAnchor();
         updateHome();
@@ -206,6 +357,10 @@ public final class DustBody {
         if (formation != null && !withinLeash()) {
             recall();
         }
+        if (drifting() && ++driftSyncTimer >= DRIFT_SYNC_INTERVAL) {
+            driftSyncTimer = 0;
+            syncState();
+        }
 
         double spent = 0.0;
         double homeMass = mass * settled;
@@ -213,9 +368,10 @@ public final class DustBody {
             if (formation != null) {
                 double volume = formation.volume(constrained);
                 AABB area = formation.bounds.move(offsetX, offsetY, offsetZ);
+                double heft = DustTuning.heft(homeMass);
                 if (constrained) {
                     spent += DustPhysics.contact(this, level, area, formationMaterial, true, false,
-                        formationShape, DustTuning.strength(homeMass / volume),
+                        formationShape, DustTuning.strength(homeMass / volume), heft,
                         homeVx, homeVy, homeVz, null);
                     if (++captureTimer >= CAPTURE_INTERVAL) {
                         captureTimer = 0;
@@ -223,7 +379,8 @@ public final class DustBody {
                     }
                 } else {
                     spent += DustPhysics.contact(this, level, area, formationMaterial, false, false,
-                        null, DustTuning.strength(homeMass / volume), homeVx, homeVy, homeVz, null);
+                        null, DustTuning.strength(homeMass / volume), heft, homeVx, homeVy, homeVz,
+                        null);
                 }
                 spent += bearing(level);
             } else if (DustTuning.orbitContact != 0) {
@@ -233,7 +390,7 @@ public final class DustBody {
                 AABB area = new AABB(anchorX - outer, anchorY - outer, anchorZ - outer,
                     anchorX + outer, anchorY + outer, anchorZ + outer);
                 spent += DustPhysics.contact(this, level, area, orbitShape, false, true, null,
-                    DustTuning.strength(homeMass / volume * DustTuning.orbitDensityScale),
+                    DustTuning.strength(homeMass / volume * DustTuning.orbitDensityScale), 1.0,
                     casterVx, casterVy, casterVz, null);
             }
         }
@@ -249,8 +406,8 @@ public final class DustBody {
             reaction[1] = 0.0;
             reaction[2] = 0.0;
             spent += DustPhysics.contact(this, level, area, slugShape, false, true, null,
-                DustTuning.strength(slugMass / volume), slugVx, slugVy, slugVz, reaction);
-            double share = 20.0 / Math.max(slugMass, 20.0);
+                DustTuning.strength(slugMass / volume), 1.0, slugVx, slugVy, slugVz, reaction);
+            double share = 2.0 / Math.max(slugMass, 2.0);
             slugVx += reaction[0] * share;
             slugVy += reaction[1] * share;
             slugVz += reaction[2] * share;
@@ -260,7 +417,8 @@ public final class DustBody {
             double strength = DustTuning.strength(homeMass / formation.shellVolume);
             for (int i = captured.size() - 1; i >= 0; i--) {
                 Entity entity = captured.get(i);
-                if (entity.isRemoved() || !entity.isAlive() || entity.level() != level) {
+                if (entity.isRemoved() || !entity.isAlive() || entity.level() != level
+                    || DustPhysics.negated(entity)) {
                     captured.remove(i);
                     continue;
                 }
@@ -298,8 +456,9 @@ public final class DustBody {
         if (hold <= 0.0) {
             return null;
         }
+        Vec3 step = DustTuning.accelerate(driftVx, driftVy, driftVz, requestedVelocity(current), current.agility);
         return new DustSupport.Surface(level, current.region, offsetX, offsetY, offsetZ, constrained,
-            hold, homeVx, homeVy, homeVz, caster.getId());
+            hold, step.x, step.y, step.z, caster.getId());
     }
 
     private double bearing(ServerLevel level) {
@@ -349,13 +508,15 @@ public final class DustBody {
         double y;
         double z;
         if (formation != null) {
-            double length = Math.sqrt(offsetX * offsetX + offsetY * offsetY + offsetZ * offsetZ);
-            if (length > 1.0e-6) {
-                double keep = Math.max(0.0, length - DustTuning.migrationSpeed) / length;
-                offsetX *= keep;
-                offsetY *= keep;
-                offsetZ *= keep;
-            }
+            Vec3 velocity = DustTuning.accelerate(driftVx, driftVy, driftVz, requestedVelocity(formation),
+                formation.agility);
+            driftVx = velocity.x;
+            driftVy = velocity.y;
+            driftVz = velocity.z;
+            offsetX += driftVx;
+            offsetY += driftVy;
+            offsetZ += driftVz;
+            finishMove();
             x = formation.centerX + offsetX;
             y = formation.centerY + offsetY;
             z = formation.centerZ + offsetZ;
@@ -385,8 +546,11 @@ public final class DustBody {
 
     private void updateSurge() {
         phaseAge++;
+        lashed = false;
         double settleTarget = phase == Phase.HOME ? 1.0 : 0.0;
-        settled += Math.max(-DustTuning.formationRate, Math.min(DustTuning.formationRate, settleTarget - settled));
+        double agility = formation != null ? formation.agility : 1.0;
+        double rate = DustTuning.formationRate * agility;
+        settled += Math.max(-rate, Math.min(rate, settleTarget - settled));
         if (phase == Phase.HOME) {
             return;
         }
@@ -409,8 +573,8 @@ public final class DustBody {
             tx = homeX;
             ty = homeY;
             tz = homeZ;
-            topSpeed = DustTuning.returnSpeed;
-            steer = DustTuning.returnSteer;
+            topSpeed = DustTuning.returnSpeed * agility;
+            steer = Math.min(DustTuning.returnSteer * agility, 0.5);
         }
         double dx = tx - slugX;
         double dy = ty - slugY;
@@ -440,6 +604,7 @@ public final class DustBody {
         if (phase == Phase.SURGE && phaseAge >= surgeDuration) {
             phase = Phase.RETURN;
             phaseAge = 0;
+            lashed = true;
         } else if (phase == Phase.RETURN && (distance < 1.5 || phaseAge >= DustTuning.returnMaxTicks)) {
             phase = Phase.HOME;
             phaseAge = 0;
@@ -451,7 +616,8 @@ public final class DustBody {
             return true;
         }
         double leash = DustTuning.leashDistance;
-        return formation.bounds.inflate(leash).contains(caster.getX(), caster.getY(), caster.getZ());
+        return formation.bounds.move(offsetX, offsetY, offsetZ).inflate(leash)
+            .contains(caster.getX(), caster.getY(), caster.getZ());
     }
 
     private void capture() {
@@ -539,7 +705,7 @@ public final class DustBody {
             return;
         }
         float now = (float) mass;
-        float threshold = (float) Math.max(1.0, targetMass * 0.02);
+        float threshold = (float) Math.max(0.1, targetMass * 0.02);
         boolean reachedTarget = now >= targetMass - 1.0e-3 && lastSentMass < now;
         if (Math.abs(now - lastSentMass) >= threshold || reachedTarget) {
             lastSentMass = now;
@@ -555,6 +721,7 @@ public final class DustBody {
 
     DustPacket statePacket() {
         return DustPacket.state(caster.getId(), (float) mass, (float) targetMass,
-            formation == null ? null : formation.region.save(), constrained);
+            formation == null ? null : formation.region.save(), formationSerial, constrained,
+            new Vec3(offsetX, offsetY, offsetZ), new Vec3(driftVx, driftVy, driftVz), driftTarget, destination);
     }
 }

@@ -344,10 +344,23 @@ object WorktableRecipes {
         InfusionStep(IngredientCategory.SPATIAL, 2.0, 34, 0.07f)
     )
 
+    val ALEMBIX_STEPS = listOf(
+        InfusionStep(IngredientCategory.ARCANE, 26.0, 60, 0.12f),
+        InfusionStep(IngredientCategory.CRYSTAL, 22.0, 50, 0.10f),
+        InfusionStep(IngredientCategory.SPATIAL, 18.0, 42, 0.085f),
+        InfusionStep(IngredientCategory.METALLIC, 14.0, 34, 0.07f)
+    )
+
+    val LIQUEFACTRIUM_STEPS = listOf(
+        InfusionStep(IngredientCategory.METALLIC, 18.0, 60, 0.12f),
+        InfusionStep(IngredientCategory.CRYSTAL, 16.0, 50, 0.10f),
+        InfusionStep(IngredientCategory.ARCANE, 12.0, 42, 0.085f),
+        InfusionStep(IngredientCategory.ECHO, 8.0, 34, 0.07f)
+    )
+
     data class WorktableRecipe(
         val nameKey: String,
         val steps: List<InfusionStep>,
-        val requiredMastery: PocketCasterData.Quality?,
         val graded: Boolean = true,
         val assemble: (PocketCasterData.Quality) -> ItemStack
     ) {
@@ -357,241 +370,206 @@ object WorktableRecipes {
     val RECIPES = listOf(
         WorktableRecipe(
             "item.hexwright.pocket_caster",
-            POCKET_CASTER_STEPS,
-            requiredMastery = null
+            POCKET_CASTER_STEPS
         ) { quality -> PocketCasterData.create(quality) },
         WorktableRecipe(
             "block.hexwright.warding_box",
-            WARDING_BOX_STEPS,
-            requiredMastery = PocketCasterData.Quality.FINE
+            WARDING_BOX_STEPS
         ) { quality -> WardingBoxData.create(quality) },
         WorktableRecipe(
             "item.hexwright.talisman",
-            TALISMAN_STEPS,
-            requiredMastery = PocketCasterData.Quality.SOUND
+            TALISMAN_STEPS
         ) { quality -> TalismanData.create(quality) },
         WorktableRecipe(
             "item.hexwright.hex_engraved_bottle",
-            HEX_ENGRAVED_BOTTLE_STEPS,
-            requiredMastery = PocketCasterData.Quality.SOUND
+            HEX_ENGRAVED_BOTTLE_STEPS
         ) { quality -> com.bluup.hexwright.server.remnant.BottleData.create(quality) },
         WorktableRecipe(
             "item.hexwright.harmonized_pentabox",
-            PENTABOX_STEPS,
-            requiredMastery = PocketCasterData.Quality.FINE
+            PENTABOX_STEPS
         ) { quality -> PentaboxData.create(quality) },
         WorktableRecipe(
             "item.hexwright.amethyst_core",
-            AMETHYST_CORE_STEPS,
-            requiredMastery = null
+            AMETHYST_CORE_STEPS
         ) { quality -> StaffCoreData.create(HexwrightItems.AMETHYST_CORE, quality) },
         WorktableRecipe(
             "item.hexwright.quartz_core",
-            QUARTZ_CORE_STEPS,
-            requiredMastery = null
+            QUARTZ_CORE_STEPS
         ) { quality -> StaffCoreData.create(HexwrightItems.QUARTZ_CORE, quality) },
         WorktableRecipe(
             "item.hexwright.scribe_core",
-            SCRIBE_CORE_STEPS,
-            requiredMastery = null
+            SCRIBE_CORE_STEPS
         ) { quality -> StaffCoreData.create(HexwrightItems.SCRIBE_CORE, quality) },
         WorktableRecipe(
             "item.hexwright.traveller_core",
-            TRAVELLER_CORE_STEPS,
-            requiredMastery = null
+            TRAVELLER_CORE_STEPS
         ) { quality -> StaffCoreData.create(HexwrightItems.TRAVELLER_CORE, quality) },
         WorktableRecipe(
             "item.hexwright.echo_core",
-            ECHO_CORE_STEPS,
-            requiredMastery = null
+            ECHO_CORE_STEPS
         ) { quality -> StaffCoreData.create(HexwrightItems.ECHO_CORE, quality) },
         WorktableRecipe(
             BroomVariant.ETHEREAL.nameKey(),
-            BROOM_ETHEREAL_STEPS,
-            requiredMastery = BroomVariant.ETHEREAL.requiredMastery()
+            BROOM_ETHEREAL_STEPS
         ) { quality -> BroomVariant.ETHEREAL.createStack(quality) },
         WorktableRecipe(
             BroomVariant.STARRY.nameKey(),
-            BROOM_STARRY_STEPS,
-            requiredMastery = BroomVariant.STARRY.requiredMastery()
+            BROOM_STARRY_STEPS
         ) { quality -> BroomVariant.STARRY.createStack(quality) },
         WorktableRecipe(
             BroomVariant.NOCTURNE.nameKey(),
-            BROOM_NOCTURNE_STEPS,
-            requiredMastery = BroomVariant.NOCTURNE.requiredMastery()
+            BROOM_NOCTURNE_STEPS
         ) { quality -> BroomVariant.NOCTURNE.createStack(quality) },
         WorktableRecipe(
             BroomVariant.SWEET_ENCHANTRESS.nameKey(),
-            BROOM_SWEET_ENCHANTRESS_STEPS,
-            requiredMastery = BroomVariant.SWEET_ENCHANTRESS.requiredMastery()
+            BROOM_SWEET_ENCHANTRESS_STEPS
         ) { quality -> BroomVariant.SWEET_ENCHANTRESS.createStack(quality) },
         WorktableRecipe(
             BroomVariant.SPLINTERED_SWEEPER.nameKey(),
-            BROOM_SPLINTERED_SWEEPER_STEPS,
-            requiredMastery = BroomVariant.SPLINTERED_SWEEPER.requiredMastery()
+            BROOM_SPLINTERED_SWEEPER_STEPS
         ) { quality -> BroomVariant.SPLINTERED_SWEEPER.createStack(quality) },
         WorktableRecipe(
             BroomVariant.BRISTLEBACK.nameKey(),
-            BROOM_BRISTLEBACK_STEPS,
-            requiredMastery = BroomVariant.BRISTLEBACK.requiredMastery()
+            BROOM_BRISTLEBACK_STEPS
         ) { quality -> BroomVariant.BRISTLEBACK.createStack(quality) },
         WorktableRecipe(
             BroomVariant.CROOKED_COMBER.nameKey(),
-            BROOM_CROOKED_COMBER_STEPS,
-            requiredMastery = BroomVariant.CROOKED_COMBER.requiredMastery()
+            BROOM_CROOKED_COMBER_STEPS
         ) { quality -> BroomVariant.CROOKED_COMBER.createStack(quality) },
         WorktableRecipe(
             BroomVariant.WHISPERWIND.nameKey(),
-            BROOM_WHISPERWIND_STEPS,
-            requiredMastery = BroomVariant.WHISPERWIND.requiredMastery()
+            BROOM_WHISPERWIND_STEPS
         ) { quality -> BroomVariant.WHISPERWIND.createStack(quality) },
         WorktableRecipe(
             BroomVariant.GLEAMGLIDE.nameKey(),
-            BROOM_GLEAMGLIDE_STEPS,
-            requiredMastery = BroomVariant.GLEAMGLIDE.requiredMastery()
+            BROOM_GLEAMGLIDE_STEPS
         ) { quality -> BroomVariant.GLEAMGLIDE.createStack(quality) },
         WorktableRecipe(
             CarpetVariant.PURPLE.nameKey(),
-            CARPET_PURPLE_STEPS,
-            requiredMastery = CarpetVariant.PURPLE.requiredMastery()
+            CARPET_PURPLE_STEPS
         ) { quality -> CarpetVariant.PURPLE.createStack(quality) },
         WorktableRecipe(
             CarpetVariant.RED.nameKey(),
-            CARPET_RED_STEPS,
-            requiredMastery = CarpetVariant.RED.requiredMastery()
+            CARPET_RED_STEPS
         ) { quality -> CarpetVariant.RED.createStack(quality) },
         WorktableRecipe(
             CarpetVariant.TEAL.nameKey(),
-            CARPET_TEAL_STEPS,
-            requiredMastery = CarpetVariant.TEAL.requiredMastery()
+            CARPET_TEAL_STEPS
         ) { quality -> CarpetVariant.TEAL.createStack(quality) },
         WorktableRecipe(
             ArmourSet.VEILWALKER.gemTitleKey(),
-            VEILWALKER_GEM_STEPS,
-            requiredMastery = PocketCasterData.Quality.SOUND
+            VEILWALKER_GEM_STEPS
         ) { quality -> ArmourGemData.create(HexwrightArmour.gem(ArmourSet.VEILWALKER), quality) },
         WorktableRecipe(
             ArmourSet.CANTOR.gemTitleKey(),
-            CANTOR_GEM_STEPS,
-            requiredMastery = PocketCasterData.Quality.SOUND
+            CANTOR_GEM_STEPS
         ) { quality -> ArmourGemData.create(HexwrightArmour.gem(ArmourSet.CANTOR), quality) },
         WorktableRecipe(
             ArmourSet.HEXWARDEN.gemTitleKey(),
-            HEXWARDEN_GEM_STEPS,
-            requiredMastery = PocketCasterData.Quality.SOUND
+            HEXWARDEN_GEM_STEPS
         ) { quality -> ArmourGemData.create(HexwrightArmour.gem(ArmourSet.HEXWARDEN), quality) },
         WorktableRecipe(
             ArmourSet.AUGUR.gemTitleKey(),
-            AUGUR_GEM_STEPS,
-            requiredMastery = PocketCasterData.Quality.SOUND
+            AUGUR_GEM_STEPS
         ) { quality -> ArmourGemData.create(HexwrightArmour.gem(ArmourSet.AUGUR), quality) },
         WorktableRecipe(
             ArmourSet.VENATOR.gemTitleKey(),
-            VENATOR_CRYSTAL_STEPS,
-            requiredMastery = PocketCasterData.Quality.SOUND
+            VENATOR_CRYSTAL_STEPS
         ) { quality -> ArmourGemData.create(HexwrightArmour.gem(ArmourSet.VENATOR), quality) },
         WorktableRecipe(
             ArmourSet.DOMITOR.gemTitleKey(),
-            DOMITOR_GEM_STEPS,
-            requiredMastery = PocketCasterData.Quality.SOUND
+            DOMITOR_GEM_STEPS
         ) { quality -> ArmourGemData.create(HexwrightArmour.gem(ArmourSet.DOMITOR), quality) },
         WorktableRecipe(
             "item.hexwright.battle_axe",
-            BATTLE_AXE_STEPS,
-            requiredMastery = PocketCasterData.Quality.FINE
+            BATTLE_AXE_STEPS
         ) { quality -> ItemStack(HexwrightItems.BATTLE_AXES[quality]!!) },
         WorktableRecipe(
             "item.hexwright.battle_hammer",
-            BATTLE_HAMMER_STEPS,
-            requiredMastery = PocketCasterData.Quality.FINE
+            BATTLE_HAMMER_STEPS
         ) { quality -> ItemStack(HexwrightItems.BATTLE_HAMMERS[quality]!!) },
         WorktableRecipe(
             "item.hexwright.duelist_short_sword",
-            DUELIST_SHORT_SWORD_STEPS,
-            requiredMastery = PocketCasterData.Quality.FINE
+            DUELIST_SHORT_SWORD_STEPS
         ) { quality -> ItemStack(HexwrightItems.DUELIST_SHORT_SWORDS[quality]!!) },
         WorktableRecipe(
             "item.hexwright.archer_great_bow",
-            ARCHER_GREAT_BOW_STEPS,
-            requiredMastery = PocketCasterData.Quality.FINE
+            ARCHER_GREAT_BOW_STEPS
         ) { quality -> ItemStack(HexwrightItems.ARCHER_GREAT_BOWS[quality]!!) },
         WorktableRecipe(
             "item.hexwright.artisan_signet",
             ARTISAN_SIGNET_STEPS,
-            requiredMastery = null,
             graded = false
         ) { ItemStack(HexwrightItems.ARTISAN_SIGNET) },
         WorktableRecipe(
             "item.hexwright.resonant_key",
             RESONANT_KEY_STEPS,
-            requiredMastery = null,
             graded = false
         ) { ItemStack(HexwrightItems.RESONANT_KEY) },
         WorktableRecipe(
             "item.hexwright.resonant_ring",
             RESONANT_RING_STEPS,
-            requiredMastery = PocketCasterData.Quality.FINE,
             graded = false
         ) { ItemStack(HexwrightItems.RESONANT_RING) },
         WorktableRecipe(
             "item.hexwright.ring_of_negation",
             RING_OF_NEGATION_STEPS,
-            requiredMastery = PocketCasterData.Quality.EXQUISITE,
             graded = false
         ) { ItemStack(HexwrightItems.RING_OF_NEGATION) },
         WorktableRecipe(
             "block.hexwright.field_marker",
             FIELD_MARKER_STEPS,
-            requiredMastery = null,
             graded = false
         ) { ItemStack(HexwrightBlocks.FIELD_MARKER_ITEM) },
         WorktableRecipe(
             "item.hexwright.field_tuner",
             FIELD_TUNER_STEPS,
-            requiredMastery = null,
             graded = false
         ) { ItemStack(HexwrightItems.FIELD_TUNER) },
         WorktableRecipe(
             "block.hexwright.resonant_anchor",
             RESONANT_ANCHOR_STEPS,
-            requiredMastery = PocketCasterData.Quality.SOUND,
             graded = false
         ) { ItemStack(HexwrightBlocks.RESONANT_ANCHOR_ITEM) },
         WorktableRecipe(
             "item.hexwright.vault_key",
-            VAULT_KEY_STEPS,
-            requiredMastery = null
+            VAULT_KEY_STEPS
         ) { quality -> VaultKeyItem.blank(quality) },
         WorktableRecipe(
             "item.hexwright.warders_spectacles",
             WARDERS_SPECTACLES_STEPS,
-            requiredMastery = null,
             graded = false
         ) { ItemStack(HexwrightItems.WARDERS_SPECTACLES) },
         WorktableRecipe(
             "item.hexwright.reliquary_seal",
             RELIQUARY_SEAL_STEPS,
-            requiredMastery = null,
             graded = false
         ) { ItemStack(HexwrightItems.RELIQUARY_SEAL) },
         WorktableRecipe(
             "item.hexwright.sealed_satchel",
             SEALED_SATCHEL_STEPS,
-            requiredMastery = PocketCasterData.Quality.FINE,
             graded = false
         ) { ItemStack(HexwrightItems.SEALED_SATCHEL) },
         WorktableRecipe(
             "block.hexwright.hexid_tank",
             HEXID_TANK_STEPS,
-            requiredMastery = null,
             graded = false
         ) { ItemStack(HexwrightBlocks.HEXID_TANK_ITEM) },
         WorktableRecipe(
             "block.hexwright.hexid_pipe",
             HEXID_PIPE_STEPS,
-            requiredMastery = null,
             graded = false
-        ) { ItemStack(HexwrightBlocks.HEXID_PIPE_ITEM, PIPES_PER_CRAFT) }
+        ) { ItemStack(HexwrightBlocks.HEXID_PIPE_ITEM, PIPES_PER_CRAFT) },
+        WorktableRecipe(
+            "block.hexwright.alembix",
+            ALEMBIX_STEPS,
+            graded = false
+        ) { ItemStack(HexwrightBlocks.ALEMBIX_ITEM) },
+        WorktableRecipe(
+            "block.hexwright.liquefactrium",
+            LIQUEFACTRIUM_STEPS,
+            graded = false
+        ) { ItemStack(HexwrightBlocks.LIQUEFACTRIUM_ITEM) }
     )
 
     fun allOutputItems(): Set<Item> {

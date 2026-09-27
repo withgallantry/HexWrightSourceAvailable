@@ -110,17 +110,15 @@ public final class TalismanCasting {
 
     public static void onDied(ServerPlayer player) {
         for (ItemStack stack : WornTalismans.getWorn(player)) {
-            resetReprieve(stack);
+            rearm(stack);
         }
         for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
-            resetReprieve(player.getInventory().getItem(i));
+            rearm(player.getInventory().getItem(i));
         }
     }
 
-    private static void resetReprieve(ItemStack stack) {
-        if (stack.getItem() instanceof TalismanItem talisman
-            && talisman.fixedTrigger() == TalismanData.Trigger.BRINK
-            && TalismanData.getNextFire(stack) != 0L) {
+    private static void rearm(ItemStack stack) {
+        if (stack.getItem() instanceof TalismanItem && TalismanData.getNextFire(stack) != 0L) {
             TalismanData.setNextFire(stack, 0L);
         }
     }

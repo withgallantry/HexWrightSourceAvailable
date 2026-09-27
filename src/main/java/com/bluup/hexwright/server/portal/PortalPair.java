@@ -1,5 +1,6 @@
 package com.bluup.hexwright.server.portal;
 
+import net.minecraft.Util;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.FriendlyByteBuf;
@@ -26,27 +27,33 @@ public final class PortalPair {
     private final PortalTransform[] transforms;
     private final @Nullable ResourceKey<Level>[] dimensions;
     private final boolean sessionBound;
+    private final boolean fixed;
 
     public PortalPair(UUID id, UUID caster, PortalWindow a, PortalWindow b, long createdGameTime) {
-        this(id, caster, a, b, createdGameTime, NO_EXPIRY, null, null, false);
+        this(id, caster, a, b, createdGameTime, NO_EXPIRY, null, null, false, false);
     }
 
     public PortalPair(UUID id, UUID caster, PortalWindow a, PortalWindow b, long createdGameTime,
                       long expiryGameTime) {
-        this(id, caster, a, b, createdGameTime, expiryGameTime, null, null, false);
+        this(id, caster, a, b, createdGameTime, expiryGameTime, null, null, false, false);
     }
 
     public PortalPair(UUID id, UUID caster, PortalWindow a, PortalWindow b, long createdGameTime,
                       @Nullable ResourceKey<Level> dimA, @Nullable ResourceKey<Level> dimB,
                       boolean sessionBound) {
-        this(id, caster, a, b, createdGameTime, NO_EXPIRY, dimA, dimB, sessionBound);
+        this(id, caster, a, b, createdGameTime, NO_EXPIRY, dimA, dimB, sessionBound, false);
+    }
+
+    public static PortalPair fixture(UUID id, PortalWindow a, PortalWindow b, long createdGameTime) {
+        return new PortalPair(id, Util.NIL_UUID, a, b, createdGameTime, NO_EXPIRY, null, null,
+            false, true);
     }
 
     @SuppressWarnings("unchecked")
     public PortalPair(UUID id, UUID caster, PortalWindow a, PortalWindow b, long createdGameTime,
                       long expiryGameTime,
                       @Nullable ResourceKey<Level> dimA, @Nullable ResourceKey<Level> dimB,
-                      boolean sessionBound) {
+                      boolean sessionBound, boolean fixed) {
         this.id = id;
         this.caster = caster;
         this.windows = new PortalWindow[]{a, b};
@@ -55,6 +62,7 @@ public final class PortalPair {
         this.transforms = new PortalTransform[]{new PortalTransform(a, b), new PortalTransform(b, a)};
         this.dimensions = (ResourceKey<Level>[]) new ResourceKey[]{dimA, dimB};
         this.sessionBound = sessionBound;
+        this.fixed = fixed;
     }
 
     public UUID id() {
@@ -107,6 +115,10 @@ public final class PortalPair {
         return sessionBound;
     }
 
+    public boolean isFixed() {
+        return fixed;
+    }
+
     public boolean isValid() {
         return windows[0].isValid() && windows[1].isValid();
     }
@@ -125,6 +137,9 @@ public final class PortalPair {
         tag.putLong("Created", createdGameTime);
         if (expiryGameTime != NO_EXPIRY) {
             tag.putLong("Expiry", expiryGameTime);
+        }
+        if (fixed) {
+            tag.putBoolean("Fixed", true);
         }
         if (dimensions[0] != null) {
             tag.putString("DimA", dimensions[0].location().toString());
@@ -145,7 +160,8 @@ public final class PortalPair {
             tag.contains("Expiry") ? tag.getLong("Expiry") : NO_EXPIRY,
             readDim(tag, "DimA"),
             readDim(tag, "DimB"),
-            false);
+            false,
+            tag.getBoolean("Fixed"));
     }
 
     private static @Nullable ResourceKey<Level> readDim(CompoundTag tag, String key) {
@@ -170,7 +186,7 @@ public final class PortalPair {
         PortalWindow b = PortalWindow.read(buf);
         ResourceKey<Level> dimA = readDim(buf);
         ResourceKey<Level> dimB = readDim(buf);
-        return new PortalPair(id, id, a, b, 0L, NO_EXPIRY, dimA, dimB, false);
+        return new PortalPair(id, id, a, b, 0L, NO_EXPIRY, dimA, dimB, false, false);
     }
 
     private static void writeDim(FriendlyByteBuf buf, @Nullable ResourceKey<Level> dim) {

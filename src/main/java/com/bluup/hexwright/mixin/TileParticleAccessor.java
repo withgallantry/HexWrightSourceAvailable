@@ -3,6 +3,7 @@ package com.bluup.hexwright.mixin;
 import com.lowdragmc.photon.client.gameobject.particle.TileParticle;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
+import org.joml.Vector4f;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Accessor;
 
@@ -38,6 +39,9 @@ public interface TileParticleAccessor {
 
     @Accessor("initialSize")
     Vector3f hexwright$getInitialSize();
+
+    @Accessor("initialColor")
+    Vector4f hexwright$getInitialColor();
 
     @Accessor("initialTransform")
     Matrix4f hexwright$getInitialTransform();

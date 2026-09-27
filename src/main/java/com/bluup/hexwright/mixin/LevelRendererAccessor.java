@@ -21,4 +21,7 @@ public interface LevelRendererAccessor {
 
     @Accessor("viewArea")
     net.minecraft.client.renderer.ViewArea hexwright$viewArea();
+
+    @Accessor("level")
+    net.minecraft.client.multiplayer.ClientLevel hexwright$level();
 }

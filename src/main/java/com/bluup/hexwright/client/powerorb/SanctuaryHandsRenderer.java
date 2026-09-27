@@ -25,6 +25,7 @@ public class SanctuaryHandsRenderer extends GeoEntityRenderer<SanctuaryHandsEnti
     public void render(SanctuaryHandsEntity entity, float entityYaw, float partialTick, PoseStack poseStack,
                        MultiBufferSource bufferSource, int packedLight) {
         super.render(entity, entityYaw, partialTick, poseStack, bufferSource, LightTexture.FULL_BRIGHT);
+        PowerOrbBloom.capture(this, entity, poseStack, partialTick, PowerOrbBloom.Spirit.SANCTUARY_HANDS);
     }
 
     @Override

@@ -3,30 +3,23 @@ package com.bluup.hexwright.server.vehicle;
 import com.bluup.hexwright.server.item.HexwrightItems;
 import com.bluup.hexwright.server.pocketcaster.PocketCasterData;
 import net.minecraft.world.item.ItemStack;
-import org.jetbrains.annotations.Nullable;
 
 import java.util.Locale;
 
 public enum CarpetVariant {
 
-    PURPLE("purple", null),
-    RED("red", PocketCasterData.Quality.FINE),
-    TEAL("teal", PocketCasterData.Quality.EXQUISITE);
+    PURPLE("purple"),
+    RED("red"),
+    TEAL("teal");
 
     private final String id;
-    private final @Nullable PocketCasterData.Quality requiredMastery;
 
-    CarpetVariant(String id, @Nullable PocketCasterData.Quality requiredMastery) {
+    CarpetVariant(String id) {
         this.id = id;
-        this.requiredMastery = requiredMastery;
     }
 
     public String id() {
         return id;
-    }
-
-    public @Nullable PocketCasterData.Quality requiredMastery() {
-        return requiredMastery;
     }
 
     public String nameKey() {

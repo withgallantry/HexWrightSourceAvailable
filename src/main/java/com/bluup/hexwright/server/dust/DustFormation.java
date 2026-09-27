@@ -13,6 +13,7 @@ public final class DustFormation {
     public final double centerZ;
     public final double fillVolume;
     public final double shellVolume;
+    public final double agility;
 
     public DustFormation(Region region) {
         this.region = region;
@@ -26,6 +27,7 @@ public final class DustFormation {
         this.fillVolume = Math.max(fill, DustTuning.minVolume);
         this.shellVolume = Math.max(Math.min(measure.area() * DustTuning.shellThickness, fillVolume),
             DustTuning.minVolume);
+        this.agility = DustTuning.agility(fillVolume);
     }
 
     public double volume(boolean shell) {

@@ -1,6 +1,9 @@
 package com.bluup.hexwright.server.armour;
 
+import at.petrak.hexcasting.api.casting.iota.IotaType;
+import at.petrak.hexcasting.api.casting.iota.PatternIota;
 import at.petrak.hexcasting.api.casting.math.HexPattern;
+import at.petrak.hexcasting.common.lib.hex.HexIotaTypes;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.world.entity.EquipmentSlot;
@@ -25,21 +28,25 @@ public final class ArmourPowerToggle {
 
     @Nullable
     public static CompoundTag getPatternTag(ItemStack chest) {
-        CompoundTag root = chest.getTagElement(TAG_ROOT);
-        if (root == null || !root.contains(TAG_PATTERN, Tag.TAG_COMPOUND)) {
-            return null;
-        }
-        return root.getCompound(TAG_PATTERN);
+        HexPattern pattern = getPattern(chest);
+        return pattern == null ? null : IotaType.serialize(new PatternIota(pattern));
     }
 
     @Nullable
     public static HexPattern getPattern(ItemStack chest) {
-        CompoundTag patternTag = getPatternTag(chest);
-        return patternTag != null && HexPattern.isPattern(patternTag) ? HexPattern.fromNBT(patternTag) : null;
+        CompoundTag root = chest.getTagElement(TAG_ROOT);
+        if (root == null || !root.contains(TAG_PATTERN, Tag.TAG_COMPOUND)) {
+            return null;
+        }
+        CompoundTag stored = root.getCompound(TAG_PATTERN);
+        CompoundTag patternTag = IotaType.getTypeFromTag(stored) == HexIotaTypes.PATTERN
+            ? stored.getCompound(HexIotaTypes.KEY_DATA)
+            : stored;
+        return HexPattern.isPattern(patternTag) ? HexPattern.fromNBT(patternTag) : null;
     }
 
     public static void setPattern(ItemStack chest, HexPattern pattern) {
-        chest.getOrCreateTagElement(TAG_ROOT).put(TAG_PATTERN, pattern.serializeToNBT());
+        chest.getOrCreateTagElement(TAG_ROOT).put(TAG_PATTERN, IotaType.serialize(new PatternIota(pattern)));
     }
 
     public static void clearPattern(ItemStack chest) {

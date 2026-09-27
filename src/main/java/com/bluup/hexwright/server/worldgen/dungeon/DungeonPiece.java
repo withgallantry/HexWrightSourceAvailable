@@ -55,7 +55,7 @@ public class DungeonPiece extends TemplateStructurePiece {
     private static final Map<ResourceLocation, EntityType<?>> GARRISON = Map.of(
         new ResourceLocation("minecraft", "pillager"), HexwrightMobEntities.EXPERIMENTAL_CONSTRUCT);
 
-    private static final ResourceLocation CRYSTALITE_TABLE = Hexwright.id("chests/deep_dungeon_crystalite");
+    private static final ResourceLocation KYANITE_TABLE = Hexwright.id("chests/deep_dungeon_kyanite");
 
     private final float mobChance;
     private final DungeonPlanner.Fittings fittings;
@@ -63,9 +63,6 @@ public class DungeonPiece extends TemplateStructurePiece {
     private final String rune;
 
     private Set<BlockPos> air;
-
-    private Set<BlockPos> pavement;
-    private Set<BlockPos> clutter;
 
     private Set<BlockPos> rooms;
 
@@ -87,7 +84,7 @@ public class DungeonPiece extends TemplateStructurePiece {
         this.mobChance = tag.contains("MobChance") ? tag.getFloat("MobChance") : 1.0F;
         String fixture = tag.getString("Fixture");
         this.fittings = new DungeonPlanner.Fittings(
-            tag.getBoolean("CrystaliteChest"),
+            tag.getBoolean("KyaniteChest") || tag.getBoolean("CrystaliteChest"),
             tag.getBoolean("CaveTap"),
             fixture.isEmpty() ? null : parseFixture(fixture),
             tag.getBoolean("Miniboss"),
@@ -160,7 +157,7 @@ public class DungeonPiece extends TemplateStructurePiece {
         super.addAdditionalSaveData(context, tag);
         tag.putString("Rot", this.placeSettings.getRotation().name());
         tag.putFloat("MobChance", this.mobChance);
-        tag.putBoolean("CrystaliteChest", this.fittings.crystaliteChest());
+        tag.putBoolean("KyaniteChest", this.fittings.kyaniteChest());
         tag.putBoolean("CaveTap", this.fittings.caveTap());
         tag.putString("Fixture", this.fittings.fixture() == null ? "" : this.fittings.fixture().name());
         tag.putBoolean("Miniboss", this.fittings.miniboss());
@@ -178,8 +175,8 @@ public class DungeonPiece extends TemplateStructurePiece {
                             RandomSource random, BoundingBox box, ChunkPos chunkPos, BlockPos pos) {
         super.postProcess(level, manager, generator, random, box, chunkPos, pos);
         DungeonSeal.seal(level, this.boundingBox, box, claimedCells());
-        if (this.fittings.crystaliteChest()) {
-            stockCrystaliteChest(level, box, random);
+        if (this.fittings.kyaniteChest()) {
+            stockKyaniteChest(level, box, random);
         }
         if (this.fittings.fixture() != null) {
             standFixture(level, box);
@@ -207,92 +204,6 @@ public class DungeonPiece extends TemplateStructurePiece {
             spawnCorruptExperiment(level, box, random);
         }
         armArrowTraps(level, box);
-        dressRoom(level, box);
-    }
-
-    private Set<BlockPos> pavement() {
-        if (this.pavement == null) {
-            this.pavement = new HashSet<>();
-            for (net.minecraft.world.level.block.Block block : DungeonFloors.PAVEMENT) {
-                this.pavement.addAll(allOf(block));
-            }
-        }
-        return this.pavement;
-    }
-
-    private Set<BlockPos> clutter() {
-        if (this.clutter == null) {
-            this.clutter = new HashSet<>();
-            for (net.minecraft.world.level.block.Block block : DungeonFloors.CLUTTER) {
-                this.clutter.addAll(allOf(block));
-            }
-        }
-        return this.clutter;
-    }
-
-    private void dressRoom(WorldGenLevel level, BoundingBox box) {
-        DungeonModules.Module module = DungeonModules.byTemplate(this.templateName);
-        if (module == null) {
-            return;
-        }
-        if (module == DungeonModules.CORRUPT_HALL) {
-            return;
-        }
-        for (DungeonProps.Placed prop : DungeonProps.dress(
-                air(), roomAir(), pavement(), clutter(), this.boundingBox,
-                DungeonProps.roomOf(module, this.fittings.miniboss()), reserved())) {
-            if (box.isInside(prop.pos())) {
-                level.setBlock(prop.pos(), prop.state(), Block.UPDATE_CLIENTS);
-            }
-        }
-    }
-
-    private Set<BlockPos> reserved() {
-        Set<BlockPos> reserved = new HashSet<>();
-        for (BlockPos chest : allOf(Blocks.CHEST)) {
-            DungeonProps.reserveChest(reserved, chest);
-        }
-        for (BlockPos trapped : allOf(Blocks.TRAPPED_CHEST)) {
-            DungeonProps.reserveChest(reserved, trapped);
-        }
-        if (this.fittings.fixture() != null) {
-            List<BlockPos> benches = DungeonFittings.fixtureSpots(air(), this.boundingBox);
-            if (!benches.isEmpty()) {
-                reserved.add(benches.get(Math.floorMod(
-                    this.boundingBox.minX() * 31 + this.boundingBox.minZ(), benches.size())));
-            }
-        }
-        BlockPos trap = trapSpot();
-        if (trap != null) {
-            reserved.add(trap);
-            reserved.add(trap.above());
-        }
-        if (this.fittings.caveTap() || this.fittings.anchor()) {
-            BlockPos column = DungeonFittings.tapColumn(roomAir(), this.boundingBox);
-            if (column != null) {
-                for (int y = this.boundingBox.minY(); y <= this.boundingBox.maxY(); y++) {
-                    reserved.add(new BlockPos(column.getX(), y, column.getZ()));
-                }
-                DungeonProps.reserveAround(reserved,
-                    DungeonFittings.anchorSpot(roomAir(), this.boundingBox, column, trap));
-            }
-        }
-        if (this.fittings.miniboss()) {
-            DungeonProps.reserveAround(reserved,
-                DungeonFittings.minibossSpot(air(), this.boundingBox));
-            for (BlockPos chest : bossChests()) {
-                DungeonProps.reserveChest(reserved, chest);
-            }
-        }
-        if (this.fittings.servitor()) {
-            DungeonProps.reserveAround(reserved,
-                DungeonFittings.servitorSpot(roomAir(), this.boundingBox, trap));
-        }
-        if (this.fittings.titan()) {
-            DungeonProps.reserveAround(reserved,
-                DungeonFittings.titanSpot(roomAir(), this.boundingBox, trap));
-        }
-        return reserved;
     }
 
     private void armArrowTraps(WorldGenLevel level, BoundingBox box) {
@@ -347,7 +258,7 @@ public class DungeonPiece extends TemplateStructurePiece {
         return this.rooms;
     }
 
-    private void stockCrystaliteChest(WorldGenLevel level, BoundingBox box, RandomSource random) {
+    private void stockKyaniteChest(WorldGenLevel level, BoundingBox box, RandomSource random) {
         List<BlockPos> chests = allOf(Blocks.CHEST);
         if (chests.isEmpty()) {
             return;
@@ -359,7 +270,7 @@ public class DungeonPiece extends TemplateStructurePiece {
         }
         BlockEntity entity = level.getBlockEntity(chosen);
         if (entity instanceof RandomizableContainerBlockEntity container) {
-            container.setLootTable(CRYSTALITE_TABLE, random.nextLong());
+            container.setLootTable(KYANITE_TABLE, random.nextLong());
         }
     }
 

@@ -13,19 +13,22 @@ import com.mojang.blaze3d.shaders.BlendMode;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import net.minecraft.client.renderer.MultiBufferSource;
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.util.Mth;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL20;
 import org.lwjgl.opengl.GL30;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.function.Consumer;
 
 public final class SlashBloom {
 
-    private static final MultiBufferSource.BufferSource BLOOM_BUFFER =
-        MultiBufferSource.immediate(new BufferBuilder(2048));
+    private static final Map<RenderType, BufferBuilder> PENDING = new HashMap<>();
+
+    private static boolean recording;
 
     private static final int[] MASK_ONLY = {GL30.GL_COLOR_ATTACHMENT1};
 
@@ -66,13 +69,41 @@ public final class SlashBloom {
     }
 
 
+    public static void register() {
+        WorldRenderEvents.START.register(context -> beginFrame());
+    }
+
     public static void capture(RenderType layer, Consumer<VertexConsumer> emitter) {
-        if (IrisCompat.isRenderingShadowPass() || PortalViewRenderer.isRenderingView()) {
+        if (!recording || IrisCompat.isRenderingShadowPass() || PortalViewRenderer.isRenderingView()) {
+            return;
+        }
+        BufferBuilder builder = PENDING.computeIfAbsent(layer, type -> new BufferBuilder(type.bufferSize()));
+        if (!builder.building()) {
+            builder.begin(layer.mode(), layer.format());
+        }
+        emitter.accept(builder);
+    }
+
+    private static void beginFrame() {
+        if (PortalViewRenderer.isRenderingView()) {
+            return;
+        }
+        discardPending();
+        recording = true;
+    }
+
+    public static void flushPending() {
+        if (PortalViewRenderer.isRenderingView() || IrisCompat.isRenderingShadowPass()) {
+            return;
+        }
+        recording = false;
+        if (PENDING.values().stream().noneMatch(BufferBuilder::building)) {
             return;
         }
 
         RenderTarget input = BloomEffect.getInput();
         if (input == null) {
+            discardPending();
             return;
         }
 
@@ -89,9 +120,13 @@ public final class SlashBloom {
         try {
             input.bindWrite(true);
             GL20.glDrawBuffers(MASK_ONLY);
-            emitter.accept(BLOOM_BUFFER.getBuffer(layer));
+            for (Map.Entry<RenderType, BufferBuilder> pending : PENDING.entrySet()) {
+                if (pending.getValue().building()) {
+                    pending.getKey().end(pending.getValue(), RenderSystem.getVertexSorting());
+                }
+            }
         } finally {
-            BLOOM_BUFFER.endBatch();
+            discardPending();
             GL20.glDrawBuffers(SCENE_AND_MASK);
             IrisCompat.endPrivatePass();
             GlStateManager._glBindFramebuffer(GL30.GL_FRAMEBUFFER, previousFrameBuffer);
@@ -102,6 +137,14 @@ public final class SlashBloom {
         }
 
         PhotonParticleRenderType.bloomMark = true;
+    }
+
+    private static void discardPending() {
+        for (BufferBuilder builder : PENDING.values()) {
+            if (builder.building()) {
+                builder.end().release();
+            }
+        }
     }
 
     public static VertexConsumer dimmed(VertexConsumer inner, float strength) {

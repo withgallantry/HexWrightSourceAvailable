@@ -7,6 +7,8 @@ import com.bluup.hexwright.server.worldgen.arena.ArenaPiece;
 import com.bluup.hexwright.server.worldgen.arena.ArenaStructure;
 import com.bluup.hexwright.server.worldgen.bindstone.BindstonePillarPiece;
 import com.bluup.hexwright.server.worldgen.bindstone.BindstonePillarStructure;
+import com.bluup.hexwright.server.worldgen.hexwrightbase.HexwrightBasePiece;
+import com.bluup.hexwright.server.worldgen.hexwrightbase.HexwrightBaseStructure;
 import com.bluup.hexwright.server.worldgen.ruinedportal.RuinedPortalPiece;
 import com.bluup.hexwright.server.worldgen.ruinedportal.RuinedPortalStructure;
 import net.fabricmc.fabric.api.biome.v1.BiomeModifications;
@@ -24,6 +26,8 @@ public final class HexwrightWorldgen {
 
     public static PlacementModifierType<NearLavaFilter> NEAR_LAVA;
 
+    public static KyaniteClusterFeature KYANITE_CLUSTER;
+
     public static StructureType<DungeonStructure> DEEP_DUNGEON;
 
     public static StructurePieceType DUNGEON_PIECE;
@@ -40,17 +44,21 @@ public final class HexwrightWorldgen {
 
     public static StructurePieceType BINDSTONE_PILLAR_PIECE;
 
+    public static StructureType<HexwrightBaseStructure> HEXWRIGHT_BASE;
+
+    public static StructurePieceType HEXWRIGHT_BASE_PIECE;
+
     public static final ResourceKey<net.minecraft.world.level.levelgen.structure.Structure> DEEP_DUNGEON_KEY =
         ResourceKey.create(Registries.STRUCTURE, Hexwright.id("deep_dungeon"));
 
     public static final ResourceKey<net.minecraft.world.level.levelgen.structure.Structure> ANCIENT_ARENA_KEY =
         ResourceKey.create(Registries.STRUCTURE, Hexwright.id("ancient_arena"));
 
-    private static final ResourceKey<net.minecraft.world.level.levelgen.placement.PlacedFeature> CRYSTALITE_ORE =
-        ResourceKey.create(Registries.PLACED_FEATURE, Hexwright.id("crystalite_ore"));
+    private static final ResourceKey<net.minecraft.world.level.levelgen.placement.PlacedFeature> KYANITE_CLUSTERS =
+        ResourceKey.create(Registries.PLACED_FEATURE, Hexwright.id("kyanite_clusters"));
 
-    private static final ResourceKey<net.minecraft.world.level.levelgen.placement.PlacedFeature> CRYSTALITE_NETHER_ORE =
-        ResourceKey.create(Registries.PLACED_FEATURE, Hexwright.id("crystalite_nether_ore"));
+    private static final ResourceKey<net.minecraft.world.level.levelgen.placement.PlacedFeature> KYANITE_NETHER_CLUSTERS =
+        ResourceKey.create(Registries.PLACED_FEATURE, Hexwright.id("kyanite_nether_clusters"));
 
     private HexwrightWorldgen() {
     }
@@ -60,6 +68,11 @@ public final class HexwrightWorldgen {
             BuiltInRegistries.PLACEMENT_MODIFIER_TYPE,
             Hexwright.id("near_lava"),
             () -> NearLavaFilter.CODEC
+        );
+        KYANITE_CLUSTER = Registry.register(
+            BuiltInRegistries.FEATURE,
+            Hexwright.id("kyanite_cluster"),
+            new KyaniteClusterFeature()
         );
 
         DEEP_DUNGEON = Registry.register(
@@ -106,15 +119,26 @@ public final class HexwrightWorldgen {
             (StructurePieceType.ContextlessType) BindstonePillarPiece::new
         );
 
+        HEXWRIGHT_BASE = Registry.register(
+            BuiltInRegistries.STRUCTURE_TYPE,
+            Hexwright.id("hexwright_base"),
+            () -> HexwrightBaseStructure.CODEC
+        );
+        HEXWRIGHT_BASE_PIECE = Registry.register(
+            BuiltInRegistries.STRUCTURE_PIECE,
+            Hexwright.id("hexwright_base"),
+            (StructurePieceType.StructureTemplateType) HexwrightBasePiece::new
+        );
+
         BiomeModifications.addFeature(
             BiomeSelectors.foundInOverworld(),
-            GenerationStep.Decoration.UNDERGROUND_ORES,
-            CRYSTALITE_ORE
+            GenerationStep.Decoration.UNDERGROUND_DECORATION,
+            KYANITE_CLUSTERS
         );
         BiomeModifications.addFeature(
             BiomeSelectors.foundInTheNether(),
-            GenerationStep.Decoration.UNDERGROUND_ORES,
-            CRYSTALITE_NETHER_ORE
+            GenerationStep.Decoration.UNDERGROUND_DECORATION,
+            KYANITE_NETHER_CLUSTERS
         );
     }
 }

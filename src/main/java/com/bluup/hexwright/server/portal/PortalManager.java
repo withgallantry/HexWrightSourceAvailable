@@ -199,6 +199,27 @@ public final class PortalManager extends SavedData {
         return false;
     }
 
+    public static boolean withinRangeThroughPair(ServerLevel level, Vec3 viewer, Vec3 entity, double range) {
+        for (PortalPair pair : get(level).pairs) {
+            if (pair.isCrossDimensional()) {
+                continue;
+            }
+            Vec3 a = pair.window(0).center();
+            Vec3 b = pair.window(1).center();
+            if (horizontalDistance(viewer, a) + horizontalDistance(b, entity) <= range
+                || horizontalDistance(viewer, b) + horizontalDistance(a, entity) <= range) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static double horizontalDistance(Vec3 from, Vec3 to) {
+        double dx = to.x - from.x;
+        double dz = to.z - from.z;
+        return Math.sqrt(dx * dx + dz * dz);
+    }
+
     public @Nullable PortalPair findContaining(Vec3 point, ResourceKey<Level> dimension) {
         PortalPair best = null;
         double bestDistance = Double.MAX_VALUE;
@@ -228,9 +249,9 @@ public final class PortalManager extends SavedData {
 
     public void addPair(ServerLevel level, PortalPair pair) {
         List<PortalPair> owned = new ArrayList<>();
-        if (!pair.isSessionBound()) {
+        if (countsTowardCap(pair)) {
             for (PortalPair existing : pairs) {
-                if (!existing.isSessionBound() && existing.caster().equals(pair.caster())) {
+                if (countsTowardCap(existing) && existing.caster().equals(pair.caster())) {
                     owned.add(existing);
                 }
             }
@@ -253,6 +274,10 @@ public final class PortalManager extends SavedData {
             ? HexwrightSoundEvents.portalOpenClose()
             : HexwrightSoundEvents.janusOpen();
         playPortalSound(level, pair, openSound, PORTAL_OPEN_PITCH);
+    }
+
+    private static boolean countsTowardCap(PortalPair pair) {
+        return !pair.isSessionBound() && !pair.isFixed();
     }
 
     public void removePair(ServerLevel level, UUID id) {
@@ -383,17 +408,10 @@ public final class PortalManager extends SavedData {
 
     private CrossResult tryCross(PortalPair pair, int side, Entity entity, Vec3 prev, Vec3 now) {
         PortalWindow window = pair.window(side);
-        double sNow = window.signedDistance(now);
+        if (!stepPierces(window, prev, now, CROSSING_MARGIN)) {
+            return CrossResult.NONE;
+        }
         double sPrev = window.signedDistance(prev);
-        double depthAllowance = Math.max(MAX_CROSSING_DEPTH, prev.distanceTo(now));
-        if ((sPrev > 0.0) == (sNow > 0.0) || Math.abs(sPrev) > depthAllowance) {
-            return CrossResult.NONE;
-        }
-        double t = sPrev / (sPrev - sNow);
-        Vec3 pierce = prev.add(now.subtract(prev).scale(t));
-        if (!window.containsProjected(pierce, CROSSING_MARGIN)) {
-            return CrossResult.NONE;
-        }
 
         if (!crossingGuard.mayCross(pair, side, entity)) {
             rebound(window, entity, sPrev);
@@ -402,6 +420,18 @@ public final class PortalManager extends SavedData {
 
         applyTeleport(pair, side, entity, sPrev, false);
         return CrossResult.CROSSED;
+    }
+
+    private static boolean stepPierces(PortalWindow window, Vec3 prev, Vec3 now, double margin) {
+        double sPrev = window.signedDistance(prev);
+        double sNow = window.signedDistance(now);
+        double depthAllowance = Math.max(MAX_CROSSING_DEPTH, prev.distanceTo(now));
+        if ((sPrev > 0.0) == (sNow > 0.0) || Math.abs(sPrev) > depthAllowance) {
+            return false;
+        }
+        double t = sPrev / (sPrev - sNow);
+        Vec3 pierce = prev.add(now.subtract(prev).scale(t));
+        return window.containsProjected(pierce, margin);
     }
 
     private boolean holdOut(ServerLevel level, Entity entity, long gameTime) {
@@ -459,7 +489,8 @@ public final class PortalManager extends SavedData {
         PortalWindow destination = pair.window(1 - side);
         Vec3 newPos = exitPosition(transform, source, destination, entity.position(), entrySign);
         Vec3 newVel = transform.applyDirection(entity.getDeltaMovement());
-        float newYaw = Mth.wrapDegrees(entity.getYRot() + transform.yawDeltaDegrees());
+        float yawDelta = transform.yawDeltaDegrees();
+        float newYaw = Mth.wrapDegrees(entity.getYRot() + yawDelta);
 
         if (!(entity.level() instanceof ServerLevel level)) {
             return;
@@ -478,35 +509,48 @@ public final class PortalManager extends SavedData {
             return;
         }
         destLevel.getChunkAt(BlockPos.containing(newPos));
+        if (HexwrightDebug.on(HexwrightDebug.PORTAL)) {
+            HexwrightDebug.log(HexwrightDebug.PORTAL,
+                "[portal] folded {} #{} through pair {} side {}{}: {} -> {}, velocity {} -> {}",
+                entity.getType().toShortString(), entity.getId(), pair.id(), side,
+                predicted ? " (client-predicted)" : "",
+                entity.position(), newPos, entity.getDeltaMovement(), newVel);
+        }
 
         if (destLevel != level) {
-            applyCrossDimensionalTeleport(destLevel, entity, newPos, newVel, newYaw, transform.yawDeltaDegrees());
+            applyCrossDimensionalTeleport(destLevel, entity, newPos, newVel, newYaw, yawDelta);
             return;
         }
 
         if (entity instanceof ServerPlayer player) {
             if (predicted) {
                 player.moveTo(newPos.x, newPos.y, newPos.z, newYaw, player.getXRot());
+                foldRotation(player, newYaw, yawDelta);
                 player.setDeltaMovement(newVel);
                 player.connection.teleport(newPos.x, newPos.y, newPos.z,
                     player.getYRot(), player.getXRot(), RelativeMovement.ALL);
             } else {
                 player.connection.teleport(newPos.x, newPos.y, newPos.z, newYaw, player.getXRot());
+                foldRotation(player, newYaw, yawDelta);
                 player.setDeltaMovement(newVel);
                 player.connection.send(new ClientboundSetEntityMotionPacket(player.getId(), newVel));
             }
         } else {
-            float headDelta = transform.yawDeltaDegrees();
             entity.teleportTo(newPos.x, newPos.y, newPos.z);
-            entity.setYRot(newYaw);
-            if (entity instanceof LivingEntity living) {
-                living.yBodyRot = Mth.wrapDegrees(living.yBodyRot + headDelta);
-                living.yHeadRot = Mth.wrapDegrees(living.yHeadRot + headDelta);
-                living.yBodyRotO = living.yBodyRot;
-                living.yHeadRotO = living.yHeadRot;
-            }
+            foldRotation(entity, newYaw, yawDelta);
             entity.setDeltaMovement(newVel);
             entity.hasImpulse = true;
+        }
+    }
+
+    private static void foldRotation(Entity entity, float newYaw, float yawDelta) {
+        entity.setYRot(newYaw);
+        entity.yRotO = newYaw;
+        if (entity instanceof LivingEntity living) {
+            living.yBodyRot = Mth.wrapDegrees(living.yBodyRot + yawDelta);
+            living.yHeadRot = Mth.wrapDegrees(living.yHeadRot + yawDelta);
+            living.yBodyRotO = living.yBodyRot;
+            living.yHeadRotO = living.yHeadRot;
         }
     }
 
@@ -533,13 +577,7 @@ public final class PortalManager extends SavedData {
         }
         Entity moved = destLevel.getEntity(uuid);
         if (moved != null) {
-            moved.setYRot(newYaw);
-            if (moved instanceof LivingEntity living) {
-                living.yBodyRot = newYaw;
-                living.yHeadRot = newYaw;
-                living.yBodyRotO = living.yBodyRot;
-                living.yHeadRotO = living.yHeadRot;
-            }
+            foldRotation(moved, newYaw, headDelta);
             moved.setDeltaMovement(newVel);
             moved.hasImpulse = true;
         }
@@ -580,18 +618,35 @@ public final class PortalManager extends SavedData {
             return;
         }
         PortalWindow window = pair.window(side);
-        Vec3 c = center(player);
-        double signedDist = window.signedDistance(c);
-        if (Math.abs(signedDist) > MAX_CROSSING_DEPTH || !window.containsProjected(c, CLIENT_CROSSING_MARGIN)) {
+        Vec3 now = center(player);
+        Vec3 prev = manager.lastCenters.get(player.getId());
+        if (!clientCrossingPlausible(window, prev, now)) {
             return;
         }
+        double entrySign = clientEntrySign(window, prev, now);
         if (!crossingGuard.mayCross(pair, side, player)) {
-            rebound(window, player, signedDist);
+            rebound(window, player, entrySign);
             return;
         }
-        manager.applyTeleport(pair, side, player, signedDist, true);
+        manager.applyTeleport(pair, side, player, entrySign, true);
         manager.crossingCooldowns.put(player.getId(), CROSSING_COOLDOWN_TICKS);
         manager.lastCenters.put(player.getId(), center(player));
+    }
+
+    private static boolean clientCrossingPlausible(PortalWindow window, @Nullable Vec3 prev, Vec3 now) {
+        if (Math.abs(window.signedDistance(now)) <= MAX_CROSSING_DEPTH
+            && window.containsProjected(now, CLIENT_CROSSING_MARGIN)) {
+            return true;
+        }
+        return prev != null && stepPierces(window, prev, now, CLIENT_CROSSING_MARGIN);
+    }
+
+    private static double clientEntrySign(PortalWindow window, @Nullable Vec3 prev, Vec3 now) {
+        if (prev == null) {
+            return window.signedDistance(now);
+        }
+        double before = window.signedDistance(prev);
+        return Math.abs(before) > MAX_CROSSING_STEP ? window.signedDistance(now) : before;
     }
 
 

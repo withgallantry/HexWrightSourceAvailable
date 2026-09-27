@@ -8,13 +8,16 @@ import com.bluup.hexwright.server.progression.RecipeUnlocks;
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.minecraft.ChatFormatting;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
 
@@ -23,6 +26,7 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -57,6 +61,12 @@ public final class InvestigationProgress {
         return player instanceof ServerPlayer server
             ? InvestigationState.get(server.server).artifacts(server.getUUID())
             : ClientInvestigations.artifacts();
+    }
+
+    public static Map<IngredientCategory, Set<ResourceLocation>> essenceSourcesFor(Player player) {
+        return player instanceof ServerPlayer server
+            ? InvestigationState.get(server.server).essenceSources(server.getUUID())
+            : ClientInvestigations.essenceSources();
     }
 
     public static boolean isComplete(Player player, String investigationId) {
@@ -160,6 +170,14 @@ public final class InvestigationProgress {
         return changed;
     }
 
+    public static boolean forgetEssenceSources(ServerPlayer player) {
+        boolean changed = InvestigationState.get(player.server).forgetEssenceSources(player.getUUID());
+        if (changed) {
+            HexwrightNetworking.sendEssenceSync(player);
+        }
+        return changed;
+    }
+
     public static boolean reset(ServerPlayer player, Collection<String> investigationIds) {
         InvestigationState state = InvestigationState.get(player.server);
         boolean changed = false;
@@ -249,9 +267,15 @@ public final class InvestigationProgress {
     }
 
     public static void recordCrucibleEssence(MinecraftServer server, UUID player,
-                                             IngredientCategory aspect, double amount) {
+                                             IngredientCategory aspect, double amount, Item source) {
         if (amount <= 0) {
             return;
+        }
+        if (InvestigationState.get(server).discoverEssenceSource(player, aspect, BuiltInRegistries.ITEM.getKey(source))) {
+            ServerPlayer online = server.getPlayerList().getPlayer(player);
+            if (online != null) {
+                HexwrightNetworking.sendEssenceSync(online);
+            }
         }
         var counted = Investigations.get().countedByKey();
         if (counted.isEmpty()) {

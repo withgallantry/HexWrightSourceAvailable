@@ -7,6 +7,8 @@ import at.petrak.hexcasting.api.utils.NBTHelper;
 import com.bluup.hexwright.common.animation.PlayerAnimationLayer;
 import com.bluup.hexwright.inits.HexwrightNetworking;
 import com.bluup.hexwright.server.item.ArtifactItem;
+import com.bluup.hexwright.server.item.EngravableItem;
+import com.bluup.hexwright.server.item.RechargingItem;
 import com.bluup.hexwright.server.pocketcaster.PocketCasterData;
 import net.minecraft.ChatFormatting;
 import net.minecraft.nbt.CompoundTag;
@@ -15,6 +17,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResultHolder;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemCooldowns;
 import net.minecraft.world.item.ItemStack;
@@ -28,7 +31,8 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 
-public abstract class BerserkWeaponItem extends SwordItem implements AnimatedWeapon, IotaHolderItem {
+public abstract class BerserkWeaponItem extends SwordItem
+    implements AnimatedWeapon, EngravableItem, RechargingItem {
 
     private static final int SWING_DURABILITY_COST = 2;
 
@@ -73,6 +77,15 @@ public abstract class BerserkWeaponItem extends SwordItem implements AnimatedWea
         }
         float elapsed = this.cooldownTicks * (1.0F - cooldowns.getCooldownPercent(this, 0.0F));
         return elapsed < this.windUpTicks + SWING_RECOVERY_TICKS;
+    }
+
+    @Override
+    public @Nullable Recharge recharge(ItemStack stack, LivingEntity holder, float partialTick) {
+        if (!(holder instanceof Player player)) {
+            return null;
+        }
+        float left = player.getCooldowns().getCooldownPercent(this, partialTick);
+        return left <= 0.0f ? null : new Recharge(left * this.cooldownTicks, this.cooldownTicks);
     }
 
     @Override
@@ -175,11 +188,6 @@ public abstract class BerserkWeaponItem extends SwordItem implements AnimatedWea
     @Override
     public @Nullable CompoundTag readIotaTag(ItemStack stack) {
         return NBTHelper.getCompound(stack, TAG_HEX_DATA);
-    }
-
-    @Override
-    public boolean writeable(ItemStack stack) {
-        return castsOnCaught();
     }
 
     @Override

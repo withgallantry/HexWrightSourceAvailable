@@ -19,7 +19,7 @@ public final class DustSupport {
 
     private static final int MAX_SAMPLES = 3;
     private static final double GROUND_TOLERANCE = 0.35;
-    private static final double FIRM = 0.5;
+    public static final double FIRM = 0.5;
     private static final double CATCHES = 0.25;
 
     private static final Side SERVER = new Side();
@@ -69,6 +69,10 @@ public final class DustSupport {
                 RegionDistance.distance(region, x - ox, y - oy, z - oz), shell);
         }
 
+        public boolean innerFace(double x, double y, double z) {
+            return shell && RegionDistance.distance(region, x - ox, y - oy, z - oz) < band;
+        }
+
         public void normal(double x, double y, double z, double[] out) {
             RegionDistance.gradient(region, x - ox, y - oy, z - oz, out, 0);
             if (shell && RegionDistance.distance(region, x - ox, y - oy, z - oz) < band) {
@@ -80,6 +84,10 @@ public final class DustSupport {
 
         public double hold() {
             return hold;
+        }
+
+        public boolean touches(AABB box) {
+            return reach.intersects(box);
         }
 
         public double bearing(Entity entity, double[] normal) {
@@ -114,7 +122,7 @@ public final class DustSupport {
         side.stale = true;
     }
 
-    private static List<Surface> surfaces(Level level) {
+    static List<Surface> surfaces(Level level) {
         Side side = level.isClientSide ? CLIENT : SERVER;
         if (side.stale) {
             side.stale = false;
@@ -202,6 +210,7 @@ public final class DustSupport {
         int samples = high - low < 1.0e-4 ? 1 : MAX_SAMPLES;
 
         double depth = -Double.MAX_VALUE;
+        double shallowest = Double.MAX_VALUE;
         double at = low;
         for (int s = 0; s < samples; s++) {
             double y = samples == 1 ? low : low + (high - low) * s / (samples - 1.0);
@@ -210,8 +219,14 @@ public final class DustSupport {
                 depth = penetration;
                 at = y;
             }
+            if (penetration < shallowest) {
+                shallowest = penetration;
+            }
         }
         if (depth <= -(GROUND_TOLERANCE + surface.speed)) {
+            return;
+        }
+        if (shallowest >= radius * 2.0) {
             return;
         }
 
@@ -225,8 +240,17 @@ public final class DustSupport {
             nz = 0.0;
         }
         boolean ground = ny >= DustTuning.supportNormalY;
-        if (!ground && entity.getId() == surface.casterId) {
-            return;
+        if (!ground) {
+            if (DustTuning.formationSparesCaster != 0 && entity.getId() == surface.casterId) {
+                return;
+            }
+            if (surface.shell && DustTuning.constraintSparesCaster != 0
+                && entity.getId() == surface.casterId) {
+                return;
+            }
+            if (surface.shell && !surface.innerFace(x, at, z)) {
+                return;
+            }
         }
 
         double receding = -(surface.vx * nx + surface.vy * ny + surface.vz * nz);
@@ -239,8 +263,7 @@ public final class DustSupport {
         if (ground) {
             double carry = DustTuning.supportCarry * hold;
             if (carry > 0.0 && surface.speed > 0.0) {
-                entity.setPos(entity.getX() + surface.vx * carry, entity.getY() + surface.vy * carry,
-                    entity.getZ() + surface.vz * carry);
+                nudge(entity, surface.vx * carry, surface.vy * carry, surface.vz * carry);
             }
             if (motion.y < 0.0) {
                 entity.setDeltaMovement(motion.x, motion.y * (1.0 - hold), motion.z);
@@ -263,9 +286,15 @@ public final class DustSupport {
 
         double push = Math.min(Math.max(depth, 0.0), DustTuning.supportMaxPush) * hold;
         if (push > 1.0e-4) {
-            entity.setPos(entity.getX() + nx * push, entity.getY() + ny * push, entity.getZ() + nz * push);
+            nudge(entity, nx * push, ny * push, nz * push);
         }
         entity.hasImpulse = true;
+    }
+
+    private static void nudge(Entity entity, double dx, double dy, double dz) {
+        Vec3 allowed = Entity.collideBoundingBox(entity, new Vec3(dx, dy, dz), entity.getBoundingBox(),
+            entity.level(), List.of());
+        entity.setPos(entity.getX() + allowed.x, entity.getY() + allowed.y, entity.getZ() + allowed.z);
     }
 
     private static final class Side {

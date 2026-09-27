@@ -6,6 +6,7 @@ import at.petrak.hexcasting.api.item.IotaHolderItem;
 import at.petrak.hexcasting.api.utils.NBTHelper;
 import com.bluup.hexwright.server.armour.VenatorPowers;
 import com.bluup.hexwright.server.item.ArtifactItem;
+import com.bluup.hexwright.server.item.EngravableItem;
 import net.minecraft.ChatFormatting;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
@@ -24,7 +25,7 @@ import org.jetbrains.annotations.Nullable;
 import java.util.List;
 
 public class EternalWakizashiItem extends SwordItem
-    implements AnimatedWeapon, IotaHolderItem, ArtifactItem {
+    implements AnimatedWeapon, EngravableItem, ArtifactItem {
 
     private static final String TAG_HEX_DATA = "data";
 
@@ -40,11 +41,6 @@ public class EternalWakizashiItem extends SwordItem
     @Override
     public @Nullable CompoundTag readIotaTag(ItemStack stack) {
         return NBTHelper.getCompound(stack, TAG_HEX_DATA);
-    }
-
-    @Override
-    public boolean writeable(ItemStack stack) {
-        return true;
     }
 
     @Override
@@ -167,7 +163,11 @@ public class EternalWakizashiItem extends SwordItem
             WeaponTooltips.add(tooltip, Component.translatable("tooltip.hexwright.eternal_wakizashi.uninscribed"),
                 ChatFormatting.DARK_GRAY);
         }
+        appendExtraTooltip(stack, tooltip);
 
         IotaHolderItem.appendHoverText(this, stack, tooltip, flag);
+    }
+
+    protected void appendExtraTooltip(ItemStack stack, List<Component> tooltip) {
     }
 }

@@ -7,10 +7,13 @@ import at.petrak.hexcasting.common.loot.AddHexToAncientCypherFunc;
 import at.petrak.hexcasting.common.loot.AddPerWorldPatternToScrollFunc;
 import com.bluup.hexwright.common.staff_assembly.calc.IngredientCategory;
 import com.bluup.hexwright.server.crucible.EssencePouchData;
+import com.bluup.hexwright.server.item.HexwrightItemTags;
 import com.bluup.hexwright.server.item.HexwrightItems;
 import com.bluup.hexwright.server.item.StoneTabletItem;
 import com.bluup.hexwright.server.progression.RecipeTablets;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Holder;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.Container;
@@ -23,7 +26,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-final class DecadentVaultHoard {
+public final class DecadentVaultHoard {
 
     private static final int TABLETS = 3;
 
@@ -36,6 +39,8 @@ final class DecadentVaultHoard {
     private static final int CYPHERS = 2;
 
     private static final int PHIALS = 2;
+
+    private static final float ORB_CHANCE = 0.25F;
 
     private static final int PHIAL_CRYSTALS_MIN = 3;
     private static final int PHIAL_CRYSTALS_SPREAD = 3;
@@ -109,7 +114,7 @@ final class DecadentVaultHoard {
 
     private static List<ItemStack> guaranteed(ServerLevel level, RandomSource random) {
         List<ItemStack> stacks = new ArrayList<>();
-        for (String recipe : recipes(random)) {
+        for (String recipe : recipes(random, TABLETS)) {
             stacks.add(StoneTabletItem.of(recipe));
         }
         for (int i = 0; i < POUCHES; i++) {
@@ -131,7 +136,18 @@ final class DecadentVaultHoard {
         stacks.add(new ItemStack(HexItems.SCRYING_LENS));
         stacks.add(new ItemStack(HexItems.ABACUS));
         stacks.add(new ItemStack(HexItems.JEWELER_HAMMER));
+        stacks.addAll(powerOrbs(random));
         return stacks;
+    }
+
+    private static List<ItemStack> powerOrbs(RandomSource random) {
+        List<ItemStack> orbs = new ArrayList<>();
+        for (Holder<Item> orb : BuiltInRegistries.ITEM.getTagOrEmpty(HexwrightItemTags.POWER_ORBS)) {
+            if (random.nextFloat() < ORB_CHANCE) {
+                orbs.add(new ItemStack(orb.value()));
+            }
+        }
+        return orbs;
     }
 
     private static ItemStack greatSpellScroll(ServerLevel level, RandomSource random) {
@@ -139,16 +155,17 @@ final class DecadentVaultHoard {
             new ItemStack(HexItems.SCROLL_LARGE), random, level.getServer().overworld());
     }
 
-    private static ItemStack phial(RandomSource random) {
+    public static ItemStack phial(RandomSource random) {
         long media = MediaConstants.CRYSTAL_UNIT
             * (PHIAL_CRYSTALS_MIN + random.nextInt(PHIAL_CRYSTALS_SPREAD));
         return ItemMediaHolder.withMedia(new ItemStack(HexItems.BATTERY), media, media);
     }
 
-    private static List<String> recipes(RandomSource random) {
+    public static List<String> recipes(RandomSource random, int count) {
         List<String> gated = new ArrayList<>(RecipeTablets.get().gatedRecipes());
+        Collections.sort(gated);
         Collections.shuffle(gated, new java.util.Random(random.nextLong()));
-        return gated.subList(0, Math.min(TABLETS, gated.size()));
+        return gated.subList(0, Math.min(count, gated.size()));
     }
 
     private static ItemStack pouch(RandomSource random) {
@@ -162,7 +179,7 @@ final class DecadentVaultHoard {
         return stack;
     }
 
-    private static ItemStack supplies(RandomSource random) {
+    public static ItemStack supplies(RandomSource random) {
         int roll = random.nextInt(24);
         if (roll < 5) {
             return new ItemStack(HexItems.AMETHYST_DUST, 6 + random.nextInt(13));
@@ -199,14 +216,14 @@ final class DecadentVaultHoard {
             case 3 -> new ItemStack(Items.AMETHYST_SHARD, 8 + random.nextInt(17));
             case 4 -> new ItemStack(HexItems.CHARGED_AMETHYST, 2 + random.nextInt(4));
             case 5 -> new ItemStack(HexItems.AMETHYST_DUST, 12 + random.nextInt(21));
-            case 6 -> new ItemStack(HexwrightItems.CRYSTALITE, 3 + random.nextInt(6));
+            case 6 -> new ItemStack(HexwrightItems.KYANITE, 3 + random.nextInt(6));
             case 7 -> new ItemStack(Items.ECHO_SHARD, 2 + random.nextInt(5));
             case 8 -> new ItemStack(Items.EMERALD, 6 + random.nextInt(13));
             default -> new ItemStack(Items.CRAFTING_TABLE);
         };
     }
 
-    private static ItemStack food(RandomSource random) {
+    public static ItemStack food(RandomSource random) {
         return switch (random.nextInt(6)) {
             case 0 -> new ItemStack(Items.BREAD, 3 + random.nextInt(5));
             case 1 -> new ItemStack(Items.COOKED_BEEF, 3 + random.nextInt(5));
@@ -217,7 +234,7 @@ final class DecadentVaultHoard {
         };
     }
 
-    private static void scatter(Container container, List<ItemStack> contents, RandomSource random) {
+    public static void scatter(Container container, List<ItemStack> contents, RandomSource random) {
         List<Integer> free = new ArrayList<>();
         for (int slot = 0; slot < container.getContainerSize(); slot++) {
             if (container.getItem(slot).isEmpty()) {

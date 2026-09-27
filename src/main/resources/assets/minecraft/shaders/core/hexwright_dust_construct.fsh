@@ -513,14 +513,18 @@ void main() {
         float plain;
         float bound = bodyBound(q, plain);
         if (bound > 0.05) {
-            // Through a gap and out the other side of the crust, into the hollow the construct
-            // encloses: stop. What shows through a hole should be the world beyond, not the far wall
-            // of the same body - and hunting that far wall, through its holes as well, is what made
-            // thin and inside-out views cost several times what a solid one does.
+            // Through a gap in thin dust and out the other side of the crust, into the hollow the
+            // construct encloses: stop, and let the world show. A patchy body is patchy on every
+            // frame, and hunting its far wall through its holes as well is what made thin views
+            // cost several times what a solid one does.
+            //
+            // Not for solid dust: its only gaps are where it was just struck, which is brief and
+            // rare enough to pay for, and a wound should show the dark inside of the far wall
+            // rather than a window onto the world.
             //
             // Only when the ray has gone *inward*: one that skims back out into open air may still
             // have another part of a compound Region ahead of it, or this one at a graze.
-            if (crossed && plain < Band.x - Band.y) {
+            if (crossed && Form.x < 0.999 && plain < Band.x - Band.y) {
                 break;
             }
             outside = t;

@@ -4,6 +4,7 @@ import at.petrak.hexcasting.api.casting.iota.Iota;
 import at.petrak.hexcasting.api.item.IotaHolderItem;
 import at.petrak.hexcasting.api.utils.NBTHelper;
 import com.bluup.hexwright.client.talisman.TalismanClient;
+import com.bluup.hexwright.server.item.RechargingItem;
 import com.bluup.hexwright.server.progression.MakersMark;
 import net.minecraft.ChatFormatting;
 import net.minecraft.nbt.CompoundTag;
@@ -11,6 +12,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResultHolder;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -22,7 +24,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 
-public class TalismanItem extends Item implements IotaHolderItem {
+public class TalismanItem extends Item implements IotaHolderItem, RechargingItem {
 
     public TalismanItem(Properties properties) {
         super(properties);
@@ -34,6 +36,17 @@ public class TalismanItem extends Item implements IotaHolderItem {
 
     public @Nullable TalismanData.Context fixedContext() {
         return null;
+    }
+
+    @Override
+    public @Nullable Recharge recharge(ItemStack stack, LivingEntity holder, float partialTick) {
+        TalismanData.Trigger trigger = TalismanData.getTrigger(stack).orElse(null);
+        if (trigger == null || !TalismanData.isArmed(stack)) {
+            return null;
+        }
+        long cooldown = TalismanData.cooldownTicks(stack, trigger);
+        long remaining = TalismanData.getNextFire(stack) - holder.level().getGameTime();
+        return Recharge.of(remaining, (int) cooldown, partialTick);
     }
 
 

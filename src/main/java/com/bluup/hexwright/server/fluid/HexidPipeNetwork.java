@@ -101,6 +101,15 @@ public final class HexidPipeNetwork {
         return resolve(level, walk(level, pos).columns());
     }
 
+    public static List<HexidTankBlockEntity> columnsAt(Level level, BlockPos pos) {
+        BlockState state = level.getBlockState(pos);
+        if (HexidTankColumn.isTank(state)) {
+            HexidTankBlockEntity column = HexidTankColumn.controller(level, pos);
+            return column == null ? List.of() : List.of(column);
+        }
+        return tanksOn(level, pos);
+    }
+
     public static List<LiquefactriumBlockEntity> liquefactriumsOn(Level level, BlockPos pos) {
         if (level == null || !isPipe(level, pos)) {
             return List.of();

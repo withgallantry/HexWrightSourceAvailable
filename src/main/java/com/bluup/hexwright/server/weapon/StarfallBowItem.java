@@ -12,12 +12,11 @@ import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 
 public class StarfallBowItem extends GreatBowItem implements ArtifactItem {
-
-    private static final int HEX_COOLDOWN_TICKS = 30;
 
     private static final int SKYFALL_COOLDOWN_TICKS = 60;
 
@@ -29,8 +28,8 @@ public class StarfallBowItem extends GreatBowItem implements ArtifactItem {
     }
 
     @Override
-    protected int hexCooldownTicks() {
-        return HEX_COOLDOWN_TICKS;
+    protected boolean armsShots() {
+        return false;
     }
 
 
@@ -71,8 +70,8 @@ public class StarfallBowItem extends GreatBowItem implements ArtifactItem {
     }
 
     @Override
-    protected float powerRechargeFraction(ItemStack stack, Level level, float partialTick) {
-        return sweepOf(skyfallRemaining(stack, level), SKYFALL_COOLDOWN_TICKS, partialTick);
+    protected @Nullable Recharge powerRecharge(ItemStack stack, Level level, float partialTick) {
+        return Recharge.of(skyfallRemaining(stack, level), SKYFALL_COOLDOWN_TICKS, partialTick);
     }
 
 

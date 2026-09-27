@@ -1,7 +1,6 @@
 package com.bluup.hexwright.server.fluid;
 
 import com.bluup.hexwright.Hexwright;
-import net.fabricmc.fabric.api.itemgroup.v1.ItemGroupEvents;
 import net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariant;
 import net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariantAttributeHandler;
 import net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariantAttributes;
@@ -86,8 +85,7 @@ public final class HexidFluids {
         FluidVariantAttributes.register(HEXID, ATTRIBUTES);
         FluidVariantAttributes.register(FLOWING_HEXID, ATTRIBUTES);
 
-        ItemGroupEvents.modifyEntriesEvent(CreativeModeTabs.FUNCTIONAL_BLOCKS)
-            .register(entries -> entries.accept(HEXID_BUCKET));
+        com.bluup.hexwright.server.item.HexwrightCreativeTab.addTo(CreativeModeTabs.FUNCTIONAL_BLOCKS, entries -> entries.accept(HEXID_BUCKET));
     }
 
     private HexidFluids() {
