@@ -40,16 +40,12 @@ public abstract class ServerPlayerSwingMixin {
     )
     private void hexwright$noVanillaAttackSwing(ServerPlayer player, InteractionHand hand,
                                                 Operation<Void> original) {
+        AnimatedWeapon.onSwing(player, hand, this.hexwright$swingState);
         if (AnimatedWeapon.ownsSwingPacket(player, hand, this.hexwright$swingState)) {
             player.resetAttackStrengthTicker();
         } else {
             original.call(player, hand);
         }
-    }
-
-    @Inject(method = "handleAnimate", at = @At("TAIL"))
-    private void hexwright$weaponAttackAnimation(ServerboundSwingPacket packet, CallbackInfo ci) {
-        AnimatedWeapon.onSwing(this.player, packet.getHand(), this.hexwright$swingState);
     }
 
     @Inject(method = "handleAnimate", at = @At("TAIL"))

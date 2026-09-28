@@ -30,16 +30,25 @@
 // fade into whatever is at the screen border - often the hidden structure
 // itself. So as the dome fills the view (Proximity, worked out on the CPU from
 // its angular size) the cloak gives way to what it can honestly be at that
-// range: frosted glass over what is really there, a ward of Hex Casting
-// patterns being written, cast and fading across its surface, and a brighter
-// rim. Everything it samples is the pixel's own neighbourhood, so it works at
-// any distance.
+// range: a tinted, gently bent shell over what is really there, with a slow
+// sweep of light climbing it and a brighter rim. The patterns written on the shield are not drawn here but as
+// geometry over the dome (CloakFieldWard): a shield is what fills the screen,
+// so everything it costs per pixel is paid on every pixel, and it reads the
+// scene once.
 //
 // RIPPLES. Up to four per dome, each an impact point on the surface and its age
-// through a ripple's life. A ring runs out across the surface from the point,
-// brightening the shell and pushing the view behind it aside as it passes.
-// They show on the cloak too, more faintly - an arrow through a hidden dome
-// gives it away.
+// through a ripple's life. A ripple is a packet of a few waves running out
+// across the surface from the point, and what shows of it is how it bends the
+// view behind: by the slope of the waves, one way on a rising face and the
+// other on a falling one, as light bends through a ripple on water - so the
+// scene behind swims and magnifies rather than sliding aside. Where it bends
+// hardest the colours part slightly. They show on the cloak too, more faintly
+// - an arrow through a hidden dome gives it away.
+//
+// SWELLS. Now and then a long, soft wave rolls unprompted across the whole
+// shield from a random point, one at a time, so a shield at rest still moves.
+// Made the same way as a ripple, at a far longer wavelength and bending
+// gently; the cloak carries none, since they would give it away.
 //
 // STARTUP. A field that has just gone up is drawn in from the ground: a wave
 // of energy climbs the shell from the rim to the crown, the dome standing
@@ -47,7 +56,7 @@
 // Rise is how far through that the field is, 1 (or more) once it is done.
 //
 // From inside, the world out there is real and unhidden, so the shell only
-// bends it, with the ward and ripples laid lightly over the top. From
+// bends it, with the sweep and ripples laid lightly over the top. From
 // underneath, where the eye sits inside the slice and there are no edges to
 // take a tone from, the cloak is only drained, not faded.
 
@@ -66,9 +75,8 @@ uniform float Seed;
 uniform float DepthReady;
 uniform float Proximity;
 uniform float Rise;
-// 1 under vanilla's Fast graphics: the shield frosts with fewer taps and writes
-// fewer glyphs at once, since up close the dome covers the whole screen and
-// those are what its cost is made of.
+// 1 under vanilla's Fast graphics: the shield leaves the view behind it
+// unbent, since up close the dome covers the whole screen.
 uniform float Fast;
 // xyz: impact point in view space. w: age as a fraction of the ripple's life,
 // negative when the slot is empty.
@@ -76,6 +84,9 @@ uniform vec4 Ripple0;
 uniform vec4 Ripple1;
 uniform vec4 Ripple2;
 uniform vec4 Ripple3;
+// xyz: where the current swell started, in view space. w: age as a fraction of
+// its life, negative between swells.
+uniform vec4 Swell;
 
 in vec3 viewPos;
 in vec2 surfaceUV;
@@ -103,73 +114,48 @@ const float WARP_PX = 3.5;
 // pixels that already contain some of the dome's contents are skipped.
 const float RIM_MARGIN_PX = 4.0;
 // The band beyond each edge the tone is averaged over: out from the rim, and
-// along it either side of the pixel's own line.
+// along it either side of the pixel's own line. Few taps, dithered per pixel:
+// the grain that leaves is lost under the warp, where more taps cost a read of
+// the scene and one of its depth each.
 const float TONE_REACH_PX = 40.0;
 const float TONE_SPREAD_PX = 24.0;
-const int TONE_TAPS = 8;
+const int TONE_TAPS = 4;
 // Where to look when every tap landed on something in front of the dome.
 const float FALLBACK_STEP_PX = 24.0;
 
-// Radius of the frost blur. Enough that the shapes behind survive and the
-// detail doesn't.
-const float FROST_PX = 9.0;
-const int FROST_TAPS = 8;
-const int FROST_TAPS_FAST = 4;
-
-// The shield's ward. Laid out on Hex Casting's own drawing grid - dots in a
-// triangular lattice WARD_SPACING blocks apart - and snapped to TEXELS per
-// block, a block texture's resolution, so its strokes step like pixel art
-// rather than antialiasing like vector lines.
-const float WARD_SPACING = 1.0;
-const float TEXELS = 16.0;
-// The glyphs written across it: one to each GLYPH_CELL-block patch of the
-// surface, each taking about GLYPH_SECONDS from its first stroke to fading
-// out, with up to GLYPH_MAX_STROKES strokes. Only a share of the patches are
-// written in at any moment.
-const float GLYPH_CELL = 4.0;
-const float GLYPH_SECONDS = 6.0;
-const int GLYPH_MAX_STROKES = 9;
-const float GLYPH_BUSY = 0.8;
-// Fast graphics writes a quieter ward of shorter patterns rather than a
-// cropped one: idle patches and short walks cost little, where checking fewer
-// neighbouring patches would cut strokes off at the patch lines.
-const int GLYPH_MAX_STROKES_FAST = 6;
-const float GLYPH_BUSY_FAST = 0.6;
-// Share of a glyph's life spent being drawn, and the flash when it is done -
-// the moment a pattern is cast.
-const float GLYPH_DRAW = 0.45;
-const float GLYPH_FLASH = 0.12;
-// Stroke widths in texels: the bright core, the coloured body and the glow
-// round it. Strokes wobble either side of the grid line by up to STROKE_WOBBLE
-// texels, the way a slate's patterns do.
-const float STROKE_CORE = 0.5;
-const float STROKE_BODY = 1.5;
-const float STROKE_HALO = 4.5;
-const float STROKE_WOBBLE = 0.6;
-// Hex Casting's colours: the purple slates draw their patterns in, its bright
-// inner core, the blue of a pattern's starting dot, and the grid dots. The
-// grid only shows round what is being written, as it does under a staff.
-const vec3 SLATE_PURPLE = vec3(0.68, 0.42, 0.96);
-const vec3 SLATE_DEEP = vec3(0.42, 0.2, 0.8);
+// The shield's sweep: a band of light that climbs the dome every SWEEP_SECONDS.
+const float SWEEP_SECONDS = 7.0;
+const float SWEEP_WIDTH = 0.06;
+const float SWEEP_GLOW = 0.08;
 const vec3 SLATE_CORE = vec3(0.95, 0.84, 1.0);
-const vec3 START_DOT = vec3(0.36, 0.48, 0.84);
-const vec3 GRID_DOT = vec3(0.86, 0.78, 0.96);
-const float GRID_WAKE = 2.0;
-const float WARD_GLOW = 1.0;
-// How far a ripple's ring has run across the surface by the end of its life,
-// in blocks, and how thick it is.
-const float RIPPLE_REACH = 7.0;
-const float RIPPLE_WIDTH = 0.7;
-const float RIPPLE_GLOW = 0.45;
-const float RIPPLE_PUSH_PX = 10.0;
+// A ripple, in blocks: how far it has run by the end of its life - quickly at
+// first, slowing as it goes - the length of its waves, and the spread of the
+// packet at the start and end. How far its steepest slope bends the view, and
+// how much of that the colours part by.
+const float RIPPLE_REACH = 8.0;
+const float RIPPLE_WAVELENGTH = 1.1;
+const float RIPPLE_SPREAD_START = 0.8;
+const float RIPPLE_SPREAD_END = 2.2;
+const float RIPPLE_GLOW = 0.3;
+const float RIPPLE_PUSH_PX = 14.0;
+const float CHROMA_SHARE = 0.3;
+// A swell: its wavelength as a share of the dome's radius, never under
+// SWELL_MIN_WAVELENGTH blocks, with a packet of about one and a half waves.
+// It runs twice the dome's larger half-size, far enough to cross it from any
+// start.
+const float SWELL_WAVELENGTH = 0.3;
+const float SWELL_MIN_WAVELENGTH = 3.0;
+const float SWELL_SPREAD = 0.8;
+const float SWELL_GLOW = 0.05;
+const float SWELL_PUSH_PX = 7.0;
 
 // The startup wave, in blocks: the crisp line of its front, the glow it
 // trails down the shell and the short one it throws ahead, how far the front
 // rolls up and down around the dome, and how far apart the ripples following
-// it are. Painted on like the ward rather than added, so it reads as purple
-// over a bright sky instead of burning to white - and kept thin, because from
-// the foot of a dome the whole view is the few blocks nearest the ground and a
-// broad band would wash it all out at once.
+// it are. Painted on rather than added, so it reads as purple over a bright
+// sky instead of burning to white - and kept thin, because from the foot of a
+// dome the whole view is the few blocks nearest the ground and a broad band
+// would wash it all out at once.
 const float RISE_LINE = 0.12;
 const float RISE_TRAIL = 0.8;
 const float RISE_LEAD = 0.25;
@@ -249,161 +235,73 @@ vec2 wobble(vec2 uv, float t) {
                 fbm(uv * 7.0 + vec2(Seed * 1.7, -t * 0.04))) - 0.5;
 }
 
-// The dome's surface unrolled flat, in blocks: round the base in x, up the
-// curve in y. The distance round is rounded to whole grid spacings, so the
-// lattice closes on itself at the seam; x is periodic in the returned z.
-// Cells narrow towards the crown, where round-the-dome distances shrink, so
-// the ward fades out before it gets there.
-vec3 wardSpace(vec2 uv) {
-    float height = Radius / Stretch;
-    float quarterArc = 3.1415927 * (3.0 * (Radius + height)
-        - sqrt((3.0 * Radius + height) * (Radius + 3.0 * height))) / 4.0;
-    float around = max(6.0, floor(6.2831853 * Radius / WARD_SPACING + 0.5)) * WARD_SPACING;
-    return vec3(uv.x * around, uv.y * quarterArc, around);
+// The glow of the sweep passing up the shield, faded out towards the crown.
+float sweep(float t) {
+    float crown = 1.0 - smoothstep(0.6, 0.8, surfaceUV.y);
+    float sweepAt = fract(t / SWEEP_SECONDS + Seed) * (1.0 + 2.0 * SWEEP_WIDTH) - SWEEP_WIDTH;
+    float x = (surfaceUV.y - sweepAt) / SWEEP_WIDTH;
+    return exp(-x * x) * crown;
 }
 
-vec2 wrapped(vec2 d, float period) {
-    d.x -= period * floor(d.x / period + 0.5);
-    return d;
-}
-
-// Distance from q to the nearest dot of the triangular grid: the union of two
-// rectangular grids, one offset by half a cell in both directions.
-float gridDotDistance(vec2 q) {
-    vec2 cell = vec2(WARD_SPACING, WARD_SPACING * 1.7320508);
-    vec2 a = q - floor(q / cell + 0.5) * cell;
-    vec2 shifted = q - cell * 0.5;
-    vec2 b = shifted - floor(shifted / cell + 0.5) * cell;
-    return sqrt(min(dot(a, a), dot(b, b)));
-}
-
-// One glyph's contribution at q, accumulated into core/body/halo (x, y, z) and
-// the grid dots' wake and the blue starting dot (w, and returned). A glyph is
-// a Hex Casting pattern: a walk along the grid from a dot near its patch's
-// centre, turning by one of the five angles a pattern may take (never straight
-// back), drawn stroke by stroke, flashing as it completes and fading. Its path
-// is rebuilt here from hashes of its patch and cycle, so nothing about it lives
-// on the CPU.
-float glyph(vec2 q, vec2 cell, vec2 cellSize, float period, float t, inout vec4 lit) {
-    vec2 slot = vec2(cell.x * 7.31 + Seed, cell.y * 3.17);
-    float lifetime = GLYPH_SECONDS * mix(0.8, 1.3, hash(slot));
-    float cycle = t / lifetime + hash(slot + 0.5);
-    float epoch = floor(cycle);
-    float life = cycle - epoch;
-    vec2 key = slot + vec2(0.0, epoch * 1.91);
-    bool fast = Fast > 0.5;
-    if (hash(key + 0.13) > (fast ? GLYPH_BUSY_FAST : GLYPH_BUSY)) {
+// A packet of waves whose middle has run front blocks out from origin, at this
+// fragment: adds pushPx times the waves' slope to push, along the way the
+// surface runs away from origin as it lies on screen, and returns how high the
+// crests stand here (0..1) for the light they carry. The slope is scaled so
+// its steepest is about 1, whatever the wavelength.
+float wavePacket(vec3 origin, float front, float wavelength, float spread, float pushPx, inout vec2 push) {
+    vec3 out3 = viewPos - origin;
+    float distance = length(out3);
+    float x = distance - front;
+    float envelope = exp(-x * x / (spread * spread));
+    if (envelope < 0.01) {
         return 0.0;
     }
-
-    float texel = 1.0 / TEXELS;
-    int maxStrokes = fast ? GLYPH_MAX_STROKES_FAST : GLYPH_MAX_STROKES;
-    float strokes = 4.0 + floor(hash(key + 0.31) * float(maxStrokes - 3));
-    float drawn = clamp(life / GLYPH_DRAW, 0.0, 1.0) * strokes;
-    float cast = life - GLYPH_DRAW;
-    float flash = cast > 0.0 ? 1.0 + 1.5 * (1.0 - smoothstep(0.0, GLYPH_FLASH, cast)) : 0.8;
-    float fade = 1.0 - smoothstep(GLYPH_DRAW + GLYPH_FLASH, 1.0, life);
-
-    // Start on the grid dot nearest a jittered point in the patch.
-    vec2 around = (cell + 0.3 + 0.4 * vec2(hash(key + 0.53), hash(key + 0.61))) * cellSize;
-    float row = floor(around.y / (WARD_SPACING * 0.8660254) + 0.5);
-    float shift = mod(row, 2.0) * 0.5;
-    vec2 at = vec2((floor(around.x / WARD_SPACING - shift + 0.5) + shift) * WARD_SPACING,
-                   row * WARD_SPACING * 0.8660254);
-
-    float reach = length(wrapped(q - at, period));
-    // Nothing of this glyph can reach q: its strokes so far lie within their
-    // own length of the start.
-    float written = ceil(min(drawn, strokes)) * WARD_SPACING;
-    if (reach > written + GRID_WAKE) {
-        return 0.0;
-    }
-    lit.w = max(lit.w, (1.0 - step(2.0 * texel, reach)) * fade);
-
-    float heading = floor(hash(key + 0.71) * 6.0);
-    float nearest = 1e3;
-    for (int k = 0; k < GLYPH_MAX_STROKES; k++) {
-        if (float(k) >= min(strokes, ceil(drawn))) {
-            break;
-        }
-        float turnRoll = hash(key + vec2(float(k) * 1.37, 0.91));
-        heading += turnRoll < 0.3 ? 0.0 : turnRoll < 0.55 ? 1.0 : turnRoll < 0.8 ? 5.0 : turnRoll < 0.9 ? 2.0 : 4.0;
-        float angle = heading * 1.0471976;
-        vec2 stroke = vec2(cos(angle), sin(angle)) * WARD_SPACING;
-        float share = clamp(drawn - float(k), 0.0, 1.0);
-
-        vec2 rel = wrapped(q - at, period);
-        float along = clamp(dot(rel, stroke) / dot(stroke, stroke), 0.0, share);
-        vec2 side = rel - stroke * along;
-        float off = length(side) / texel;
-        // The wobble only moves the stroke by a texel or so; further out than
-        // its glow it changes nothing, so it isn't worked out there.
-        if (off < STROKE_HALO + STROKE_WOBBLE) {
-            vec2 normal = vec2(-stroke.y, stroke.x) / WARD_SPACING;
-            float wobble = sin(along * 6.0 + t * 1.3 + float(k) * 2.1) * sin(along * 3.1415927)
-                * STROKE_WOBBLE * texel;
-            off = length(side - normal * wobble) / texel;
-        }
-        nearest = min(nearest, off);
-        if (share < 1.0) {
-            // The pen: a bright point where the stroke is being drawn.
-            lit.x = max(lit.x, (1.0 - step(2.0, length(rel - stroke * share) / texel)) * 1.5);
-        }
-        at += stroke;
-    }
-    float strength = flash * fade;
-    lit.x = max(lit.x, (1.0 - step(STROKE_CORE, nearest)) * strength);
-    lit.y = max(lit.y, (1.0 - step(STROKE_BODY, nearest)) * strength);
-    lit.z = max(lit.z, (1.0 - smoothstep(STROKE_BODY, STROKE_HALO, nearest)) * strength);
-    return (1.0 - smoothstep(0.0, GRID_WAKE, nearest * texel)) * fade;
+    float k = 6.2831853 / wavelength;
+    // Pushed further than about a sixth of a wave's length on screen, the view
+    // folds over itself and a far-off dome's ripple turns to noise.
+    float wavePx = wavelength * ProjMat[1][1] * ScreenSize.y / (2.0 * max(-viewPos.z, 0.1));
+    pushPx = min(pushPx, wavePx * 0.16);
+    float slope = (-sin(k * x) - cos(k * x) * 2.0 * x / (spread * spread * k)) * envelope;
+    vec2 onScreen = (toScreen(viewPos + out3 / max(distance, 1e-3) * 0.1) - toScreen(viewPos)) * ScreenSize;
+    push += onScreen / max(length(onScreen), 1e-4) * slope * pushPx;
+    return max(cos(k * x), 0.0) * envelope;
 }
 
-// Paints the ward over color: the strokes are laid on like ink rather than
-// added like light, or on a bright sky their purple would add up to white.
-// What a cast's flash takes past full strength is added on top.
-vec3 inscribe(vec3 color, vec4 w, float dots, float amount) {
-    color = mix(color, SLATE_DEEP, clamp(w.z, 0.0, 1.0) * 0.35 * amount);
-    color = mix(color, SLATE_PURPLE, clamp(w.y, 0.0, 1.0) * 0.9 * amount);
-    color = mix(color, SLATE_CORE, clamp(w.x, 0.0, 1.0) * 0.85 * amount);
-    color = mix(color, START_DOT, clamp(w.w, 0.0, 1.0) * amount);
-    color = mix(color, GRID_DOT, clamp(dots, 0.0, 1.0) * 0.7 * amount);
-    return color + SLATE_PURPLE * max(w.y - 1.0, 0.0) * 0.5 * amount * WARD_GLOW;
-}
-
-// The ward at q: core, body and halo of the strokes, then the starting dots,
-// with the grid dots lit by the glyphs' wake or a ripple passing out through
-// dots. Each patch's glyph can wander into its neighbours, so the eight around
-// this one are looked at too.
-vec4 ward(vec2 q, float period, float cellRows, float t, float rings, out float dots) {
-    float columns = max(1.0, floor(period / GLYPH_CELL));
-    vec2 cellSize = vec2(period / columns, GLYPH_CELL);
-    vec2 home = floor(q / cellSize);
-    vec4 lit = vec4(0.0);
-    float wake = 0.0;
-    for (int dy = -1; dy <= 1; dy++) {
-        for (int dx = -1; dx <= 1; dx++) {
-            vec2 cell = vec2(mod(home.x + float(dx), columns), home.y + float(dy));
-            if (cell.y < 0.0 || cell.y >= cellRows) {
-                continue;
-            }
-            wake = max(wake, glyph(q, cell, cellSize, period, t, lit));
-        }
-    }
-    dots = (1.0 - step(1.5, gridDotDistance(q) * TEXELS)) * max(wake, rings);
-    return lit;
-}
-
-// One ripple's ring at this point, and which way on screen it pushes.
-float ripple(vec4 r, vec2 uv0, inout vec2 push) {
+// One impact's ripple at this point: fast off the mark and slowing, its packet
+// spreading and dying away as it goes.
+float ripple(vec4 r, inout vec2 push) {
     if (r.w < 0.0 || r.w >= 1.0) {
         return 0.0;
     }
-    float x = (length(viewPos - r.xyz) - r.w * RIPPLE_REACH) / RIPPLE_WIDTH;
-    float fade = 1.0 - r.w;
-    float ring = exp(-x * x) * fade * fade;
-    vec2 away = (uv0 - toScreen(r.xyz)) * ScreenSize;
-    push += away / max(length(away), 1.0) * ring;
-    return ring;
+    float fade = (1.0 - r.w) * (1.0 - r.w);
+    float travelled = 1.0 - fade;
+    float spread = mix(RIPPLE_SPREAD_START, RIPPLE_SPREAD_END, r.w);
+    return wavePacket(r.xyz, RIPPLE_REACH * travelled, RIPPLE_WAVELENGTH, spread,
+        RIPPLE_PUSH_PX * fade, push) * fade;
+}
+
+// The swell rolling across the shield, if there is one, scaled by amount -
+// how much of the shield is showing. Eased in and out over its life, so it
+// rises out of the shell and settles back rather than appearing.
+float swell(float amount, inout vec2 push) {
+    if (Swell.w < 0.0 || Swell.w >= 1.0 || amount <= 0.0) {
+        return 0.0;
+    }
+    float height = Radius / Stretch;
+    float wavelength = max(SWELL_MIN_WAVELENGTH, Radius * SWELL_WAVELENGTH);
+    float strength = sin(3.1415927 * Swell.w) * amount;
+    return wavePacket(Swell.xyz, 2.0 * max(Radius, height) * Swell.w, wavelength,
+        wavelength * SWELL_SPREAD, SWELL_PUSH_PX * strength, push) * strength;
+}
+
+// The scene at uv, its colours parted by split pixels - red one way, blue the
+// other - where a ripple bends it hardest. Only there, so the extra reads are
+// only paid on the few pixels a ripple is crossing.
+vec3 parted(vec2 uv, vec2 split, vec2 px) {
+    if (dot(split, split) < 0.25) {
+        return scene(uv);
+    }
+    return vec3(scene(uv + split * px).r, scene(uv).g, scene(uv - split * px).b);
 }
 
 // Where to read the real scene for this pixel, bent by the warp. Where the bent
@@ -422,53 +320,30 @@ vec3 sceneViewPos(vec2 uv) {
     return vec3(xy, z);
 }
 
-// How much of what the scene shows at uv is the dome's contents rather than
-// the world seen through it: inside the ellipsoid, and not the ground it rests
-// on. The ground inside counts as the world - it is not what is being hidden,
-// and fading it would make a flat patch of the dome's footprint from above.
-// Ground is told by facing up as well as lying low, so the foot of a wall
-// isn't mistaken for it.
-float contentsAt(vec2 uv, vec2 px) {
+// How much of what the scene shows at this pixel is the dome's contents rather
+// than the world seen through it: inside the ellipsoid, and not the ground it
+// rests on. The ground inside counts as the world - it is not what is being
+// hidden, and fading it would make a flat patch of the dome's footprint from
+// above. Ground is told by facing up as well as lying low, so the foot of a
+// wall isn't mistaken for it.
+float contentsAt(vec3 at, vec3 facing) {
     if (DepthReady < 0.5) {
         return 1.0;
     }
-    vec3 at = sceneViewPos(uv);
     vec3 rel = at - SphereCenter;
     float inside = smoothstep(-0.5, 0.5, Radius - length(toSphere(rel)));
-    vec3 facing = normalize(cross(sceneViewPos(uv + vec2(px.x, 0.0)) - at, sceneViewPos(uv + vec2(0.0, px.y)) - at));
     float ground = smoothstep(0.8, 0.95, abs(dot(facing, WorldUp)))
         * (1.0 - smoothstep(GROUND_ALLOWANCE, GROUND_ALLOWANCE + 0.5, dot(rel, WorldUp)));
     return inside * (1.0 - ground);
 }
 
-// Frosted glass: a small disc of the scene around this pixel, rotated per pixel
-// so the taps read as grain rather than as copies. Taps on something in front
-// of the shield are left out, or it would halo whatever stands before it.
-// Fast graphics drops the warp as well: the blur alone breaks the shapes up.
-vec3 frosted(vec2 uv0, vec2 px, float t, float depth) {
-    bool fast = Fast > 0.5;
-    vec2 centre = fast ? uv0 : uv0 + wobble(uv0, t) * 2.0 * WARP_PX * px;
-    int taps = fast ? FROST_TAPS_FAST : FROST_TAPS;
-    float spin = hash(gl_FragCoord.xy) * 6.2831853;
-    vec3 sum = vec3(0.0);
-    float count = 0.0;
-    for (int k = 0; k < FROST_TAPS; k++) {
-        if (k >= taps) {
-            break;
-        }
-        float angle = spin + float(k) * 2.3999632;
-        float reach = FROST_PX * sqrt((float(k) + 0.5) / float(taps));
-        vec2 uv = centre + vec2(cos(angle), sin(angle)) * reach * px;
-        if (!occludes(uv, depth)) {
-            sum += scene(uv);
-            count += 1.0;
-        }
-    }
-    vec3 frost = count > 0.0 ? sum / count : scene(uv0);
-    // Milkier than what's behind it, and a touch of the field's colour.
-    vec3 milky = mix(frost, vec3(luma(frost)), 0.25) * 0.9 + TINT * 0.1;
-    // Tinted by colour at the same brightness, so the purple shows over dark
-    // ground as well as light sky without lifting either.
+// The shield: the scene behind, gently bent, milkier and tinted by the field's
+// colour at the same brightness, so the purple shows over dark ground as well
+// as light sky without lifting either.
+vec3 shield(vec2 uv, vec2 split, vec2 px, float t, float depth) {
+    vec2 through = Fast > 0.5 ? uv : refracted(uv, px, t, depth, WARP_PX);
+    vec3 seen = parted(through, split, px);
+    vec3 milky = mix(seen, vec3(luma(seen)), 0.25) * 0.9 + TINT * 0.1;
     return mix(milky, luma(milky) * TINT * TINT_LUMA_SCALE, SHIELD_TINT);
 }
 
@@ -528,11 +403,10 @@ vec4 surroundings(vec2 uv0, vec2 px, vec3 d, float depth) {
 }
 
 // The world behind the dome shows through almost untouched, so the dome itself
-// reads as clear; only its contents are drained and faded away.
-vec3 cloak(vec2 uv0, vec2 px, float t, vec3 d, float depth) {
-    vec2 uv = refracted(uv0, px, t, depth, CLOAK_WARP_PX);
-    vec3 real = scene(uv);
-    float contents = contentsAt(uv, px);
+// reads as clear; only its contents are drained and faded away. The real scene
+// is read where ripples have pushed it, the tone from the unpushed edges.
+vec3 cloak(vec2 uv0, vec2 pushed, vec2 px, float t, vec3 d, float depth, float contents) {
+    vec3 real = scene(refracted(pushed, px, t, depth, CLOAK_WARP_PX));
     vec3 drained = mix(real, vec3(luma(real)), DRAIN * contents);
     vec4 tone = surroundings(uv0, px, d, depth);
     if (tone.w < 0.0) {
@@ -556,8 +430,9 @@ float baseLine(float heightAbove, float aaBlocks) {
 
 // The base line on the far side of the dome, seen through the near shell: where
 // this pixel's ray leaves the ellipsoid, if that is at the base and nothing
-// inside the dome stands in front of it.
-float farBaseLine(vec3 d) {
+// inside the dome - the scene's own point at this pixel, sceneAt - stands in
+// front of it.
+float farBaseLine(vec3 d, vec3 sceneAt) {
     vec3 ray = toSphere(d);
     vec3 c = toSphere(SphereCenter);
     float a = dot(ray, ray);
@@ -569,28 +444,10 @@ float farBaseLine(vec3 d) {
     float exit = (b + sqrt(disc)) / a;
     vec3 exitPoint = d * exit;
     float ahead = -exitPoint.z;
-    if (DepthReady > 0.5 && -sceneViewPos(gl_FragCoord.xy / ScreenSize).z < ahead - BASE_OCCLUSION_SLACK) {
+    if (DepthReady > 0.5 && -sceneAt.z < ahead - BASE_OCCLUSION_SLACK) {
         return 0.0;
     }
     return baseLine(dot(exitPoint - SphereCenter, WorldUp), footprint(ahead));
-}
-
-// The ward at this fragment, faded out towards the crown. The most expensive
-// thing the shader does, so it is only called for fragments that are kept, and
-// skipped where the crown has faded it to nothing.
-vec4 wardHere(float t, float rings, out float dots) {
-    dots = 0.0;
-    float crown = 1.0 - smoothstep(0.6, 0.8, surfaceUV.y);
-    if (crown <= 0.0) {
-        return vec4(0.0);
-    }
-    vec3 space = wardSpace(surfaceUV);
-    vec2 q = (floor(space.xy * TEXELS) + 0.5) / TEXELS;
-    // Glyphs start no higher than the ward reaches before the crown fades it.
-    float cellRows = ceil(wardSpace(vec2(0.0, 0.6)).y / GLYPH_CELL);
-    vec4 w = ward(q, space.z, cellRows, t, rings, dots);
-    dots *= crown;
-    return w * crown;
 }
 
 // How far above the startup wave's front this point is, in blocks: negative
@@ -634,6 +491,17 @@ void main() {
     float t = GameTime * 1200.0;
     float depth = gl_FragCoord.z;
 
+    // What the scene holds behind this pixel, and which way it faces - the
+    // facing from derivatives, so also taken here. One read serves both the
+    // cloak's test for the dome's contents and the far base line's occlusion.
+    bool outside = Inside < 0.5;
+    vec3 sceneAt = vec3(0.0, 0.0, -1e6);
+    vec3 sceneFacing = WorldUp;
+    if (outside && DepthReady > 0.5) {
+        sceneAt = sceneViewPos(uv0);
+        sceneFacing = normalize(cross(dFdx(sceneAt), dFdy(sceneAt)) + vec3(0.0, 0.0, 1e-6));
+    }
+
     float reveal = 1.0;
     float glow = 0.0;
     float line = 0.0;
@@ -659,22 +527,22 @@ void main() {
     float facing = dot(normal, -d);
 
     vec2 push = vec2(0.0);
-    float rings = ripple(Ripple0, uv0, push) + ripple(Ripple1, uv0, push)
-        + ripple(Ripple2, uv0, push) + ripple(Ripple3, uv0, push);
-    vec2 pushed = uv0 + push * RIPPLE_PUSH_PX * px;
+    float rings = ripple(Ripple0, push) + ripple(Ripple1, push)
+        + ripple(Ripple2, push) + ripple(Ripple3, push);
+    float swelling = swell(outside ? Proximity : 1.0, push);
+    vec2 pushed = uv0 + push * px;
+    vec2 split = push * CHROMA_SHARE;
     float rim = pow(1.0 - abs(facing), 3.0);
 
-    if (Inside > 0.5) {
-        float dots;
-        vec4 w = wardHere(t, rings, dots);
+    if (!outside) {
         // From inside the shell covers the whole screen at every distance, so
-        // Fast graphics leaves the view unbent; the tint, ward and ripples still
-        // say where it is.
+        // Fast graphics leaves the view unbent; the tint and ripples still say
+        // where it is.
         vec2 through = Fast > 0.5 ? pushed : refracted(pushed, px, t, depth, WARP_PX);
-        vec3 color = scene(through)
-            + TINT * (0.025 + rim * 0.06 + rings * RIPPLE_GLOW * 0.6)
+        vec3 color = parted(through, split, px)
+            + TINT * (0.025 + rim * 0.06 + rings * RIPPLE_GLOW * 0.6 + swelling * SWELL_GLOW
+                + sweep(t) * SWEEP_GLOW * 0.5)
             + BASE_COLOR * nearBase;
-        color = inscribe(color, w, dots, 0.5);
         if (Rise < 1.0) {
             color = rising(color, risen, reveal, glow, line);
         }
@@ -686,22 +554,20 @@ void main() {
         discard;
     }
 
-    vec3 far = Proximity < 1.0 ? cloak(uv0, px, t, d, depth) : vec3(0.0);
-    vec3 near = Proximity > 0.0 ? frosted(pushed, px, t, depth) : vec3(0.0);
+    vec3 far = Proximity < 1.0 ? cloak(uv0, pushed, px, t, d, depth, contentsAt(sceneAt, sceneFacing)) : vec3(0.0);
+    vec3 near = Proximity > 0.0 ? shield(pushed, split, px, t, depth) : vec3(0.0);
     vec3 color = mix(far, near, Proximity);
 
     // The cloak's own rim stays faint so it isn't an outline from afar; the
-    // shield's ward and brighter rim arrive with it.
+    // shield's sweep and brighter rim arrive with it.
     float shimmer = 0.6 + 0.4 * sin(t * 1.3 + dot(uv0, vec2(40.0)) + Seed);
     color += TINT * pow(1.0 - facing, 5.0) * shimmer * 0.05;
     color += Proximity * TINT * rim * 0.22;
-    color += TINT * rings * RIPPLE_GLOW * mix(0.5, 1.0, Proximity);
-    color += BASE_COLOR * (nearBase + farBaseLine(d) * BASE_FAR_SHARE);
+    color += TINT * (rings * RIPPLE_GLOW * mix(0.5, 1.0, Proximity) + swelling * SWELL_GLOW);
+    color += BASE_COLOR * (nearBase + farBaseLine(d, sceneAt) * BASE_FAR_SHARE);
     // Only worked out where it shows: the cloak from afar carries none.
     if (Proximity > 0.0) {
-        float dots;
-        vec4 w = wardHere(t, rings, dots);
-        color = inscribe(color, w, dots, Proximity);
+        color += TINT * sweep(t) * SWEEP_GLOW * Proximity;
     }
     if (Rise < 1.0) {
         color = rising(color, risen, reveal, glow, line);

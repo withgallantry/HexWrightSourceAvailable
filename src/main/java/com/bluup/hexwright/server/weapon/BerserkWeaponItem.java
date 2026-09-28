@@ -4,6 +4,7 @@ import at.petrak.hexcasting.api.casting.iota.Iota;
 import at.petrak.hexcasting.api.casting.iota.IotaType;
 import at.petrak.hexcasting.api.item.IotaHolderItem;
 import at.petrak.hexcasting.api.utils.NBTHelper;
+import com.bluup.hexwright.HexwrightDebug;
 import com.bluup.hexwright.common.animation.PlayerAnimationLayer;
 import com.bluup.hexwright.inits.HexwrightNetworking;
 import com.bluup.hexwright.server.item.ArtifactItem;
@@ -132,6 +133,8 @@ public abstract class BerserkWeaponItem extends SwordItem
 
         player.getCooldowns().addCooldown(this, this.cooldownTicks);
         if (level instanceof ServerLevel serverLevel && player instanceof ServerPlayer serverPlayer) {
+            HexwrightDebug.log(HexwrightDebug.WEAPON, "[weapon] ability swing for {} on tick {}",
+                serverPlayer.getScoreboardName(), serverLevel.getServer().getTickCount());
             HexwrightNetworking.sendPlayerAnimation(serverPlayer, PlayerAnimationLayer.ONE_SHOT, swingClip(player));
             SlamWindUp.schedule(serverLevel.getServer(), this.windUpTicks,
                 () -> strike(serverLevel, serverPlayer, hand));

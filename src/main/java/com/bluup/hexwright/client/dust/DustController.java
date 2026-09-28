@@ -328,7 +328,7 @@ final class DustController {
         DustConstruct current = construct;
         float solid = 0.0f;
         if (current != null) {
-            boolean home = mode == Mode.HOME || mode == Mode.FORMING;
+            boolean home = mode == Mode.HOME || mode == Mode.FORMING || (mode == Mode.RETURNING && shape != null);
             current.tick(mass, envelopeFraction, home);
             current.tint(DustTint.sample(pigment, frame.time, current.x, current.y, current.z));
             if (enabled && current.build > 0.3f && current.coverage > 0.05f) {

@@ -33,6 +33,8 @@ public final class CloakFieldRenderer {
     private static final int RINGS = 16;
     private static final float SHIELD_FROM = 0.4f;
     private static final float SHIELD_FULL = 0.75f;
+    private static final float WARD_INSIDE = 0.5f;
+    private static final float WARD_AFTER_RISE = 0.85f;
 
     private static final String[] RIPPLE_UNIFORMS = {"Ripple0", "Ripple1", "Ripple2", "Ripple3"};
 
@@ -79,7 +81,6 @@ public final class CloakFieldRenderer {
         poseStack.translate(-cameraPos.x, -cameraPos.y, -cameraPos.z);
         Matrix4f pose = poseStack.last().pose();
 
-        RenderSystem.disableBlend();
         RenderSystem.enableDepthTest();
         RenderSystem.depthMask(false);
         RenderSystem.disableCull();
@@ -100,22 +101,31 @@ public final class CloakFieldRenderer {
 
         for (CloakField field : VISIBLE) {
             Vec3 c = field.center();
+            boolean inside = field.contains(cameraPos);
+            float proximity = proximity(field, cameraPos, halfScreenAngle);
+            float rise = ClientCloakFields.rise(field, now);
             Vector3f viewCenter = pose.transformPosition((float) c.x, (float) c.y, (float) c.z, new Vector3f());
             shader.safeGetUniform("SphereCenter").set(viewCenter.x, viewCenter.y, viewCenter.z);
             shader.safeGetUniform("Radius").set(field.radius());
             shader.safeGetUniform("Stretch").set(field.radius() / field.height());
-            shader.safeGetUniform("Inside").set(field.contains(cameraPos) ? 1.0f : 0.0f);
+            shader.safeGetUniform("Inside").set(inside ? 1.0f : 0.0f);
             shader.safeGetUniform("Seed").set(seedOf(field));
-            shader.safeGetUniform("Proximity").set(proximity(field, cameraPos, halfScreenAngle));
-            shader.safeGetUniform("Rise").set(ClientCloakFields.rise(field, now));
+            shader.safeGetUniform("Proximity").set(proximity);
+            shader.safeGetUniform("Rise").set(rise);
             setRipples(shader, field, pose, now);
+            RenderSystem.disableBlend();
             RenderSystem.setShader(() -> shader);
             drawDome(pose, field);
+
+            float settled = Mth.clamp((rise - WARD_AFTER_RISE) / (1.0f - WARD_AFTER_RISE), 0.0f, 1.0f);
+            CloakFieldWard.draw(pose, field, cameraPos, (inside ? WARD_INSIDE : proximity) * settled,
+                inside, fast, now / 1.0e9);
         }
         VISIBLE.clear();
 
         modelViewStack.popPose();
         RenderSystem.applyModelViewMatrix();
+        RenderSystem.disableBlend();
         RenderSystem.enableCull();
         RenderSystem.depthMask(true);
         poseStack.popPose();
@@ -181,6 +191,15 @@ public final class CloakFieldRenderer {
         }
         while (slot < CloakFieldRipples.MAX_PER_FIELD) {
             shader.safeGetUniform(RIPPLE_UNIFORMS[slot++]).set(0.0f, 0.0f, 0.0f, -1.0f);
+        }
+
+        CloakFieldRipples.Swell swell = CloakFieldRipples.swell(field, now);
+        if (swell == null) {
+            shader.safeGetUniform("Swell").set(0.0f, 0.0f, 0.0f, -1.0f);
+        } else {
+            Vec3 p = swell.point();
+            Vector3f view = pose.transformPosition((float) p.x, (float) p.y, (float) p.z, new Vector3f());
+            shader.safeGetUniform("Swell").set(view.x, view.y, view.z, swell.age());
         }
     }
 

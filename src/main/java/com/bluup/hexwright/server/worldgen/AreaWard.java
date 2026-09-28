@@ -91,7 +91,7 @@ public final class AreaWard {
             if (refusal == null) {
                 return InteractionResult.PASS;
             }
-            player.displayClientMessage(Component.translatable(refusal), true);
+            explain(player, refusal);
             return InteractionResult.FAIL;
         });
         PlayerBlockBreakEvents.BEFORE.register((level, player, pos, state, entity) -> {
@@ -99,7 +99,7 @@ public final class AreaWard {
             if (refusal == null) {
                 return true;
             }
-            player.displayClientMessage(Component.translatable(refusal), true);
+            explain(player, refusal);
             return false;
         });
         ServerPlayConnectionEvents.DISCONNECT.register((handler, server) ->
@@ -270,10 +270,15 @@ public final class AreaWard {
         if (sealed(level, pos)) {
             return "message.hexwright.dungeon.immovable";
         }
-        if (CloakFieldShell.holds(server, pos)) {
-            return "message.hexwright.cloak.immovable";
+        boolean shielded = CloakFieldShell.holds(server, pos)
+            || CloakFieldExclusion.excludes(server, Vec3.atCenterOf(pos), player);
+        return shielded ? "" : null;
+    }
+
+    private static void explain(Player player, String refusal) {
+        if (!refusal.isEmpty()) {
+            player.displayClientMessage(Component.translatable(refusal), true);
         }
-        return CloakFieldExclusion.excludes(server, Vec3.atCenterOf(pos), player) ? "message.hexwright.cloak.not_yours" : null;
     }
 
     private static void tick(MinecraftServer server) {

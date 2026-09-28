@@ -1,6 +1,7 @@
 package com.bluup.hexwright.server.block
 
 import net.minecraft.core.BlockPos
+import net.minecraft.world.entity.player.Player
 import net.minecraft.world.level.BlockGetter
 import net.minecraft.world.level.Level
 import net.minecraft.world.level.block.Block
@@ -17,7 +18,12 @@ import net.minecraft.world.phys.shapes.VoxelShape
 class RuinedPortalFrameBlock(properties: Properties) : Block(properties), EntityBlock {
 
     companion object {
-        private val SHAPE: VoxelShape = Shapes.empty()
+        private val OUTLINE: VoxelShape = box(0.0, 4.0, 6.0, 16.0, 16.0, 10.0)
+        private val COLLISION: VoxelShape = Shapes.empty()
+
+        private const val BREAK_HARDNESS = 150.0f
+
+        private const val MIN_BREAK_TICKS = 30 * 20
     }
 
     override fun getShape(
@@ -25,16 +31,21 @@ class RuinedPortalFrameBlock(properties: Properties) : Block(properties), Entity
         level: BlockGetter,
         pos: BlockPos,
         context: CollisionContext
-    ): VoxelShape = SHAPE
+    ): VoxelShape = OUTLINE
 
     override fun getCollisionShape(
         state: BlockState,
         level: BlockGetter,
         pos: BlockPos,
         context: CollisionContext
-    ): VoxelShape = SHAPE
+    ): VoxelShape = COLLISION
 
     override fun getRenderShape(state: BlockState): RenderShape = RenderShape.INVISIBLE
+
+    override fun getDestroyProgress(state: BlockState, player: Player, level: BlockGetter, pos: BlockPos): Float {
+        val progress = player.getDestroySpeed(state) / BREAK_HARDNESS / 30.0f
+        return minOf(progress, 1.0f / MIN_BREAK_TICKS)
+    }
 
     override fun newBlockEntity(pos: BlockPos, state: BlockState): BlockEntity {
         return RuinedPortalFrameBlockEntity(pos, state)

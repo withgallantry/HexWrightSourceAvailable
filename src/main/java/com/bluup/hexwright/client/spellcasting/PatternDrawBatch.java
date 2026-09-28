@@ -11,6 +11,7 @@ import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.util.FastColor;
+import net.minecraft.util.Mth;
 import net.minecraft.world.phys.Vec2;
 import org.jetbrains.annotations.Nullable;
 import org.joml.Matrix4f;
@@ -33,6 +34,7 @@ public final class PatternDrawBatch implements VCDrawHelper {
     private static final float INNER_Z = 1f;
     private static final float DOT_Z = 1f;
     private static final float DOT_RADIUS = 2f;
+    private static final int ROUND_SPOT_SIDES = 12;
 
     private static final PatternDrawBatch INSTANCE = new PatternDrawBatch();
 
@@ -103,6 +105,26 @@ public final class PatternDrawBatch implements VCDrawHelper {
         ensureOpen();
         INSTANCE.z = DOT_Z;
         RenderLib.drawSpot(mat, point, radius, packColor(r, g, b, a), INSTANCE);
+    }
+
+    public static void drawRoundSpot(Matrix4f mat, Vec2 point, float radius, int color) {
+        if (!enabled) {
+            RenderLib.drawSpot(mat, point, radius, FastColor.ARGB32.red(color) / 255f,
+                FastColor.ARGB32.green(color) / 255f, FastColor.ARGB32.blue(color) / 255f,
+                FastColor.ARGB32.alpha(color) / 255f);
+            return;
+        }
+
+        ensureOpen();
+        INSTANCE.z = DOT_Z;
+        VertexConsumer vc = INSTANCE.vcSetupAndSupply(VertexFormat.Mode.TRIANGLE_FAN);
+        INSTANCE.vertex(vc, color, point, Vec2.ZERO, mat);
+        for (int i = 0; i <= ROUND_SPOT_SIDES; i++) {
+            float theta = Mth.TWO_PI * i / ROUND_SPOT_SIDES;
+            Vec2 rim = new Vec2(point.x + Mth.cos(theta) * radius, point.y + Mth.sin(theta) * radius);
+            INSTANCE.vertex(vc, color, rim, Vec2.ZERO, mat);
+        }
+        INSTANCE.vcEndDrawer(vc);
     }
 
     public static void drawPattern(Matrix4f mat, List<Vec2> points, Set<Integer> dupIndices, boolean drawLast,

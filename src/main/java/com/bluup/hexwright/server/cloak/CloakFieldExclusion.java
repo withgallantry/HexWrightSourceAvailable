@@ -3,7 +3,6 @@ package com.bluup.hexwright.server.cloak;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.Mth;
@@ -84,7 +83,6 @@ public final class CloakFieldExclusion {
         player.stopRiding();
         player.teleportTo(x, y, z);
         player.resetFallDistance();
-        player.displayClientMessage(Component.translatable("message.hexwright.cloak.turned_away"), true);
     }
 
     private static double standingY(ServerLevel level, ServerPlayer player, double x, double z) {

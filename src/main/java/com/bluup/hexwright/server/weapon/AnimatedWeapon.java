@@ -1,5 +1,6 @@
 package com.bluup.hexwright.server.weapon;
 
+import com.bluup.hexwright.HexwrightDebug;
 import com.bluup.hexwright.common.animation.PlayerAnimationLayer;
 import com.bluup.hexwright.common.weapon.MiningClickState;
 import com.bluup.hexwright.inits.HexwrightNetworking;
@@ -108,6 +109,9 @@ public interface AnimatedWeapon {
         }
 
         int now = player.server.getTickCount();
+        HexwrightDebug.log(HexwrightDebug.WEAPON,
+            "[weapon] swing packet from {} with {} on tick {}: interacted={} aimed={}",
+            player.getScoreboardName(), item, now, state.interactedThisTick(now), state.aimedAtSomething(now));
         if (state.interactedThisTick(now)) {
             return;
         }
@@ -170,6 +174,8 @@ public interface AnimatedWeapon {
         state.commit(now, item, step);
 
         if (clip != null) {
+            HexwrightDebug.log(HexwrightDebug.WEAPON, "[weapon] strike clip {} for {} on tick {}",
+                clip, player.getScoreboardName(), now);
             HexwrightNetworking.sendPlayerAnimation(player, PlayerAnimationLayer.ONE_SHOT, clip);
         }
         if (sound != null) {

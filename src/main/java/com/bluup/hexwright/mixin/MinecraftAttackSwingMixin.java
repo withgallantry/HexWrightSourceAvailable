@@ -1,5 +1,6 @@
 package com.bluup.hexwright.mixin;
 
+import com.bluup.hexwright.client.weapon.WeaponAttackPacing;
 import com.bluup.hexwright.server.weapon.AnimatedWeapon;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
@@ -12,6 +13,9 @@ import org.jetbrains.annotations.Nullable;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(Minecraft.class)
 public abstract class MinecraftAttackSwingMixin {
@@ -19,6 +23,23 @@ public abstract class MinecraftAttackSwingMixin {
     @Shadow
     @Nullable
     public HitResult hitResult;
+
+    @Shadow
+    protected abstract boolean startAttack();
+
+    @Inject(method = "startAttack", at = @At("HEAD"), cancellable = true)
+    private void hexwright$oneBlowPerSwing(CallbackInfoReturnable<Boolean> cir) {
+        if (!WeaponAttackPacing.mayAttack((Minecraft) (Object) this)) {
+            cir.setReturnValue(false);
+        }
+    }
+
+    @Inject(method = "handleKeybinds", at = @At("HEAD"))
+    private void hexwright$releaseKeptClick(CallbackInfo ci) {
+        if (WeaponAttackPacing.takeBufferedClick((Minecraft) (Object) this)) {
+            this.startAttack();
+        }
+    }
 
     @WrapOperation(
         method = "startAttack",

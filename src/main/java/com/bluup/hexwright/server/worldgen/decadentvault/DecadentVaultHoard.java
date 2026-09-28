@@ -7,13 +7,10 @@ import at.petrak.hexcasting.common.loot.AddHexToAncientCypherFunc;
 import at.petrak.hexcasting.common.loot.AddPerWorldPatternToScrollFunc;
 import com.bluup.hexwright.common.staff_assembly.calc.IngredientCategory;
 import com.bluup.hexwright.server.crucible.EssencePouchData;
-import com.bluup.hexwright.server.item.HexwrightItemTags;
 import com.bluup.hexwright.server.item.HexwrightItems;
 import com.bluup.hexwright.server.item.StoneTabletItem;
 import com.bluup.hexwright.server.progression.RecipeTablets;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.Holder;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.Container;
@@ -39,8 +36,6 @@ public final class DecadentVaultHoard {
     private static final int CYPHERS = 2;
 
     private static final int PHIALS = 2;
-
-    private static final float ORB_CHANCE = 0.25F;
 
     private static final int PHIAL_CRYSTALS_MIN = 3;
     private static final int PHIAL_CRYSTALS_SPREAD = 3;
@@ -136,18 +131,7 @@ public final class DecadentVaultHoard {
         stacks.add(new ItemStack(HexItems.SCRYING_LENS));
         stacks.add(new ItemStack(HexItems.ABACUS));
         stacks.add(new ItemStack(HexItems.JEWELER_HAMMER));
-        stacks.addAll(powerOrbs(random));
         return stacks;
-    }
-
-    private static List<ItemStack> powerOrbs(RandomSource random) {
-        List<ItemStack> orbs = new ArrayList<>();
-        for (Holder<Item> orb : BuiltInRegistries.ITEM.getTagOrEmpty(HexwrightItemTags.POWER_ORBS)) {
-            if (random.nextFloat() < ORB_CHANCE) {
-                orbs.add(new ItemStack(orb.value()));
-            }
-        }
-        return orbs;
     }
 
     private static ItemStack greatSpellScroll(ServerLevel level, RandomSource random) {

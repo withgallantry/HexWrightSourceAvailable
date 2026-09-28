@@ -2,7 +2,7 @@
 
 // Cloak field dome. The fragment shader works entirely in view space, so the
 // position is handed over there as well as projected. UV0 is where on the dome
-// the vertex sits - round it in x, up it in y, each 0..1 - for the ward.
+// the vertex sits - round it in x, up it in y, each 0..1 - for the lattice.
 
 in vec3 Position;
 in vec2 UV0;
