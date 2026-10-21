@@ -6,8 +6,6 @@ uniform float iTime;
 in vec2 texCoord;
 out vec4 fragColor;
 
-// Deep purple swirling magic smoke background.
-// Intended for a magical item storage GUI/background.
 
 float random(in vec2 st) {
     return fract(sin(dot(st, vec2(12.9898, 78.233))) * 43758.5453123);
@@ -76,14 +74,12 @@ void mainImage(out vec4 outColor, in vec2 fragCoord) {
     float t = iTime * 0.45;
     float dist = length(p);
 
-    // Subtle magical vortex motion.
     float swirl = 0.55 / (1.0 + 4.0 * dist);
     float twist = swirl + 0.12 * sin(t + dist * 8.0);
 
     vec2 flow = rotate2D(twist) * p;
     flow *= 3.2;
 
-    // Layered domain-warped smoke.
     float s1 = smokeField(flow + vec2(0.0, 0.30 * t), t);
     float s2 = smokeField(flow * 1.6 - vec2(0.18 * t, -0.10 * t), t + 13.0);
 
@@ -91,7 +87,6 @@ void mainImage(out vec4 outColor, in vec2 fragCoord) {
     float wisps = smoothstep(0.38, 0.82, smoke);
     float dense = smoothstep(0.58, 0.95, s1);
 
-    // Hexcasting-inspired deep purple palette.
     vec3 bgDark    = vec3(0.030, 0.010, 0.060);
     vec3 bgMid     = vec3(0.090, 0.020, 0.140);
     vec3 purple    = vec3(0.280, 0.080, 0.430);
@@ -104,14 +99,11 @@ void mainImage(out vec4 outColor, in vec2 fragCoord) {
     color = mix(color, purple, wisps * 0.65);
     color = mix(color, hexGlow, dense * 0.45);
 
-    // Thin brighter magical wisps.
     float brightWisps = smoothstep(0.72, 0.98, smoke) * (0.4 + 0.6 * centerGlow);
     color += highlight * brightWisps * 0.22;
 
-    // Soft ambient magical haze.
     color += hexGlow * centerGlow * 0.08;
 
-    // Vignette helps it sit behind item slots/UI.
     float vignette = 1.0 - smoothstep(0.35, 1.05, dist);
     color *= 0.60 + 0.40 * vignette;
 

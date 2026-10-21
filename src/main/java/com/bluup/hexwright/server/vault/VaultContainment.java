@@ -18,7 +18,10 @@ import java.util.UUID;
 
 public final class VaultContainment {
 
-    private static final Map<UUID, Integer> CLAIMS = new HashMap<>();
+    private record Claim(int vaultId, int frameId) {
+    }
+
+    private static final Map<UUID, Claim> CLAIMS = new HashMap<>();
 
     private static final Map<UUID, Integer> LAST_LOGGED = new HashMap<>();
 
@@ -49,9 +52,9 @@ public final class VaultContainment {
 
     private static void check(MinecraftServer server, ServerLevel vaultLevel, ServerPlayer player) {
         VaultRegistry registry = VaultRegistry.get(server);
-        Integer claimed = CLAIMS.get(player.getUUID());
+        Claim claimed = CLAIMS.get(player.getUUID());
         if (claimed != null) {
-            VaultRecord vault = registry.byId(claimed);
+            VaultRecord vault = registry.byId(claimed.vaultId());
             if (vault != null && VaultRooms.habitableBounds(vault).contains(player.position())) {
                 return;
             }
@@ -60,10 +63,12 @@ public final class VaultContainment {
         }
 
         VaultRecord standing = registry.byRoom(player.position());
-        VaultPortalSession session = standing == null ? null : VaultManager.sessionByVault(standing.id());
-        if (standing != null && session != null
-            && VaultAccess.mayEnter(standing, session, player.getUUID())) {
-            CLAIMS.put(player.getUUID(), standing.id());
+        VaultPortalSession door = standing == null
+            ? null
+            : VaultManager.nearestDoor(standing.id(), player.position());
+        if (standing != null && door != null
+            && VaultAccess.mayEnter(standing, door, player.getUUID())) {
+            CLAIMS.put(player.getUUID(), new Claim(standing.id(), door.frameId()));
             return;
         }
         rescue(server, vaultLevel, player, null);
@@ -73,7 +78,7 @@ public final class VaultContainment {
     private static void rescue(MinecraftServer server, ServerLevel vaultLevel,
                                ServerPlayer player, @Nullable VaultRecord home) {
         Vec3 from = player.position();
-        if (home != null && VaultManager.sessionByVault(home.id()) != null) {
+        if (home != null && VaultManager.hasOpenDoor(home.id())) {
             Vec3 arrival = VaultRooms.interiorArrival(home);
             player.setDeltaMovement(Vec3.ZERO);
             player.teleportTo(vaultLevel, arrival.x, arrival.y, arrival.z,
@@ -101,7 +106,7 @@ public final class VaultContainment {
 
 
     static void grant(ServerPlayer player, VaultRecord record) {
-        CLAIMS.put(player.getUUID(), record.id());
+        CLAIMS.put(player.getUUID(), new Claim(record.id(), VaultRecord.MAIN_DOOR));
     }
 
     static void forget(UUID player) {
@@ -109,6 +114,17 @@ public final class VaultContainment {
     }
 
     static @Nullable Integer claimOf(UUID player) {
-        return CLAIMS.get(player);
+        Claim claim = CLAIMS.get(player);
+        return claim == null ? null : claim.vaultId();
+    }
+
+    static @Nullable Integer claimedDoor(UUID player, int vaultId) {
+        Claim claim = CLAIMS.get(player);
+        return claim == null || claim.vaultId() != vaultId ? null : claim.frameId();
+    }
+
+    static boolean cameThrough(UUID player, int vaultId, int frameId) {
+        Integer door = claimedDoor(player, vaultId);
+        return door != null && door == frameId;
     }
 }

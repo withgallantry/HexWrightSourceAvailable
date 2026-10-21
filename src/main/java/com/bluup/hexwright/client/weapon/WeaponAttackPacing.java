@@ -4,7 +4,6 @@ import com.bluup.hexwright.server.weapon.AnimatedWeapon;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.world.item.Item;
-import net.minecraft.world.phys.HitResult;
 import org.jetbrains.annotations.Nullable;
 
 public final class WeaponAttackPacing {
@@ -17,8 +16,8 @@ public final class WeaponAttackPacing {
     private WeaponAttackPacing() {
     }
 
-    public static boolean mayAttack(Minecraft mc) {
-        if (!isPaced(mc)) {
+    public static boolean mayAttack(Minecraft mc, boolean dig) {
+        if (!isPaced(mc, dig)) {
             return true;
         }
         LocalPlayer player = mc.player;
@@ -45,7 +44,7 @@ public final class WeaponAttackPacing {
             || age > player.getCurrentItemAttackStrengthDelay()
             || player.getMainHandItem().getItem() != bufferedFor
             || player.isUsingItem()
-            || !isPaced(mc)) {
+            || !isPaced(mc, WeaponClickTarget.isDig(mc))) {
             bufferedFor = null;
             return false;
         }
@@ -56,9 +55,7 @@ public final class WeaponAttackPacing {
         return true;
     }
 
-    private static boolean isPaced(Minecraft mc) {
-        return mc.player != null
-            && (mc.hitResult == null || mc.hitResult.getType() != HitResult.Type.BLOCK)
-            && AnimatedWeapon.ownsAttackSwing(mc.player);
+    private static boolean isPaced(Minecraft mc, boolean dig) {
+        return !dig && mc.player != null && AnimatedWeapon.ownsAttackSwing(mc.player);
     }
 }

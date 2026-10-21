@@ -33,6 +33,14 @@ public final class UiTemplates {
     }
 
     public static @Nullable Supplier<WidgetGroup> load(String name) {
+        return load(name, true);
+    }
+
+    public static @Nullable Supplier<WidgetGroup> loadOptional(String name) {
+        return load(name, false);
+    }
+
+    private static @Nullable Supplier<WidgetGroup> load(String name, boolean required) {
         Supplier<WidgetGroup> fromLdlibDir = loadFromLdlibDir(new ResourceLocation("ldlib", name));
         if (fromLdlibDir != null) {
             return fromLdlibDir;
@@ -42,10 +50,10 @@ public final class UiTemplates {
             return fromOurDir;
         }
         return PACKAGED_CACHE.computeIfAbsent(new CacheKey(name, LDLib.isRemote()),
-            key -> Optional.ofNullable(loadPackaged(key.name()))).orElse(null);
+            key -> Optional.ofNullable(loadPackaged(key.name(), required))).orElse(null);
     }
 
-    private static @Nullable Supplier<WidgetGroup> loadPackaged(String name) {
+    private static @Nullable Supplier<WidgetGroup> loadPackaged(String name, boolean required) {
         try (InputStream raw = UiTemplates.class.getResourceAsStream("/assets/hexwright/projects/ui/" + name + ".ui")) {
             if (raw != null) {
                 Supplier<WidgetGroup> loaded = read(raw);
@@ -64,7 +72,9 @@ public final class UiTemplates {
             }
         }
 
-        Hexwright.LOGGER.error("Failed to load {}.ui from the LDLib directory, the classpath, or resource packs", name);
+        if (required) {
+            Hexwright.LOGGER.error("Failed to load {}.ui from the LDLib directory, the classpath, or resource packs", name);
+        }
         return null;
     }
 

@@ -108,8 +108,8 @@ public class CatConstructEntity extends OrbConstructEntity {
     }
 
     @Override
-    protected ConstructOrbPower orbPower() {
-        return ConstructOrbPower.CAT;
+    protected boolean isClaimed() {
+        return ConstructOrbPower.CAT.claims(this);
     }
 
     @Nullable

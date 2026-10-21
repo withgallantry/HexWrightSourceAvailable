@@ -1,5 +1,8 @@
 package com.bluup.hexwright.server.weapon;
 
+import com.bluup.hexwright.server.armour.ArmourTier;
+import com.bluup.hexwright.server.armour.Restylable;
+import com.bluup.hexwright.server.item.HexwrightItems;
 import com.bluup.hexwright.server.pocketcaster.PocketCasterData;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
@@ -8,11 +11,12 @@ import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Tier;
 import org.jetbrains.annotations.Nullable;
 
-public class BattleAxeItem extends BerserkWeaponItem {
+public class BattleAxeItem extends BerserkWeaponItem implements Restylable {
 
     public static final String SLASH_CLIP = "axe_horizontal_heavy_slash";
 
@@ -24,7 +28,7 @@ public class BattleAxeItem extends BerserkWeaponItem {
 
     public static final String IDLE_CLIP = "axe_idle";
 
-    private static final int WIND_UP_TICKS = 8;
+    static final int WIND_UP_TICKS = 8;
 
     private static final int HACK_IMPACT_TICKS = 9;
 
@@ -66,6 +70,17 @@ public class BattleAxeItem extends BerserkWeaponItem {
     @Nullable
     public PocketCasterData.Quality quality() {
         return this.quality;
+    }
+
+
+    @Override
+    public @Nullable ArmourTier ownLook() {
+        return Restylable.gradedLook(HexwrightItems.BATTLE_AXES, this, this.quality);
+    }
+
+    @Override
+    public Item lookItem(ArmourTier look) {
+        return HexwrightItems.BATTLE_AXES.get(look.displayQuality());
     }
 
     @Override

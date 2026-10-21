@@ -1,5 +1,6 @@
 package com.bluup.hexwright.server.block
 
+import at.petrak.hexcasting.api.addldata.ADMediaHolder
 import at.petrak.hexcasting.api.misc.MediaConstants
 import at.petrak.hexcasting.common.lib.HexItems
 import at.petrak.hexcasting.xplat.IXplatAbstractions
@@ -154,7 +155,11 @@ class CrucibleBlockEntity(
         slot in processSlots && canPlaceItem(slot, stack)
 
     override fun canTakeItemThroughFace(slot: Int, stack: ItemStack, side: Direction): Boolean =
-        side == Direction.DOWN && slot == ITEM_SLOT && !isBurnableInput(stack)
+        side == Direction.DOWN && when (slot) {
+            ITEM_SLOT -> !isBurnableInput(stack)
+            FUEL_SLOT -> !isAcceptedCrucibleFuel(stack)
+            else -> false
+        }
 
     override fun load(tag: CompoundTag) {
         super.load(tag)
@@ -223,7 +228,20 @@ class CrucibleBlockEntity(
         return profile.data().categories().isNotEmpty() && profile.essenceYield() > 0
     }
 
-    private fun isAcceptedCrucibleFuel(stack: ItemStack): Boolean = fuelItemsPerUnit(stack) > 0
+    private fun isAcceptedCrucibleFuel(stack: ItemStack): Boolean =
+        fuelItemsPerUnit(stack) > 0 || drainableMedia(stack) > 0
+
+    private fun drainableHolder(stack: ItemStack): ADMediaHolder? {
+        if (stack.isEmpty) return null
+        val holder = IXplatAbstractions.INSTANCE.findMediaHolder(stack) ?: return null
+        return if (holder.canProvide() && !holder.canConstructBattery()) holder else null
+    }
+
+    private fun drainableMedia(stack: ItemStack): Long =
+        drainableHolder(stack)?.withdrawMedia(MediaConstants.DUST_UNIT, true)?.coerceIn(0, MediaConstants.DUST_UNIT) ?: 0
+
+    private fun drainedFuelTicks(media: Long, processTicks: Int): Int =
+        (processTicks * media / MediaConstants.DUST_UNIT).toInt().coerceAtLeast(1)
 
     private fun fuelItemsPerUnit(stack: ItemStack): Int {
         if (stack.isEmpty) return 0
@@ -246,6 +264,8 @@ class CrucibleBlockEntity(
     }
 
     private fun fuelTicksFor(stack: ItemStack, processTicks: Int): Int {
+        val drained = drainableMedia(stack)
+        if (drained > 0) return drainedFuelTicks(drained, processTicks)
         val items = fuelItemsPerUnit(stack)
         if (items <= 0) return 0
         return (items * processTicks).coerceAtLeast(1)
@@ -254,11 +274,19 @@ class CrucibleBlockEntity(
     private fun consumeFuelUnit(): Boolean {
         val fuelStack = items[FUEL_SLOT]
         if (fuelStack.isEmpty) return false
+        val processTicks = currentBurnTicks().coerceAtLeast(1)
 
-        val burnTicks = fuelTicksFor(fuelStack, currentBurnTicks().coerceAtLeast(1))
-        if (burnTicks <= 0) return false
-
-        fuelStack.shrink(1)
+        val burnTicks: Int
+        val holder = drainableHolder(fuelStack)
+        if (holder != null) {
+            val taken = holder.withdrawMedia(MediaConstants.DUST_UNIT, false).coerceAtMost(MediaConstants.DUST_UNIT)
+            if (taken <= 0) return false
+            burnTicks = drainedFuelTicks(taken, processTicks)
+        } else {
+            burnTicks = fuelTicksFor(fuelStack, processTicks)
+            if (burnTicks <= 0) return false
+            fuelStack.shrink(1)
+        }
         if (fuelStack.isEmpty) {
             items[FUEL_SLOT] = ItemStack.EMPTY
         }

@@ -9,13 +9,6 @@ in vec2 texCoord;
 out vec4 fragColor;
 
 void mainImage(out vec4 fragColor, in vec2 fragCoord) {
-//    vec2 F = fragCoord.xy;
-//    vec2 r = iResolution.xy, u = (F + F - r)/r.y/1.888;
-//    fragColor.rgba = vec4(vec3(0.012,1.000,0.648), 0.);
-//
-//    float a = .004/(abs(length(u*u*u*u)-.04)+.005);
-//    fragColor.a = a;
-//    fragColor.rgb += .004/(abs(length(u*u*u*u)-.04)+.005) * (cos(vec3(1.))+1.);
 
     vec2 p1 = vec2(.01, .01);
     vec2 p2 = vec2(.99, .99);
@@ -35,7 +28,6 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
 
     float f1 = .04 / (abs(d1 - 0.));
 
-    // Time varying pixel color
     vec3 col = .5 + 0.5*cos(0.+uv.xyx+vec3(4.000,0.040,0.078));
 
     fragColor = vec4(f1 * col, length(f1 * col));

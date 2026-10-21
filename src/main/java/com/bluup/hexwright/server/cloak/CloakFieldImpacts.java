@@ -69,7 +69,7 @@ public final class CloakFieldImpacts {
     private static void detectContacts(ServerLevel level) {
         for (CloakField field : CloakFieldStore.fieldsIn(level)) {
             Vec3 c = field.center();
-            double r = field.radius();
+            double r = field.halfWidth();
             AABB around = new AABB(c.x - r, c.y, c.z - r, c.x + r, c.y + field.height(), c.z + r)
                 .inflate(CONTACT_RANGE + 1.0);
             for (Entity entity : level.getEntities((Entity) null, around, Entity::isAlive)) {

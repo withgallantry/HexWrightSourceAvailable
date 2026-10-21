@@ -63,7 +63,6 @@ void mainImage(out vec4 fragColor, in vec2 uv) {
     vec4 color2 = vec4(25./256.,195./256.,226./256.,1.000);
     vec4 lerp = vec4(mix(color1, color2, uv.x));
 
-    // fragColor = lerp;
 
     vec2 noiseOffset = vec2(-0.5, 0) * iTime;
     float noise = Unity_SimpleNoise_float(uv + noiseOffset, 35.);

@@ -40,7 +40,13 @@ class EssenceForgeCategory(guiHelper: IGuiHelper) : IRecipeCategory<EssenceForge
             .setStandardSlotBackground()
             .addItemStack(recipe.pouch)
 
-        builder.addSlot(RecipeIngredientRole.OUTPUT, EssenceForgePanel.OUTPUT_X, EssenceForgePanel.SLOT_Y)
+        if (!recipe.golemCores.isEmpty) {
+            builder.addSlot(RecipeIngredientRole.INPUT, EssenceForgePanel.GOLEM_CORES_X, EssenceForgePanel.SLOT_Y)
+                .setStandardSlotBackground()
+                .addItemStack(recipe.golemCores)
+        }
+
+        builder.addSlot(RecipeIngredientRole.OUTPUT, EssenceForgePanel.outputX(recipe), EssenceForgePanel.SLOT_Y)
             .setOutputSlotBackground()
             .addItemStacks(recipe.outputs)
     }
@@ -52,7 +58,7 @@ class EssenceForgeCategory(guiHelper: IGuiHelper) : IRecipeCategory<EssenceForge
         mouseX: Double,
         mouseY: Double
     ) {
-        arrow.draw(graphics, EssenceForgePanel.ARROW_X, EssenceForgePanel.ARROW_Y)
+        arrow.draw(graphics, EssenceForgePanel.arrowX(recipe), EssenceForgePanel.ARROW_Y)
         EssenceForgePanel.draw(graphics, recipe)
     }
 

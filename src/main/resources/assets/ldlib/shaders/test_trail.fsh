@@ -1,6 +1,4 @@
 #version 150
-// Author @patriciogv - 2015
-// http://patriciogonzalezvivo.com
 
 uniform float iTime;
 
@@ -67,7 +65,6 @@ void mainImage(out vec4 fragColor, in vec2 uv) {
     vec4 color2 = vec4(25./256.,195./256.,226./256.,1.000);
     vec4 lerp = vec4(mix(color1, color2, uv.x));
 
-    // fragColor = lerp;
 
     vec2 noiseOffset = vec2(-0.5, 0) * iTime;
     float noise = Unity_SimpleNoise_float(uv + noiseOffset, 35.);
@@ -83,11 +80,5 @@ void mainImage(out vec4 fragColor, in vec2 uv) {
 }
 
 void main() {
-    //                            fragColor = texture(iChannel0, texCoord);
     mainImage(fragColor, 1. - texCoord);
-    //                              if (texCoord.y > 0.5) {
-    //                                fragColor = vec4(1.,0.,0.,1.);
-    //                              } else {
-    //                                fragColor = vec4(0.,1.,0.,1.);
-    //                              }
 }

@@ -3,15 +3,24 @@ package com.bluup.hexwright.server.worldgen.dungeon;
 import com.bluup.hexwright.server.worldgen.HexwrightWorldgen;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
+import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
+import it.unimi.dsi.fastutil.longs.LongSet;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.levelgen.WorldgenRandom;
 import net.minecraft.world.level.levelgen.XoroshiroRandomSource;
+import net.minecraft.world.level.levelgen.structure.BoundingBox;
 import net.minecraft.world.level.levelgen.structure.Structure;
+import net.minecraft.world.level.levelgen.structure.StructurePiece;
 import net.minecraft.world.level.levelgen.structure.StructureType;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplateManager;
+import org.jetbrains.annotations.Nullable;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 public class DungeonStructure extends Structure {
@@ -66,6 +75,12 @@ public class DungeonStructure extends Structure {
         this.corruptChance = corruptChance;
     }
 
+    static @Nullable DungeonStructure in(ServerLevel level) {
+        Structure structure = level.registryAccess().registryOrThrow(Registries.STRUCTURE)
+            .get(HexwrightWorldgen.DEEP_DUNGEON_KEY);
+        return structure instanceof DungeonStructure dungeon ? dungeon : null;
+    }
+
     @Override
     protected Optional<GenerationStub> findGenerationPoint(GenerationContext context) {
         WorldgenRandom random = context.random();
@@ -76,22 +91,52 @@ public class DungeonStructure extends Structure {
         String rune = DungeonGroups.runeForSite(context.seed(), chunk);
         RandomSource extras = new XoroshiroRandomSource(context.seed() ^ chunk.toLong() * EXTRAS_SALT);
 
-        return Optional.of(new GenerationStub(origin, builder -> {
-            StructureTemplateManager templates = context.structureTemplateManager();
-            int floors = this.minFloors + random.nextInt(this.maxFloors - this.minFloors + 1);
-            int[] roomsPer = DungeonPlanner.roomsPerFloor(floors, this.lowerRooms, this.upperRooms);
-            for (DungeonPlanner.Placement placement :
-                DungeonPlanner.plan(random, floors, roomsPer, this.traps,
-                    module -> DungeonFittings.titanRoom(templates, module), extras, this.corruptChance)) {
-                BlockPos cell = origin.offset(
-                    placement.cellX() * MODULE_WIDTH,
-                    placement.level() * MODULE_HEIGHT,
-                    placement.cellZ() * MODULE_WIDTH);
-                builder.addPiece(new DungeonPiece(
-                    templates, placement.module().template(), cell, placement.rotation(), this.mobChance,
-                    placement.fittings(), rune));
+        return Optional.of(new GenerationStub(origin, builder ->
+            layOut(context.structureTemplateManager(), origin, random, extras, rune).forEach(builder::addPiece)));
+    }
+
+    List<DungeonPiece> layOut(StructureTemplateManager templates, BlockPos origin, RandomSource random,
+                              RandomSource extras, String rune) {
+        return pieces(templates, origin, plan(templates, random, extras), rune);
+    }
+
+    List<DungeonPlanner.Placement> plan(StructureTemplateManager templates, RandomSource random, RandomSource extras) {
+        int floors = this.minFloors + random.nextInt(this.maxFloors - this.minFloors + 1);
+        int[] roomsPer = DungeonPlanner.roomsPerFloor(floors, this.lowerRooms, this.upperRooms);
+        return DungeonPlanner.plan(random, floors, roomsPer, this.traps,
+            module -> DungeonFittings.titanRoom(templates, module), extras, this.corruptChance);
+    }
+
+    List<DungeonPiece> pieces(StructureTemplateManager templates, BlockPos origin,
+                              List<DungeonPlanner.Placement> placements, String rune) {
+        List<DungeonPiece> pieces = new ArrayList<>();
+        for (DungeonPlanner.Placement placement : placements) {
+            BlockPos cell = origin.offset(
+                placement.cellX() * MODULE_WIDTH,
+                placement.level() * MODULE_HEIGHT,
+                placement.cellZ() * MODULE_WIDTH);
+            pieces.add(new DungeonPiece(
+                templates, placement.module().template(), cell, placement.rotation(), this.mobChance,
+                placement.fittings(), rune));
+        }
+        return pieces;
+    }
+
+    static RandomSource extrasFor(long seed) {
+        return new XoroshiroRandomSource(seed ^ EXTRAS_SALT);
+    }
+
+    static LongSet chunksOf(List<? extends StructurePiece> pieces) {
+        LongSet chunks = new LongOpenHashSet();
+        for (StructurePiece piece : pieces) {
+            BoundingBox box = piece.getBoundingBox();
+            for (int x = box.minX() >> 4; x <= box.maxX() >> 4; x++) {
+                for (int z = box.minZ() >> 4; z <= box.maxZ() >> 4; z++) {
+                    chunks.add(ChunkPos.asLong(x, z));
+                }
             }
-        }));
+        }
+        return chunks;
     }
 
     public int lowestFloorY() {

@@ -65,9 +65,47 @@ public final class HexwrightEntities {
             .build()
     );
 
+    public static final EntityType<com.bluup.hexwright.server.inspiration.InspirationOrbEntity> INSPIRATION_ORB =
+        Registry.register(
+            BuiltInRegistries.ENTITY_TYPE,
+            Hexwright.id("inspiration_orb"),
+            FabricEntityTypeBuilder.<com.bluup.hexwright.server.inspiration.InspirationOrbEntity>create(
+                    MobCategory.MISC, com.bluup.hexwright.server.inspiration.InspirationOrbEntity::new)
+                .dimensions(EntityDimensions.scalable(0.5f, 0.5f))
+                .trackRangeChunks(6)
+                .trackedUpdateRate(5)
+                .fireImmune()
+                .build()
+        );
+
+    public static final EntityType<com.bluup.hexwright.server.weapon.SilkLineEntity> SILK_LINE = Registry.register(
+        BuiltInRegistries.ENTITY_TYPE,
+        Hexwright.id("silk_line"),
+        FabricEntityTypeBuilder.<com.bluup.hexwright.server.weapon.SilkLineEntity>create(
+                MobCategory.MISC, com.bluup.hexwright.server.weapon.SilkLineEntity::new)
+            .dimensions(EntityDimensions.scalable(0.25f, 0.25f))
+            .trackRangeBlocks(64)
+            .trackedUpdateRate(1)
+            .build()
+    );
+
+    public static final EntityType<com.bluup.hexwright.server.weapon.RisenThrallEntity> RISEN_THRALL =
+        Registry.register(
+            BuiltInRegistries.ENTITY_TYPE,
+            Hexwright.id("risen_thrall"),
+            FabricEntityTypeBuilder.<com.bluup.hexwright.server.weapon.RisenThrallEntity>create(
+                    MobCategory.MISC, com.bluup.hexwright.server.weapon.RisenThrallEntity::new)
+                .dimensions(EntityDimensions.fixed(0.6f, 1.95f))
+                .trackRangeBlocks(64)
+                .trackedUpdateRate(2)
+                .build()
+        );
+
     private HexwrightEntities() {
     }
 
     public static void register() {
+        net.fabricmc.fabric.api.object.builder.v1.entity.FabricDefaultAttributeRegistry.register(
+            RISEN_THRALL, com.bluup.hexwright.server.weapon.RisenThrallEntity.createAttributes());
     }
 }

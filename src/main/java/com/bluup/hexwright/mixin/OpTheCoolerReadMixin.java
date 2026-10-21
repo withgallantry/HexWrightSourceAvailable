@@ -5,12 +5,14 @@ import at.petrak.hexcasting.api.casting.iota.DoubleIota;
 import at.petrak.hexcasting.api.casting.iota.Iota;
 import at.petrak.hexcasting.api.casting.iota.ListIota;
 import at.petrak.hexcasting.api.casting.iota.NullIota;
+import at.petrak.hexcasting.api.casting.iota.PatternIota;
 import at.petrak.hexcasting.api.casting.iota.Vec3Iota;
 import at.petrak.hexcasting.common.casting.actions.rw.OpTheCoolerRead;
 import com.bluup.hexwright.server.block.ResonanceTowerBlockEntity;
 import com.bluup.hexwright.server.block.ResonantAnchorBlockEntity;
 import com.bluup.hexwright.server.cloak.CloakField;
 import com.bluup.hexwright.server.cloak.ShieldGeneratorBlockEntity;
+import com.bluup.hexwright.server.constructshand.ConstructsHandBlockEntity;
 import com.bluup.hexwright.server.network.ResonanceIota;
 import com.bluup.hexwright.server.network.ResonanceNames;
 import com.bluup.hexwright.server.network.ResonantAttunement;
@@ -95,7 +97,29 @@ public abstract class OpTheCoolerReadMixin {
         CloakField field = generator.field();
         cir.setReturnValue(List.of(field == null ? new NullIota() : new ListIota(List.<Iota>of(
             new Vec3Iota(field.center()),
-            new DoubleIota(field.radius()),
+            new DoubleIota(field.width()),
             new DoubleIota(field.height())))));
+    }
+
+    @Inject(
+        method = "execute(Ljava/util/List;Lat/petrak/hexcasting/api/casting/eval/CastingEnvironment;)Ljava/util/List;",
+        at = @At("HEAD"),
+        cancellable = true,
+        remap = false
+    )
+    private void hexwright$readConstructsHandKey(List<? extends Iota> args, CastingEnvironment env,
+                                                 CallbackInfoReturnable<List<Iota>> cir) {
+        if (args.isEmpty() || !(args.get(0) instanceof Vec3Iota vecIota)) {
+            return;
+        }
+        Vec3 vec = vecIota.getVec3();
+        BlockPos pos = BlockPos.containing(vec);
+        if (!(env.getWorld().getBlockEntity(pos) instanceof ConstructsHandBlockEntity hand)) {
+            return;
+        }
+
+        env.assertVecInRange(vec);
+
+        cir.setReturnValue(List.of(hand.getKey() == null ? new NullIota() : new PatternIota(hand.getKey())));
     }
 }

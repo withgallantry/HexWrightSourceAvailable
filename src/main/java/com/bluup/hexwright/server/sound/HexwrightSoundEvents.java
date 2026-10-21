@@ -11,6 +11,7 @@ public final class HexwrightSoundEvents {
     private static final ResourceLocation STAFF_CORE_PROJECTILE_FIRE_ID = Hexwright.id("staff_core_projectile_fire");
     private static final ResourceLocation PORTAL_OPEN_CLOSE_ID = Hexwright.id("portal_open_close");
     private static final ResourceLocation BINDSTONE_NOTE_ID = Hexwright.id("bindstone_note");
+    private static final ResourceLocation BINDSTONE_CLAIM_ID = Hexwright.id("bindstone_claim");
     private static final ResourceLocation QUARTZ_GOLEM_ARMSLAM_ID = Hexwright.id("quartz_golem_armslam");
     private static final ResourceLocation QUARTZ_GOLEM_STOMP_ID = Hexwright.id("quartz_golem_stomp");
     private static final ResourceLocation QUARTZ_GOLEM_SHARDGRAB_ID = Hexwright.id("quartz_golem_shardgrab");
@@ -26,10 +27,12 @@ public final class HexwrightSoundEvents {
     private static final ResourceLocation JOURNAL_CLICK_ID = Hexwright.id("journal_click");
     private static final ResourceLocation DUST_FORM_ID = Hexwright.id("dust_form");
     private static final ResourceLocation CLOAK_FIELD_HUM_ID = Hexwright.id("cloak_field_hum");
+    private static final ResourceLocation SOULFORGED_MANIFEST_ID = Hexwright.id("soulforged_manifest");
 
     private static SoundEvent staffCoreProjectileFire = SoundEvents.BLAZE_SHOOT;
     private static SoundEvent portalOpenClose = SoundEvents.PORTAL_TRIGGER;
     private static SoundEvent bindstoneNote = SoundEvents.NOTE_BLOCK_CHIME.value();
+    private static SoundEvent bindstoneClaim = SoundEvents.CONDUIT_DEACTIVATE;
     private static SoundEvent quartzGolemArmslam = SoundEvents.IRON_GOLEM_ATTACK;
     private static SoundEvent quartzGolemStomp = SoundEvents.GENERIC_EXPLODE;
     private static SoundEvent quartzGolemShardgrab = SoundEvents.IRON_GOLEM_ATTACK;
@@ -45,6 +48,7 @@ public final class HexwrightSoundEvents {
     private static SoundEvent journalClick = SoundEvents.BOOK_PAGE_TURN;
     private static SoundEvent dustForm = SoundEvents.SAND_BREAK;
     private static SoundEvent cloakFieldHum = SoundEvents.BEACON_AMBIENT;
+    private static SoundEvent soulforgedManifest = SoundEvents.SOUL_ESCAPE;
     private static boolean registered;
 
     private HexwrightSoundEvents() {
@@ -58,6 +62,7 @@ public final class HexwrightSoundEvents {
         staffCoreProjectileFire = registerOrReuse(STAFF_CORE_PROJECTILE_FIRE_ID, staffCoreProjectileFire);
         portalOpenClose = registerOrReuse(PORTAL_OPEN_CLOSE_ID, portalOpenClose);
         bindstoneNote = registerOrReuse(BINDSTONE_NOTE_ID, bindstoneNote);
+        bindstoneClaim = registerOrReuse(BINDSTONE_CLAIM_ID, bindstoneClaim);
         quartzGolemArmslam = registerOrReuse(QUARTZ_GOLEM_ARMSLAM_ID, quartzGolemArmslam);
         quartzGolemStomp = registerOrReuse(QUARTZ_GOLEM_STOMP_ID, quartzGolemStomp);
         quartzGolemShardgrab = registerOrReuse(QUARTZ_GOLEM_SHARDGRAB_ID, quartzGolemShardgrab);
@@ -73,12 +78,24 @@ public final class HexwrightSoundEvents {
         journalClick = registerOrReuse(JOURNAL_CLICK_ID, journalClick);
         dustForm = registerOrReuse(DUST_FORM_ID, dustForm);
         cloakFieldHum = registerOrReuse(CLOAK_FIELD_HUM_ID, cloakFieldHum);
+        soulforgedManifest = registerOrReuse(SOULFORGED_MANIFEST_ID, soulforgedManifest);
         com.bluup.hexwright.server.boss.ancient.AncientSounds.register();
         com.bluup.hexwright.server.boss.storm.WitherStormSounds.register();
         com.bluup.hexwright.server.boss.cog.CogSentinelSounds.register();
         com.bluup.hexwright.server.boss.corrupt.CorruptExperimentSounds.register();
+        com.bluup.hexwright.server.boss.talus.TalusKnightSounds.register();
+        com.bluup.hexwright.server.boss.tower.TowerSkeletonSounds.register();
+        com.bluup.hexwright.server.boss.magnus.MagnusSounds.register();
+        com.bluup.hexwright.server.dungeon.TravelStoneSounds.register();
         com.bluup.hexwright.server.weapon.StarfallSounds.register();
         com.bluup.hexwright.server.weapon.FrostbiteSounds.register();
+        com.bluup.hexwright.server.weapon.KingOfPurgatorySounds.register();
+        com.bluup.hexwright.server.weapon.SilverStarlightSounds.register();
+        com.bluup.hexwright.server.weapon.AbyssCleaverSounds.register();
+        com.bluup.hexwright.server.weapon.DragonbornSounds.register();
+        com.bluup.hexwright.server.weapon.StillnessSounds.register();
+        com.bluup.hexwright.server.weapon.ShadowMonarchSounds.register();
+        com.bluup.hexwright.server.weapon.PestiferousSounds.register();
         com.bluup.hexwright.server.powerorb.PowerOrbSounds.register();
         registered = true;
     }
@@ -111,6 +128,10 @@ public final class HexwrightSoundEvents {
 
     public static SoundEvent bindstoneNote() {
         return bindstoneNote;
+    }
+
+    public static SoundEvent bindstoneClaim() {
+        return bindstoneClaim;
     }
 
     public static SoundEvent quartzGolemArmslam() {
@@ -171,5 +192,9 @@ public final class HexwrightSoundEvents {
 
     public static SoundEvent cloakFieldHum() {
         return cloakFieldHum;
+    }
+
+    public static SoundEvent soulforgedManifest() {
+        return soulforgedManifest;
     }
 }

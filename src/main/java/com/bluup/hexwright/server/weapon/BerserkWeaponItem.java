@@ -7,6 +7,7 @@ import at.petrak.hexcasting.api.utils.NBTHelper;
 import com.bluup.hexwright.HexwrightDebug;
 import com.bluup.hexwright.common.animation.PlayerAnimationLayer;
 import com.bluup.hexwright.inits.HexwrightNetworking;
+import com.bluup.hexwright.server.armour.Restylable;
 import com.bluup.hexwright.server.item.ArtifactItem;
 import com.bluup.hexwright.server.item.EngravableItem;
 import com.bluup.hexwright.server.item.RechargingItem;
@@ -39,7 +40,7 @@ public abstract class BerserkWeaponItem extends SwordItem
 
     private static final String TAG_HEX_DATA = "data";
 
-    private static final int SWING_RECOVERY_TICKS = 12;
+    static final int SWING_RECOVERY_TICKS = 12;
 
     private final String swingClip;
 
@@ -115,6 +116,11 @@ public abstract class BerserkWeaponItem extends SwordItem
 
     @Nullable
     protected Component swingTooltipExtra() {
+        return null;
+    }
+
+    @Nullable
+    protected Component blowTooltip() {
         return null;
     }
 
@@ -211,6 +217,13 @@ public abstract class BerserkWeaponItem extends SwordItem
     public void appendHoverText(ItemStack stack, @Nullable Level level, List<Component> tooltip,
                                 TooltipFlag flag) {
         appendQualityTooltip(tooltip);
+        if (this instanceof Restylable restylable) {
+            restylable.appendLookTooltip(stack, tooltip);
+        }
+        Component blow = blowTooltip();
+        if (blow != null) {
+            WeaponTooltips.add(tooltip, blow, ChatFormatting.GRAY);
+        }
         WeaponTooltips.add(tooltip, swingTooltip(), ChatFormatting.GRAY);
         Component extra = swingTooltipExtra();
         if (extra != null) {

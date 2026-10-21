@@ -1,7 +1,5 @@
 #version 150
 
-// Deep purple magic smoke background for Minecraft.
-// Safer/brighter version based closely on the original fbm shader structure.
 
 uniform vec2 iResolution;
 uniform float iTime;
@@ -57,21 +55,17 @@ mat2 rot2(float a) {
 void mainImage(out vec4 outColor, in vec2 fragCoord) {
     vec2 uv = fragCoord.xy / iResolution.xy;
 
-    // Keep coordinates similar to your original shader.
     vec2 st = uv * 3.0;
 
-    // Centered coordinates for swirl/vignette.
     vec2 p = uv - 0.5;
     p.x *= iResolution.x / iResolution.y;
     float d = length(p);
 
     float t = iTime * 0.28;
 
-    // Swirl the sampling space.
     float swirl = 0.9 / (1.0 + d * 5.0);
     st = rot2(swirl + sin(t + d * 7.0) * 0.12) * (st - vec2(1.5)) + vec2(1.5);
 
-    // Domain-warped smoke, similar to the original.
     vec2 q = vec2(0.0);
     q.x = fbm(st + vec2(0.00, 0.12 * t));
     q.y = fbm(st + vec2(1.00, 0.50) - 0.10 * t);
@@ -82,12 +76,10 @@ void mainImage(out vec4 outColor, in vec2 fragCoord) {
 
     float f = fbm(st + r * 1.8);
 
-    // Smoke masks.
     float smoke = smoothstep(0.22, 0.92, f);
     float wisps = smoothstep(0.48, 0.95, f + r.x * 0.35);
     float glow = 1.0 - smoothstep(0.0, 0.95, d);
 
-    // Brighter deep purple palette.
     vec3 darkPurple = vec3(0.055, 0.015, 0.095);
     vec3 basePurple = vec3(0.150, 0.035, 0.240);
     vec3 smokePurple = vec3(0.360, 0.120, 0.540);
@@ -95,16 +87,13 @@ void mainImage(out vec4 outColor, in vec2 fragCoord) {
 
     vec3 color = darkPurple;
 
-    // Make sure it never collapses to black.
     color = mix(color, basePurple, 0.55 + glow * 0.25);
     color = mix(color, smokePurple, smoke * 0.70);
     color += magicPurple * wisps * 0.20;
     color += magicPurple * glow * 0.08;
 
-    // Gentle animated pulse.
     color *= 0.90 + 0.10 * sin(iTime * 0.8 + f * 6.0);
 
-    // Very mild vignette, not enough to black out the square.
     float vignette = 1.0 - smoothstep(0.35, 1.15, d);
     color *= 0.82 + vignette * 0.18;
 

@@ -5,10 +5,12 @@ import at.petrak.hexcasting.api.casting.iota.IotaType;
 import com.bluup.hexwright.server.block.ExchangeBridgeBlockEntity;
 import com.bluup.hexwright.server.block.HarmonicExchangeBlockEntity;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.SectionPos;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -30,7 +32,7 @@ public final class HarmonicNetwork {
             return false;
         }
         ServerLevel level = server.getLevel(exchange.dimension());
-        if (level != null && level.isLoaded(exchange.pos())) {
+        if (isChunkReady(level, exchange.pos())) {
             if (!(level.getBlockEntity(exchange.pos()) instanceof HarmonicExchangeBlockEntity block)
                 || !networkKey.equals(block.networkKey())) {
                 state.unregisterAt(exchange.dimension(), exchange.pos());
@@ -38,6 +40,11 @@ public final class HarmonicNetwork {
             }
         }
         return true;
+    }
+
+    static boolean isChunkReady(@Nullable ServerLevel level, BlockPos pos) {
+        return level != null && level.getChunkSource().getChunkNow(
+            SectionPos.blockToSectionCoord(pos.getX()), SectionPos.blockToSectionCoord(pos.getZ())) != null;
     }
 
 
@@ -119,7 +126,7 @@ public final class HarmonicNetwork {
         ResourceKey<Level> dimension = exchange.dimension();
         BlockPos pos = exchange.pos();
         ServerLevel level = server.getLevel(dimension);
-        if (level == null || !level.isLoaded(pos)) {
+        if (!isChunkReady(level, pos)) {
             return;
         }
         if (level.getBlockEntity(pos) instanceof HarmonicExchangeBlockEntity block) {
@@ -129,7 +136,7 @@ public final class HarmonicNetwork {
 
     private static void notifyBridge(MinecraftServer server, HarmonicBridgeState.Bridge bridge) {
         ServerLevel level = server.getLevel(bridge.dimension());
-        if (level == null || !level.isLoaded(bridge.pos())) {
+        if (!isChunkReady(level, bridge.pos())) {
             return;
         }
         if (level.getBlockEntity(bridge.pos()) instanceof ExchangeBridgeBlockEntity block) {

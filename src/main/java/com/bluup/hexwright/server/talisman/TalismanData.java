@@ -30,6 +30,7 @@ public final class TalismanData {
         MINE(40L, INPUT_FLOOR),
         TRAVERSE(20L, INPUT_FLOOR),
         INTERACT(20L, INPUT_FLOOR),
+        COMMAND(20L, INPUT_FLOOR),
         BRINK(6000L, 6000L, false);
 
         public final long baseCooldownTicks;
@@ -98,7 +99,8 @@ public final class TalismanData {
             return Optional.empty();
         }
         try {
-            return Optional.of(Trigger.valueOf(root.getString(TAG_TRIGGER)));
+            Trigger trigger = Trigger.valueOf(root.getString(TAG_TRIGGER));
+            return trigger.bindable ? Optional.of(trigger) : Optional.empty();
         } catch (IllegalArgumentException e) {
             return Optional.empty();
         }

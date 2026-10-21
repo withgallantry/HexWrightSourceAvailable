@@ -73,11 +73,16 @@ public final class CloakFieldExclusion {
 
     private static void expel(ServerLevel level, ServerPlayer player, CloakField field) {
         Vec3 c = field.center();
-        Vec3 out = new Vec3(player.getX() - c.x, 0.0, player.getZ() - c.z);
-        out = out.lengthSqr() < 1.0e-4 ? new Vec3(1.0, 0.0, 0.0) : out.normalize();
-        double reach = field.radius() + SET_DOWN_MARGIN;
-        double x = c.x + out.x * reach;
-        double z = c.z + out.z * reach;
+        double dx = player.getX() - c.x;
+        double dz = player.getZ() - c.z;
+        double reach = field.halfWidth() + SET_DOWN_MARGIN;
+        double x = player.getX();
+        double z = player.getZ();
+        if (Math.abs(dx) >= Math.abs(dz)) {
+            x = c.x + (dx < 0.0 ? -reach : reach);
+        } else {
+            z = c.z + (dz < 0.0 ? -reach : reach);
+        }
         double y = standingY(level, player, x, z);
 
         player.stopRiding();

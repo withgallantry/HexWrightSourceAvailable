@@ -28,7 +28,7 @@ public final class SpellcastingGridCommands {
     private static int set(FabricClientCommandSource source, boolean enabled) {
         PatternDrawBatch.setEnabled(enabled);
         feedback(source, enabled
-            ? "Grid batching on - one draw call for the whole grid."
+            ? "Grid batching on - one draw call for the whole grid, one per caster's floating patterns."
             : "Grid batching off - Hex Casting draws each stroke and dot itself.");
         return SINGLE_SUCCESS;
     }

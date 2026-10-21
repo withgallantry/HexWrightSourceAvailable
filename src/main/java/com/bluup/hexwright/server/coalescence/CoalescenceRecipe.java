@@ -1,6 +1,6 @@
 package com.bluup.hexwright.server.coalescence;
 
-import com.bluup.hexwright.common.aspects.AspectMappings;
+import com.bluup.hexwright.common.aspects.RecipeAspects;
 import com.bluup.hexwright.common.staff_assembly.calc.IngredientCategory;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -31,9 +31,7 @@ public record CoalescenceRecipe(
     }
 
     public static double smeltBackTotal(ItemStack stack) {
-        return AspectMappings.profileFor(stack.getItem())
-            .map(profile -> profile.essenceYield() * profile.data().categories().size())
-            .orElse(0.0) * stack.getCount();
+        return RecipeAspects.extractableTotal(stack.getItem()) * stack.getCount();
     }
 
     public static double minimumCost(ItemStack result) {

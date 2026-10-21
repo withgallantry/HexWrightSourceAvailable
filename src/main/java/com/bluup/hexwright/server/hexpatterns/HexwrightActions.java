@@ -19,6 +19,7 @@ import at.petrak.hexcasting.api.casting.mishaps.MishapInvalidIota;
 import at.petrak.hexcasting.api.misc.MediaConstants;
 import at.petrak.hexcasting.xplat.IXplatAbstractions;
 import com.bluup.hexwright.Hexwright;
+import com.bluup.hexwright.HexwrightDev;
 import com.bluup.hexwright.common.staff_assembly.calc.IngredientCategory;
 import com.bluup.hexwright.server.block.CoalescerBlockEntity;
 import com.bluup.hexwright.server.coalescence.CoalescenceDenials;
@@ -51,8 +52,10 @@ public final class HexwrightActions {
             new ActionRegistryEntry(HexPattern.fromAngles("ewedadadeade", HexDir.WEST), ASPECT_DISTILLATION));
         Registry.register(registry, Hexwright.id("coalescing_gambit"),
             new ActionRegistryEntry(HexPattern.fromAngles("dadadeewe", HexDir.NORTH_EAST), COALESCING_GAMBIT));
-        Registry.register(registry, Hexwright.id("artisans_selection"),
-            new ActionRegistryEntry(HexPattern.fromAngles("dadadeewewdwwwd", HexDir.NORTH_EAST), ARTISANS_SELECTION));
+        if (HexwrightDev.ARTISANS_SELECTION) {
+            Registry.register(registry, Hexwright.id("artisans_selection"),
+                new ActionRegistryEntry(HexPattern.fromAngles("dadadeewewdwwwd", HexDir.NORTH_EAST), ARTISANS_SELECTION));
+        }
     }
 
     private static final ConstMediaAction ESSENCE_PURIFICATION = new HexwrightConstMediaAction() {

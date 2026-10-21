@@ -2,6 +2,7 @@ package com.bluup.hexwright.server.worldgen.hexwrightbase;
 
 import com.bluup.hexwright.server.worldgen.HexwrightWorldgen;
 import com.bluup.hexwright.server.worldgen.SiteSurvey;
+import com.bluup.hexwright.server.worldgen.quota.BorderQuota;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.core.BlockPos;
@@ -14,7 +15,7 @@ import net.minecraft.world.level.levelgen.structure.StructureType;
 
 import java.util.Optional;
 
-public class HexwrightBaseStructure extends Structure {
+public class HexwrightBaseStructure extends Structure implements BorderQuota {
 
     private static final int FLAT_TOLERANCE = 10;
 
@@ -25,18 +26,26 @@ public class HexwrightBaseStructure extends Structure {
             settingsCodec(instance),
             Codec.intRange(-64, 320).optionalFieldOf("min_y", 60).forGetter(s -> s.minY),
             Codec.intRange(-64, 320).optionalFieldOf("max_y", 160).forGetter(s -> s.maxY),
-            Codec.intRange(0, 64).optionalFieldOf("flatness", FLAT_TOLERANCE).forGetter(s -> s.flatness)
+            Codec.intRange(0, 64).optionalFieldOf("flatness", FLAT_TOLERANCE).forGetter(s -> s.flatness),
+            Codec.intRange(0, 64).optionalFieldOf("minimum_within_border", 0).forGetter(s -> s.minimumWithinBorder)
         ).apply(instance, HexwrightBaseStructure::new));
 
     private final int minY;
     private final int maxY;
     private final int flatness;
+    private final int minimumWithinBorder;
 
-    public HexwrightBaseStructure(StructureSettings settings, int minY, int maxY, int flatness) {
+    public HexwrightBaseStructure(StructureSettings settings, int minY, int maxY, int flatness, int minimumWithinBorder) {
         super(settings);
         this.minY = minY;
         this.maxY = Math.max(minY, maxY);
         this.flatness = flatness;
+        this.minimumWithinBorder = minimumWithinBorder;
+    }
+
+    @Override
+    public int minimumWithinBorder() {
+        return this.minimumWithinBorder;
     }
 
     @Override
@@ -47,7 +56,7 @@ public class HexwrightBaseStructure extends Structure {
         int originX = chunk.getMinBlockX();
         int originZ = chunk.getMinBlockZ();
 
-        int reach = Mth.ceil(HexwrightBasePiece.SHIELD_RADIUS);
+        int reach = Mth.ceil(HexwrightBasePiece.SHIELD_WIDTH / 2.0f);
         int centreX = originX + footprint.getX() / 2;
         int centreZ = originZ + footprint.getZ() / 2;
         SiteSurvey site = SiteSurvey.of(context, centreX - reach, centreZ - reach,

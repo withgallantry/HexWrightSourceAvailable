@@ -1,20 +1,20 @@
 package com.bluup.hexwright.client.render.emissive;
 
 import com.bluup.hexwright.client.render.IrisCompat;
+import com.bluup.hexwright.client.render.SodiumCompat;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import com.mojang.math.Transformation;
+import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
+import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientChunkEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.RenderType;
-import net.minecraft.client.renderer.block.BlockModelShaper;
 import net.minecraft.client.renderer.block.model.BakedQuad;
 import net.minecraft.client.renderer.culling.Frustum;
 import net.minecraft.client.renderer.texture.OverlayTexture;
@@ -22,10 +22,7 @@ import net.minecraft.client.resources.model.BakedModel;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.SectionPos;
-import net.minecraft.util.Mth;
 import net.minecraft.util.RandomSource;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
@@ -36,13 +33,8 @@ import java.util.List;
 public final class BlockGlow {
     private static final Direction[] DIRECTIONS = Direction.values();
 
-    private static final List<Draw> VISIBLE = new ArrayList<>();
+    private static final List<GlowBlockIndex.Glow> VISIBLE = new ArrayList<>();
     private static final RandomSource RANDOM = RandomSource.create();
-    private static final BlockPos.MutableBlockPos NEIGHBOUR = new BlockPos.MutableBlockPos();
-
-    @Nullable
-    private static ClientLevel indexedLevel;
-
 
     private static final MultiBufferSource.BufferSource MASKS =
         MultiBufferSource.immediate(new BufferBuilder(2048));
@@ -52,11 +44,12 @@ public final class BlockGlow {
 
     public static void register() {
         WorldRenderEvents.AFTER_TRANSLUCENT.register(BlockGlow::render);
-        ClientChunkEvents.CHUNK_UNLOAD.register((level, chunk) -> GlowBlockIndex.invalidate(chunk.getPos()));
+        ClientChunkEvents.CHUNK_LOAD.register((level, chunk) -> GlowBlockIndex.onChunkLoaded(level, chunk.getPos()));
+        ClientChunkEvents.CHUNK_UNLOAD.register((level, chunk) -> GlowBlockIndex.onChunkUnloaded(level, chunk.getPos()));
     }
 
-    public static void onBlockChanged(BlockPos pos) {
-        GlowBlockIndex.invalidate(pos);
+    public static void onBlockChanged(ClientLevel level, BlockPos pos) {
+        GlowBlockIndex.onBlockChanged(level, pos);
     }
 
     @Nullable
@@ -83,10 +76,6 @@ public final class BlockGlow {
         if (IrisCompat.isRenderingShadowPass()) {
             return;
         }
-        if (level != indexedLevel) {
-            GlowBlockIndex.clear();
-            indexedLevel = level;
-        }
         if (!GlowBlockIndex.anyGlowingBlocks()) {
             return;
         }
@@ -107,9 +96,9 @@ public final class BlockGlow {
             outlineAll(consumers.getBuffer(RenderType.lines()), poses, camera);
         }
         BlockGlowTrace.onSubmit(MASKS, true);
-        emitAll(MASKS.getBuffer(layer), poses, camera, level, strength, lift, debugTint);
+        emitAll(MASKS.getBuffer(layer), poses, camera, strength, lift, debugTint);
         MASKS.endBatch();
-        EmissiveBloom.capture(layer, consumer -> emitAll(consumer, poses, camera, level, strength, lift, debugTint));
+        EmissiveBloom.capture(layer, consumer -> emitAll(consumer, poses, camera, strength, lift, debugTint));
 
         BlockGlowTrace.endPass();
         VISIBLE.clear();
@@ -121,53 +110,37 @@ public final class BlockGlow {
                                 EmissiveBloomConfig config) {
         Vec3 camera = context.camera().getPosition();
         Frustum frustum = context.frustum();
-        BlockModelShaper shaper = Minecraft.getInstance().getBlockRenderer().getBlockModelShaper();
-
-        int reach = config.blockGlowDistance;
-        double reachSq = (double) reach * reach;
-        int centreX = SectionPos.blockToSectionCoord(Mth.floor(camera.x));
-        int centreY = SectionPos.blockToSectionCoord(Mth.floor(camera.y));
-        int centreZ = SectionPos.blockToSectionCoord(Mth.floor(camera.z));
-        int span = (reach >> 4) + 1;
+        double reachSq = (double) config.blockGlowDistance * config.blockGlowDistance;
 
         VISIBLE.clear();
-        BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
-        for (int x = -span; x <= span; x++) {
-            for (int y = -span; y <= span; y++) {
-                for (int z = -span; z <= span; z++) {
-                    int sectionX = centreX + x;
-                    int sectionY = centreY + y;
-                    int sectionZ = centreZ + z;
-                    if (frustum != null && !frustum.isVisible(sectionBox(sectionX, sectionY, sectionZ))) {
-                        continue;
-                    }
-                    for (long packed : GlowBlockIndex.positions(level, sectionX, sectionY, sectionZ)) {
-                        pos.set(BlockPos.getX(packed), BlockPos.getY(packed), BlockPos.getZ(packed));
-                        if (pos.distToCenterSqr(camera) > reachSq) {
-                            continue;
-                        }
-                        BlockState state = level.getBlockState(pos);
-                        BakedModel model = shaper.getBlockModel(state);
-                        BakedModel glow = glowTwinOf(model);
-                        if (glow != null) {
-                            VISIBLE.add(new Draw(pos.immutable(), state, glow, rotationOf(model)));
-                        }
-                    }
+        for (Long2ObjectMap.Entry<GlowBlockIndex.Glow[]> section
+            : Long2ObjectMaps.fastIterable(GlowBlockIndex.litSections(level))) {
+            AABB box = sectionBox(section.getLongKey());
+            if (distanceSqToBox(camera, box) > reachSq
+                || frustum != null && !frustum.isVisible(box)) {
+                continue;
+            }
+            for (GlowBlockIndex.Glow glow : section.getValue()) {
+                if (glow.pos().distToCenterSqr(camera) <= reachSq
+                    && level.getBlockState(glow.pos()) == glow.state()) {
+                    VISIBLE.add(glow);
                 }
             }
         }
     }
 
-    @Nullable
-    private static Transformation rotationOf(BakedModel model) {
-        return model instanceof EmissiveBakedModel emissive ? emissive.modelRotation() : null;
+    private static AABB sectionBox(long section) {
+        double x = SectionPos.sectionToBlockCoord(SectionPos.x(section));
+        double y = SectionPos.sectionToBlockCoord(SectionPos.y(section));
+        double z = SectionPos.sectionToBlockCoord(SectionPos.z(section));
+        return new AABB(x, y, z, x + 16.0, y + 16.0, z + 16.0);
     }
 
-    private static AABB sectionBox(int sectionX, int sectionY, int sectionZ) {
-        double x = SectionPos.sectionToBlockCoord(sectionX);
-        double y = SectionPos.sectionToBlockCoord(sectionY);
-        double z = SectionPos.sectionToBlockCoord(sectionZ);
-        return new AABB(x, y, z, x + 16.0, y + 16.0, z + 16.0);
+    private static double distanceSqToBox(Vec3 point, AABB box) {
+        double dx = Math.max(Math.max(box.minX - point.x, point.x - box.maxX), 0.0);
+        double dy = Math.max(Math.max(box.minY - point.y, point.y - box.maxY), 0.0);
+        double dz = Math.max(Math.max(box.minZ - point.z, point.z - box.maxZ), 0.0);
+        return dx * dx + dy * dy + dz * dz;
     }
 
     private static RenderType pickLayer(EmissiveBloomConfig config) {
@@ -177,7 +150,7 @@ public final class BlockGlow {
     }
 
     private static void outlineAll(VertexConsumer consumer, PoseStack poses, Vec3 camera) {
-        for (Draw draw : VISIBLE) {
+        for (GlowBlockIndex.Glow draw : VISIBLE) {
             BlockPos pos = draw.pos();
             poses.pushPose();
             poses.translate(pos.getX() - camera.x, pos.getY() - camera.y, pos.getZ() - camera.z);
@@ -188,8 +161,8 @@ public final class BlockGlow {
     }
 
     private static void emitAll(VertexConsumer consumer, PoseStack poses, Vec3 camera,
-                                ClientLevel level, float strength, float lift, boolean debugTint) {
-        for (Draw draw : VISIBLE) {
+                                float strength, float lift, boolean debugTint) {
+        for (GlowBlockIndex.Glow draw : VISIBLE) {
             BlockPos pos = draw.pos();
             poses.pushPose();
             poses.translate(pos.getX() - camera.x, pos.getY() - camera.y, pos.getZ() - camera.z);
@@ -201,8 +174,7 @@ public final class BlockGlow {
 
             long seed = draw.state().getSeed(pos);
             for (Direction direction : DIRECTIONS) {
-                NEIGHBOUR.setWithOffset(pos, direction);
-                if (!Block.shouldRenderFace(draw.state(), level, pos, direction, NEIGHBOUR)) {
+                if (!draw.drawsFace(direction)) {
                     continue;
                 }
                 poses.pushPose();
@@ -227,10 +199,7 @@ public final class BlockGlow {
         for (BakedQuad quad : quads) {
             consumer.putBulkData(pose, quad, red, green, blue,
                 LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY);
+            SodiumCompat.markSpriteActive(quad.getSprite());
         }
-    }
-
-    private record Draw(BlockPos pos, BlockState state, BakedModel glow,
-                        @Nullable Transformation rotation) {
     }
 }

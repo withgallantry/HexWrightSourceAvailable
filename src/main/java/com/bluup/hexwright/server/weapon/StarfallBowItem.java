@@ -47,7 +47,7 @@ public class StarfallBowItem extends GreatBowItem implements ArtifactItem {
         }
 
         if (level instanceof ServerLevel serverLevel && player instanceof ServerPlayer archer) {
-            setNextSkyfallTick(stack, level.getGameTime() + SKYFALL_COOLDOWN_TICKS);
+            startAbilityRecharge(stack, level, ROOT_TAG, TAG_NEXT_SKYFALL_TICK, SKYFALL_COOLDOWN_TICKS);
             CompoundTag hex = readIotaTag(stack);
             PiercingSkyfall.fire(serverLevel, archer, hex == null || hex.isEmpty() ? null : hex);
         }
@@ -55,18 +55,8 @@ public class StarfallBowItem extends GreatBowItem implements ArtifactItem {
     }
 
 
-    private static long nextSkyfallTick(ItemStack stack) {
-        CompoundTag root = stack.getTagElement(ROOT_TAG);
-        return root == null ? 0L : root.getLong(TAG_NEXT_SKYFALL_TICK);
-    }
-
-    private static void setNextSkyfallTick(ItemStack stack, long tick) {
-        stack.getOrCreateTagElement(ROOT_TAG).putLong(TAG_NEXT_SKYFALL_TICK, tick);
-    }
-
     private static long skyfallRemaining(ItemStack stack, Level level) {
-        long remaining = nextSkyfallTick(stack) - level.getGameTime();
-        return Math.max(0L, Math.min(remaining, SKYFALL_COOLDOWN_TICKS));
+        return abilityRemaining(stack, level, ROOT_TAG, TAG_NEXT_SKYFALL_TICK, SKYFALL_COOLDOWN_TICKS);
     }
 
     @Override

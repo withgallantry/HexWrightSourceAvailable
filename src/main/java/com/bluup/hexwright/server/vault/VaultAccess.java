@@ -38,18 +38,25 @@ public final class VaultAccess {
     }
 
     public static boolean mayCross(PortalPair pair, int side, Entity entity) {
-        if (!pair.isSessionBound() || !(entity instanceof ServerPlayer player)) {
-            return true;
-        }
-        if (VaultDimension.isVaultLevel(player.level())) {
+        if (!pair.isSessionBound() || VaultDimension.isVaultLevel(entity.level())) {
             return true;
         }
         VaultPortalSession session = VaultManager.sessionByPair(pair.id());
-        if (session == null) {
+        VaultRecord record = session == null || entity.getServer() == null
+            ? null
+            : VaultManager.getVault(entity.getServer(), session.vaultId());
+        if (record == null) {
             return true;
         }
-        VaultRecord record = VaultManager.getVault(player.server, session.vaultId());
-        return record == null || mayEnter(record, session, player.getUUID());
+        if (entity instanceof ServerPlayer player && !mayEnter(record, session, player.getUUID())) {
+            return false;
+        }
+        for (Entity rider : entity.getIndirectPassengers()) {
+            if (rider instanceof ServerPlayer player && !mayEnter(record, session, player.getUUID())) {
+                return false;
+            }
+        }
+        return true;
     }
 
 
@@ -74,6 +81,22 @@ public final class VaultAccess {
         }
         VaultRegistry.get(server).setDirty();
         return invited;
+    }
+
+    public static String revokeGuest(MinecraftServer server, VaultRecord record, int index) {
+        Map.Entry<UUID, String> guest = record.allowed().entrySet().stream()
+            .skip(index)
+            .findFirst()
+            .orElseThrow(() -> new IndexOutOfBoundsException(index));
+        String name = displayName(guest);
+        record.revoke(guest.getKey());
+        VaultRegistry.get(server).setDirty();
+        return name;
+    }
+
+    public static void revokeAll(MinecraftServer server, VaultRecord record) {
+        record.revokeAll();
+        VaultRegistry.get(server).setDirty();
     }
 
 

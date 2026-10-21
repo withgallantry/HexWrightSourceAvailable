@@ -2,9 +2,7 @@ package com.bluup.hexwright.compat.ears;
 
 import com.bluup.hexwright.Hexwright;
 import com.bluup.hexwright.HexwrightDebug;
-import com.bluup.hexwright.server.armour.CapeOfPassageItem;
 import com.bluup.hexwright.server.armour.HexwrightArmourItem;
-import com.bluup.hexwright.server.armour.MantleOfAscensionItem;
 import com.unascribed.ears.api.EarsFeatureType;
 import com.unascribed.ears.api.iface.EarsInhibitor;
 import com.unascribed.ears.api.registry.EarsInhibitorRegistry;
@@ -35,9 +33,7 @@ public final class EarsChestInhibitor implements EarsInhibitor {
     }
 
     private static boolean isCustomModelChestplate(Item item) {
-        return item instanceof MantleOfAscensionItem
-            || item instanceof CapeOfPassageItem
-            || (item instanceof HexwrightArmourItem armour
-                && armour.getType() == ArmorItem.Type.CHESTPLATE);
+        return item instanceof HexwrightArmourItem armour
+            && armour.getType() == ArmorItem.Type.CHESTPLATE;
     }
 }

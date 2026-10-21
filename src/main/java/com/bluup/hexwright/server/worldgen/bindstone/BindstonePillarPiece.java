@@ -23,7 +23,9 @@ public class BindstonePillarPiece extends StructurePiece {
     private static final int LAKE_DEPTH = BindstonePillarStructure.LAKE_DEPTH;
     private static final int REQUIRED_CLEARANCE = BindstonePillarStructure.REQUIRED_CLEARANCE;
 
-    private static final int MOAT_CLEARING = 8;
+    static final int MOAT_CLEARING = 8;
+
+    private static final int FLAGS = Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE;
 
     private final int centreX;
     private final int centreY;
@@ -43,10 +45,18 @@ public class BindstonePillarPiece extends StructurePiece {
         this.centreZ = tag.getInt("CZ");
     }
 
-    private static BoundingBox boundsFor(BlockPos centre) {
+    static BoundingBox boundsFor(BlockPos centre) {
         return new BoundingBox(
             centre.getX() - WALL_RADIUS, centre.getY() - LAKE_DEPTH, centre.getZ() - WALL_RADIUS,
             centre.getX() + WALL_RADIUS, centre.getY() + REQUIRED_CLEARANCE, centre.getZ() + WALL_RADIUS);
+    }
+
+    BlockPos centre() {
+        return new BlockPos(this.centreX, this.centreY, this.centreZ);
+    }
+
+    static BlockState rock(BlockPos centre) {
+        return centre.getY() < 0 ? Blocks.DEEPSLATE.defaultBlockState() : Blocks.STONE.defaultBlockState();
     }
 
     @Override
@@ -60,7 +70,7 @@ public class BindstonePillarPiece extends StructurePiece {
     public void postProcess(WorldGenLevel level, StructureManager structureManager,
                             ChunkGenerator generator, RandomSource random, BoundingBox chunkBox,
                             ChunkPos chunkPos, BlockPos pivot) {
-        BlockPos centre = new BlockPos(this.centreX, this.centreY, this.centreZ);
+        BlockPos centre = centre();
         if (!chunkBox.isInside(centre)) {
             return;
         }
@@ -69,9 +79,7 @@ public class BindstonePillarPiece extends StructurePiece {
     }
 
     private static void digLake(WorldGenLevel level, BlockPos centre) {
-        BlockState rock = centre.getY() < 0
-            ? Blocks.DEEPSLATE.defaultBlockState()
-            : Blocks.STONE.defaultBlockState();
+        BlockState rock = rock(centre);
         BlockState lava = Blocks.LAVA.defaultBlockState();
         BlockState air = Blocks.AIR.defaultBlockState();
         BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
@@ -92,24 +100,24 @@ public class BindstonePillarPiece extends StructurePiece {
                     for (int y = pan; y <= groundTop; y++) {
                         cursor.set(x, y, z);
                         if (isClear(level.getBlockState(cursor))) {
-                            level.setBlock(cursor, rock, Block.UPDATE_CLIENTS);
+                            level.setBlock(cursor, rock, FLAGS);
                         }
                     }
                     continue;
                 }
 
                 cursor.set(x, pan, z);
-                level.setBlock(cursor, rock, Block.UPDATE_CLIENTS);
+                level.setBlock(cursor, rock, FLAGS);
 
                 boolean island = Math.abs(dx) <= 2 && Math.abs(dz) <= 2;
                 for (int y = pan + 1; y <= groundTop; y++) {
                     cursor.set(x, y, z);
-                    level.setBlock(cursor, island ? rock : lava, Block.UPDATE_CLIENTS);
+                    level.setBlock(cursor, island ? rock : lava, FLAGS);
                 }
 
                 if (island) {
                     cursor.set(x, groundTop + 1, z);
-                    level.setBlock(cursor, rock, Block.UPDATE_CLIENTS);
+                    level.setBlock(cursor, rock, FLAGS);
                     clearColumn(level, cursor, x, z, groundTop + 2, groundTop + REQUIRED_CLEARANCE, air);
                     continue;
                 }
@@ -124,7 +132,7 @@ public class BindstonePillarPiece extends StructurePiece {
         for (int y = from; y <= to; y++) {
             cursor.set(x, y, z);
             if (!level.getBlockState(cursor).isAir()) {
-                level.setBlock(cursor, air, Block.UPDATE_CLIENTS);
+                level.setBlock(cursor, air, FLAGS);
             }
         }
     }

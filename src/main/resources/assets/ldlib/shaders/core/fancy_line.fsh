@@ -1,7 +1,7 @@
 #version 150
 
 uniform float GameTime;
-uniform float mode; // 0 - simple 1 - colorful
+uniform float mode;
 
 in vec2 texCoord0;
 in vec4 vertexColor;
@@ -9,7 +9,6 @@ in vec4 vertexColor;
 out vec4 fragColor;
 
 void main() {
-    //get the colour
     vec2 uv = texCoord0.xy;
     uv = uv * 0.5 + 0.25;
     float xCol = (uv.x - (GameTime * 2000. / 4.0)) * 3.0;
@@ -39,7 +38,6 @@ void main() {
         horColour = vertexColor.rgb;
     }
 
-    //main beam
     uv = (2.0 * uv) - 1.0;
     float beamWidth = abs(1.5 / (30.0 * uv.y));
     vec3 horBeam = vec3(beamWidth);

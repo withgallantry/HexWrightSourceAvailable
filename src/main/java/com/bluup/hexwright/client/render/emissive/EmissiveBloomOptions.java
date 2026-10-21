@@ -15,8 +15,8 @@ public final class EmissiveBloomOptions {
     public enum LampGlow implements OptionEnum {
         OFF(0, "options.hexwright.lamp_glow.off", 0),
         NEAR(1, "options.hexwright.lamp_glow.near", 24),
-        NORMAL(2, "options.hexwright.lamp_glow.normal", 48),
-        FAR(3, "options.hexwright.lamp_glow.far", 80);
+        NORMAL(2, "options.hexwright.lamp_glow.normal", 100),
+        FAR(3, "options.hexwright.lamp_glow.far", 128);
 
         private static final LampGlow[] BY_ID = values();
 

@@ -1,16 +1,5 @@
 #version 150
 
-// Magical Menu Background with Transparent Edges
-//
-// Designed as a general menu background panel for Minecraft GUIs.
-// Features:
-// - deep purple magical smoke / nebula
-// - faint arcane linework / sigils
-// - soft transparency falloff around the edges
-//
-// IMPORTANT:
-// This shader depends on alpha, so make sure the render path uses blending.
-// If alpha is ignored by the renderer, the transparent edges will not show.
 
 uniform vec2 iResolution;
 uniform float iTime;

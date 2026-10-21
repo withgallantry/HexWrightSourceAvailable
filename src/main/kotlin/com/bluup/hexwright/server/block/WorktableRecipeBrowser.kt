@@ -1,6 +1,7 @@
 package com.bluup.hexwright.server.block
 
 import com.bluup.hexwright.Hexwright
+import com.bluup.hexwright.client.ldlib.widget.ArtifactSheenWidget
 import com.bluup.hexwright.client.ldlib.widget.RuneTextWidget
 import com.bluup.hexwright.client.ldlib.widget.StaffItemDisplayWidget
 import com.bluup.hexwright.client.progression.ClientRecipeUnlocks
@@ -32,6 +33,8 @@ class WorktableRecipeBrowser(
         private const val RECIPE_NAME_SCALE = 0.8f
 
         private const val LOCKED_RUNE_COLOR = 0xFF8C87A8.toInt()
+
+        private const val ARTIFACT_SHEEN_STAGGER_MS = 260L
 
         private const val CATEGORY_SELECTOR_ID = "drop-down"
 
@@ -90,6 +93,10 @@ class WorktableRecipeBrowser(
                 .setMaxScale(RECIPE_NAME_SCALE)
             runeWidget.setVisible(false)
             clone.addWidget(runeWidget)
+
+            if (recipe.isArtifact) {
+                clone.addWidget(ArtifactSheenWidget(0, 0, clone.sizeWidth, clone.sizeHeight, index * ARTIFACT_SHEEN_STAGGER_MS))
+            }
 
             val clickIndex = index
             val clickZone = ButtonWidget(0, 0, clone.sizeWidth, clone.sizeHeight) { _ -> forge.selectRecipe(clickIndex, player) }

@@ -54,11 +54,12 @@ public abstract class OpTeleportSpellMixin {
         if (HexwrightDebug.on(HexwrightDebug.CASTING)) {
             LivingEntity caster = env.getCastingEntity();
             HexwrightDebug.log(HexwrightDebug.CASTING,
-                "[traveller] greater teleport of {} by {} in {} holding {}: splatter {}",
+                "[traveller] greater teleport of {} by {} in {} holding {} / {}: splatter {}",
                 teleportee.getName().getString(),
                 caster == null ? "nobody" : caster.getName().getString(),
                 env.getClass().getSimpleName(),
-                caster == null ? "-" : caster.getItemInHand(env.getCastingHand()),
+                caster == null ? "-" : caster.getMainHandItem(),
+                caster == null ? "-" : caster.getOffhandItem(),
                 spared ? "spared" : "applies");
         }
         return !spared;

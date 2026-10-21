@@ -18,6 +18,10 @@ public final class WornAccessories {
         List<ItemStack> contents(LivingEntity entity, String slot);
 
         void setBonusSlots(LivingEntity entity, String slot, UUID id, int bonus);
+
+        boolean equip(LivingEntity entity, ItemStack stack);
+
+        boolean isAccessory(Item item);
     }
 
     private static Provider provider;
@@ -42,6 +46,14 @@ public final class WornAccessories {
         if (slotHandler != null) {
             slotHandler.setBonusSlots(entity, slot, id, bonus);
         }
+    }
+
+    public static boolean equip(LivingEntity entity, ItemStack stack) {
+        return slotHandler != null && slotHandler.equip(entity, stack);
+    }
+
+    public static boolean isAccessory(Item item) {
+        return slotHandler != null && slotHandler.isAccessory(item);
     }
 
     public static boolean hasProvider() {

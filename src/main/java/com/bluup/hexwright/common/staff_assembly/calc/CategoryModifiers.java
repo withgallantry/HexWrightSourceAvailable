@@ -6,7 +6,6 @@ import java.util.Set;
 public final class CategoryModifiers {
 
     public static final Map<IngredientCategory, Double> WRAP = Map.ofEntries(
-        Map.entry(IngredientCategory.LIGHT, 1.25),
         Map.entry(IngredientCategory.FLEXIBLE, 1.25),
         Map.entry(IngredientCategory.ORGANIC, 1.10),
         Map.entry(IngredientCategory.THREAD, 1.30),
@@ -22,7 +21,7 @@ public final class CategoryModifiers {
         Map.entry(IngredientCategory.ARCANE, 1.15),
         Map.entry(IngredientCategory.END, 1.20),
         Map.entry(IngredientCategory.ECHO, 1.20),
-        Map.entry(IngredientCategory.LIGHT, 0.75),
+        Map.entry(IngredientCategory.LIGHT, 1.15),
         Map.entry(IngredientCategory.THREAD, 0.70)
     );
 

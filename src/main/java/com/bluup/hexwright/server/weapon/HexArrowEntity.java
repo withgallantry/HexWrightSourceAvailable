@@ -9,13 +9,16 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.projectile.Arrow;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.EntityHitResult;
 
 public class HexArrowEntity extends Arrow {
 
     private static final String TAG_HEX = "HexwrightHex";
+    private static final String TAG_REPORTS_CATCH = "HexwrightReportsCatch";
 
     private static final ParticleOptions TRAIL = ParticleTypes.WITCH;
     private static final int TRAIL_EVERY_TICKS = 2;
@@ -23,6 +26,8 @@ public class HexArrowEntity extends Arrow {
     private CompoundTag hex = new CompoundTag();
 
     private boolean spent;
+
+    private boolean reportsCatch;
 
     public HexArrowEntity(EntityType<? extends HexArrowEntity> type, Level level) {
         super(type, level);
@@ -39,6 +44,10 @@ public class HexArrowEntity extends Arrow {
 
     public void setHex(CompoundTag hex) {
         this.hex = hex;
+    }
+
+    public void reportCatch() {
+        this.reportsCatch = true;
     }
 
     public boolean isArmed() {
@@ -58,7 +67,13 @@ public class HexArrowEntity extends Arrow {
     @Override
     protected void onHitEntity(EntityHitResult result) {
         super.onHitEntity(result);
-        if (this.level().isClientSide || this.spent || this.hex.isEmpty()) {
+        if (this.level().isClientSide) {
+            return;
+        }
+        if (this.reportsCatch && this.getOwner() instanceof Player archer) {
+            SpiderBowItem.remember(archer, result.getEntity());
+        }
+        if (this.spent || this.hex.isEmpty()) {
             return;
         }
         this.spent = true;
@@ -68,10 +83,21 @@ public class HexArrowEntity extends Arrow {
     }
 
     @Override
+    protected void onHitBlock(BlockHitResult result) {
+        super.onHitBlock(result);
+        if (!this.level().isClientSide && this.reportsCatch && this.getOwner() instanceof Player archer) {
+            SpiderBowItem.remember(archer, result.getBlockPos());
+        }
+    }
+
+    @Override
     public void addAdditionalSaveData(CompoundTag tag) {
         super.addAdditionalSaveData(tag);
         if (!this.hex.isEmpty()) {
             tag.put(TAG_HEX, this.hex);
+        }
+        if (this.reportsCatch) {
+            tag.putBoolean(TAG_REPORTS_CATCH, true);
         }
     }
 
@@ -79,5 +105,6 @@ public class HexArrowEntity extends Arrow {
     public void readAdditionalSaveData(CompoundTag tag) {
         super.readAdditionalSaveData(tag);
         this.hex = tag.contains(TAG_HEX, Tag.TAG_COMPOUND) ? tag.getCompound(TAG_HEX) : new CompoundTag();
+        this.reportsCatch = tag.getBoolean(TAG_REPORTS_CATCH);
     }
 }

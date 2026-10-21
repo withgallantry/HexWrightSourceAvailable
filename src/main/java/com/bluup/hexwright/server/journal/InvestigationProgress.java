@@ -294,6 +294,13 @@ public final class InvestigationProgress {
         }
     }
 
+    public static void recordTabletRestored(ServerPlayer player) {
+        String key = CompletionCondition.RestoreTablet.COUNTER;
+        if (Investigations.get().countedByKey().containsKey(key)) {
+            InvestigationState.get(player.server).addToCounter(player.getUUID(), key, 1);
+        }
+    }
+
     private static void recordKill(ServerPlayer killer, LivingEntity dead) {
         var counted = Investigations.get().countedByKey();
         if (counted.isEmpty()) {
@@ -320,8 +327,10 @@ public final class InvestigationProgress {
             ? Component.literal(investigationId)
             : investigation.titleComponent();
 
-        player.sendSystemMessage(Component.translatable("chat.hexwright.investigation.complete", name)
-            .withStyle(ChatFormatting.LIGHT_PURPLE));
+        if (investigation == null || !investigation.hidden()) {
+            player.sendSystemMessage(Component.translatable("chat.hexwright.investigation.complete", name)
+                .withStyle(ChatFormatting.LIGHT_PURPLE));
+        }
 
         HexwrightNetworking.sendJournalToast(player, kindOf(investigation), investigationId);
     }

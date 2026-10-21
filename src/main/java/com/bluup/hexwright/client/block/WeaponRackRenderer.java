@@ -27,6 +27,8 @@ public class WeaponRackRenderer extends GeoBlockRenderer<WeaponRackBlockEntity> 
 
     private static final float HANG = 135f;
 
+    private static final float FACE_OUT = 180f;
+
     private static final float WEAPON_SCALE = 1.3f;
 
     public WeaponRackRenderer(BlockEntityRendererProvider.Context context) {
@@ -63,9 +65,10 @@ public class WeaponRackRenderer extends GeoBlockRenderer<WeaponRackBlockEntity> 
             poseStack.pushPose();
             poseStack.translate(WeaponRackBlock.SLOT_X[slot], WeaponRackBlock.SLOT_Y, WeaponRackBlock.SLOT_Z);
             poseStack.mulPose(Axis.ZP.rotationDegrees(HANG));
+            poseStack.mulPose(Axis.YP.rotationDegrees(FACE_OUT));
             poseStack.scale(WEAPON_SCALE, WEAPON_SCALE, WEAPON_SCALE);
             Minecraft.getInstance().getItemRenderer().renderStatic(
-                stack, ItemDisplayContext.FIXED, packedLight, OverlayTexture.NO_OVERLAY,
+                stack, ItemDisplayContext.GUI, packedLight, OverlayTexture.NO_OVERLAY,
                 poseStack, bufferSource, rack.getLevel(),
                 (int) rack.getBlockPos().asLong() + slot);
             poseStack.popPose();

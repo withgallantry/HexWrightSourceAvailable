@@ -41,11 +41,18 @@ public final class AnchoriteFlightAnimationClient {
         }
     }
 
+    public static void handleRemoteFlying(int entityId, boolean flying) {
+        Minecraft client = Minecraft.getInstance();
+        if (client.level != null
+            && client.level.getEntity(entityId) instanceof AbstractClientPlayer player
+            && player != client.player) {
+            player.getAbilities().flying = flying;
+        }
+    }
+
     private static boolean shouldAnimate(AbstractClientPlayer player) {
-        var abilities = player.getAbilities();
-        return abilities.mayfly
-            && abilities.flying
-            && !abilities.instabuild
+        return player.getAbilities().flying
+            && !player.isCreative()
             && !player.isSpectator()
             && !player.isPassenger()
             && !player.isFallFlying()

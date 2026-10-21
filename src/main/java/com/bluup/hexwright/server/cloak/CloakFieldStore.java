@@ -13,6 +13,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.saveddata.SavedData;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -24,6 +25,7 @@ public final class CloakFieldStore extends SavedData {
     private static final String STORAGE_ID = "hexwright_cloak_fields";
 
     private final Map<UUID, CloakField> fields = new LinkedHashMap<>();
+    private final List<CloakField> domes = new ArrayList<>();
 
     private static Supplier<Collection<CloakField>> clientFields = List::of;
 
@@ -31,7 +33,21 @@ public final class CloakFieldStore extends SavedData {
     }
 
     private static CloakFieldStore get(ServerLevel level) {
-        return level.getDataStorage().computeIfAbsent(CloakFieldStore::load, CloakFieldStore::new, STORAGE_ID);
+        CloakFieldStore store = level.getDataStorage().computeIfAbsent(CloakFieldStore::load, CloakFieldStore::new, STORAGE_ID);
+        if (!store.domes.isEmpty()) {
+            store.rewallDomes(level);
+        }
+        return store;
+    }
+
+    private void rewallDomes(ServerLevel level) {
+        List<CloakField> rewalling = List.copyOf(domes);
+        domes.clear();
+        for (CloakField field : rewalling) {
+            CloakFieldShell.lowerDome(level, field);
+            CloakFieldShell.raise(level, field);
+        }
+        setDirty();
     }
 
     public static void register() {
@@ -63,6 +79,14 @@ public final class CloakFieldStore extends SavedData {
         CloakFieldShell.raise(level, field);
         store.setDirty();
         broadcast(level);
+    }
+
+    public static void update(ServerLevel level, CloakField field) {
+        CloakFieldStore store = get(level);
+        if (store.fields.replace(field.id(), field) != null) {
+            store.setDirty();
+            broadcast(level);
+        }
     }
 
     public static boolean remove(ServerLevel level, UUID id) {
@@ -104,8 +128,12 @@ public final class CloakFieldStore extends SavedData {
         CloakFieldStore store = new CloakFieldStore();
         ListTag entries = tag.getList("Fields", Tag.TAG_COMPOUND);
         for (int i = 0; i < entries.size(); i++) {
-            CloakField field = CloakField.load(entries.getCompound(i));
+            CompoundTag entry = entries.getCompound(i);
+            CloakField field = CloakField.load(entry);
             store.fields.put(field.id(), field);
+            if (CloakField.isDome(entry)) {
+                store.domes.add(field);
+            }
         }
         return store;
     }

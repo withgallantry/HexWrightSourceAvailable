@@ -6,6 +6,7 @@ import at.petrak.hexcasting.common.items.HexBaubleItem;
 import at.petrak.hexcasting.common.items.ItemStaff;
 import com.bluup.hexwright.server.item.PentaboxItem;
 import com.bluup.hexwright.server.item.HexwrightItemTags;
+import com.bluup.hexwright.server.soulforge.SoulforgedItem;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -21,6 +22,9 @@ public final class PentaboxFilter {
             return false;
         }
         if (PentaboxData.isLinkedStack(stack)) {
+            return false;
+        }
+        if (item instanceof SoulforgedItem) {
             return false;
         }
         return item instanceof ItemStaff

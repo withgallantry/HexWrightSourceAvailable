@@ -4,7 +4,6 @@ import com.lowdragmc.lowdraglib.gui.factory.BlockEntityUIFactory
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
 import net.minecraft.server.level.ServerPlayer
-import net.minecraft.world.Containers
 import net.minecraft.world.InteractionHand
 import net.minecraft.world.InteractionResult
 import net.minecraft.world.entity.player.Player
@@ -101,14 +100,7 @@ class CoalescerBlock(properties: Properties) : Block(properties), EntityBlock {
     @Suppress("DEPRECATION")
     override fun onRemove(state: BlockState, level: Level, pos: BlockPos, newState: BlockState, isMoving: Boolean) {
         if (state.block != newState.block) {
-            val be = level.getBlockEntity(pos) as? CoalescerBlockEntity
-            if (be != null) {
-                Containers.dropContents(level, pos, be)
-                val pending = be.takePendingCraft()
-                if (!pending.isEmpty) {
-                    Containers.dropItemStack(level, pos.x + 0.5, pos.y + 0.5, pos.z + 0.5, pending)
-                }
-            }
+            (level.getBlockEntity(pos) as? CoalescerBlockEntity)?.dropContentsOnBreak(level, pos)
         }
         super.onRemove(state, level, pos, newState, isMoving)
     }

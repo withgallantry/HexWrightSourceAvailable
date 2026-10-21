@@ -18,6 +18,7 @@ import org.joml.Matrix4f;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
@@ -75,16 +76,16 @@ public final class PatternDrawBatch implements VCDrawHelper {
         INSTANCE.open = true;
     }
 
-    public static void flush() {
+    public static boolean flush() {
         if (!INSTANCE.open) {
-            return;
+            return false;
         }
         INSTANCE.endGroup();
         INSTANCE.open = false;
 
         BufferBuilder.RenderedBuffer rendered = INSTANCE.builder.endOrDiscardIfEmpty();
         if (rendered == null) {
-            return;
+            return false;
         }
 
         RenderSystem.setShader(GameRenderer::getPositionColorTexShader);
@@ -94,6 +95,7 @@ public final class PatternDrawBatch implements VCDrawHelper {
         RenderSystem.enableBlend();
         RenderSystem.blendFunc(GlStateManager.SourceFactor.SRC_ALPHA, GlStateManager.DestFactor.ONE_MINUS_SRC_ALPHA);
         BufferUploader.drawWithShader(rendered);
+        return true;
     }
 
     public static void drawSpot(Matrix4f mat, Vec2 point, float radius, float r, float g, float b, float a) {
@@ -148,15 +150,59 @@ public final class PatternDrawBatch implements VCDrawHelper {
         RenderLib.drawLineSeq(mat, zappy, INNER_WIDTH,
             RenderLib.screenCol(colorStart), RenderLib.screenCol(colorEnd), INSTANCE);
 
+        drawNodes(mat, points, drawLast ? points.size() : points.size() - 1, colorEnd);
+    }
+
+    public static void drawCourse(Matrix4f mat, List<Vec2> corners, float maxPiece, int colorStart, int colorEnd,
+                                  float flowIrregular, double seed) {
+        if (corners.size() < 2) {
+            return;
+        }
+        List<Vec2> zappy = RenderLib.makeZappy(cut(corners, maxPiece), Set.of(), ZAPPY_HOPS, ZAPPY_VARIANCE,
+            ZAPPY_SPEED, flowIrregular, 0f, 1f, seed);
+        drawLineSeq(mat, zappy, OUTER_WIDTH, OUTER_Z, colorStart, colorEnd);
+        drawLineSeq(mat, zappy, INNER_WIDTH, INNER_Z, RenderLib.screenCol(colorStart), RenderLib.screenCol(colorEnd));
+        drawNodes(mat, corners, corners.size() - 1, colorEnd);
+    }
+
+    private static List<Vec2> cut(List<Vec2> corners, float maxPiece) {
+        List<Vec2> points = new ArrayList<>();
+        points.add(corners.get(0));
+        for (int i = 1; i < corners.size(); i++) {
+            Vec2 from = corners.get(i - 1);
+            Vec2 to = corners.get(i);
+            int pieces = Math.max(1, Mth.ceil(Mth.sqrt(from.distanceToSqr(to)) / maxPiece));
+            for (int j = 1; j <= pieces; j++) {
+                float t = (float) j / pieces;
+                points.add(new Vec2(Mth.lerp(t, from.x, to.x), Mth.lerp(t, from.y, to.y)));
+            }
+        }
+        return points;
+    }
+
+    private static void drawNodes(Matrix4f mat, List<Vec2> points, int count, int colorEnd) {
         float r = RenderLib.dodge(FastColor.ARGB32.red(colorEnd)) / 255f;
         float g = RenderLib.dodge(FastColor.ARGB32.green(colorEnd)) / 255f;
         float b = RenderLib.dodge(FastColor.ARGB32.blue(colorEnd)) / 255f;
         float a = FastColor.ARGB32.alpha(colorEnd) / 255f;
-
-        int nodeCount = drawLast ? points.size() : points.size() - 1;
-        for (int i = 0; i < nodeCount; i++) {
+        for (int i = 0; i < count; i++) {
             drawSpot(mat, points.get(i), DOT_RADIUS, r, g, b, a);
         }
+    }
+
+    public static void drawLineSeq(Matrix4f mat, List<Vec2> points, float width, int colorStart, int colorEnd) {
+        drawLineSeq(mat, points, width, OUTER_Z, colorStart, colorEnd);
+    }
+
+    public static void drawLineSeq(Matrix4f mat, List<Vec2> points, float width, float z, int colorStart, int colorEnd) {
+        if (!enabled) {
+            RenderLib.drawLineSeq(mat, points, width, z, colorStart, colorEnd);
+            return;
+        }
+
+        ensureOpen();
+        INSTANCE.z = z;
+        RenderLib.drawLineSeq(mat, points, width, colorStart, colorEnd, INSTANCE);
     }
 
     private static int packColor(float r, float g, float b, float a) {

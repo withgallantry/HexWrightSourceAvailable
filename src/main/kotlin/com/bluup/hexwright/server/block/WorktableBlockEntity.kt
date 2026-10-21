@@ -1,6 +1,7 @@
 package com.bluup.hexwright.server.block
 
 import com.bluup.hexwright.Hexwright
+import com.bluup.hexwright.HexwrightDebug
 import com.bluup.hexwright.server.menu.UiTemplates
 import com.bluup.hexwright.client.progression.ClientRecipeUnlocks
 import com.bluup.hexwright.common.staff_assembly.calc.IngredientCategory
@@ -10,6 +11,8 @@ import com.bluup.hexwright.server.block.WorktableRecipes.WorktableRecipe
 import com.bluup.hexwright.server.block.WorktableRecipes.defaultRecipe
 import com.bluup.hexwright.server.crucible.EssencePouchData
 import com.bluup.hexwright.server.item.EndlessPouchItem
+import com.bluup.hexwright.server.item.GolemCoreItem
+import com.bluup.hexwright.server.item.HexwrightItems
 import com.bluup.hexwright.server.network.EssenceNetwork
 import com.bluup.hexwright.server.pocketcaster.PocketCasterData
 import com.bluup.hexwright.server.progression.HexwrightCriteria
@@ -19,6 +22,7 @@ import com.bluup.hexwright.server.progression.RecipeUnlocks
 import com.lowdragmc.lowdraglib.gui.modular.IUIHolder
 import com.lowdragmc.lowdraglib.gui.modular.ModularUI
 import com.lowdragmc.lowdraglib.gui.texture.IGuiTexture
+import com.lowdragmc.lowdraglib.gui.texture.ItemStackTexture
 import com.lowdragmc.lowdraglib.gui.texture.ResourceBorderTexture
 import com.lowdragmc.lowdraglib.gui.texture.ResourceTexture
 import com.lowdragmc.lowdraglib.gui.texture.ShaderTexture
@@ -40,6 +44,7 @@ import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
 import net.minecraft.core.NonNullList
 import net.minecraft.nbt.CompoundTag
+import net.minecraft.network.FriendlyByteBuf
 import net.minecraft.network.chat.Component
 import net.minecraft.network.protocol.Packet
 import net.minecraft.network.protocol.game.ClientGamePacketListener
@@ -92,6 +97,13 @@ class WorktableBlockEntity(
         private const val TIME_CORRECTION_TICKS = 4.0
 
         private const val TIME_SNAP_TICKS = 3.0
+
+        private const val STRIKE_REWIND_SLACK_TICKS = 4.0
+
+        private const val STRIKE_REWIND_MAX_TICKS = 10.0
+
+        private const val BEGIN_ACTION = 1
+        private const val STRIKE_ACTION = 2
 
         private val BAR_OUTLINE_TEXTURE: IGuiTexture =
             ResourceBorderTexture("ldlib:textures/trans-inner.png", 180, 180, 4, 4)
@@ -222,7 +234,7 @@ class WorktableBlockEntity(
     private fun hasAllEssence(): Boolean {
         val pouch = pouchStack()
         if (pouch.item !is EndlessPouchItem) return false
-        return activeSteps().all { EssencePouchData.get(pouch, it.aspect) >= it.amount }
+        return activeSteps().all { EssencePouchData.covers(EssencePouchData.get(pouch, it.aspect), it.amount) }
     }
 
     fun needlePos(time: Double): Float {
@@ -233,19 +245,9 @@ class WorktableBlockEntity(
         return 1f - abs(1f - 2f * phase)
     }
 
-    fun onForgeClicked(player: ServerPlayer) {
-        val level = this.level ?: return
-        if (level.isClientSide) return
-
-        if (!infusing) {
-            beginInfusion(player)
-        } else {
-            strike(player)
-        }
-    }
-
     private fun beginInfusion(player: ServerPlayer) {
         val level = this.level ?: return
+        if (level.isClientSide || infusing) return
         if (!RecipeUnlocks.canCraft(player, recipe().nameKey)) {
             judgementKey = "gui.hexwright.worktable.judgement.undiscovered"
             setChanged()
@@ -260,12 +262,21 @@ class WorktableBlockEntity(
             setChanged()
             return
         }
+        val golemCores = recipe().golemCores
+        if (GolemCoreItem.carried(player) < golemCores) {
+            judgementKey = "gui.hexwright.worktable.judgement.missing_golem_cores"
+            setChanged()
+            return
+        }
 
         Mastery.checkEssenceMilestones(player, pouchStack())
 
         val pouch = pouchStack()
         for (step in activeSteps()) {
             EssencePouchData.consume(pouch, step.aspect, step.amount)
+        }
+        if (golemCores > 0) {
+            GolemCoreItem.consume(player, golemCores, "at the Essence Forge")
         }
         EssenceNetwork.pulseFlow(level, worldPosition, items[POUCH_SLOT], false)
 
@@ -292,15 +303,24 @@ class WorktableBlockEntity(
         zoneCenter = 0.15f + level.random.nextFloat() * 0.7f
     }
 
-    private fun strike(player: ServerPlayer) {
+    private fun strike(player: ServerPlayer, struckRoundStart: Long, seenTime: Double) {
         val level = this.level ?: return
+        if (level.isClientSide || !infusing || struckRoundStart != roundStart || !seenTime.isFinite()) return
         val step = activeSteps().getOrNull(round) ?: run {
             infusing = false
             setChanged()
             return
         }
 
-        val pos = needlePos(level.gameTime.toDouble())
+        val now = level.gameTime.toDouble()
+        val rewind = (player.latency / 50.0 + STRIKE_REWIND_SLACK_TICKS).coerceAtMost(STRIKE_REWIND_MAX_TICKS)
+        val judgedTime = seenTime.coerceIn(now - rewind, now)
+        HexwrightDebug.log(
+            HexwrightDebug.FORGE, "[forge] {} struck round {} seeing t={} at t={} (ping {}ms, rewind cap {}) -> judged t={}",
+            player.gameProfile.name, round, seenTime, now, player.latency, rewind, judgedTime
+        )
+
+        val pos = needlePos(judgedTime)
         val dist = abs(pos - zoneCenter)
         val half = step.zoneHalf
         val perfectHalf = half * PERFECT_FRACTION
@@ -435,9 +455,12 @@ class WorktableBlockEntity(
 
         successGroup?.setVisible(false)
 
-        if (miniGameGroup != null) {
-            miniGameGroup.setVisible(false)
-            miniGameGroup.addWidget(MiniGameWidget(0, 0, miniGameGroup.sizeWidth, miniGameGroup.sizeHeight))
+        val miniGame = miniGameGroup?.let {
+            it.setVisible(false)
+            MiniGameWidget(0, 0, it.sizeWidth, it.sizeHeight, player).also(it::addWidget)
+        }
+        if (miniGame == null) {
+            Hexwright.LOGGER.error("$UI_PROJECT_NAME UI has no mini_game group; the Forge button can't begin or strike")
         }
 
         var browser: WorktableRecipeBrowser? = null
@@ -449,15 +472,12 @@ class WorktableBlockEntity(
             }
         }
 
-        forgeButton?.setOnPressCallback { _ ->
-            val serverPlayer = player as? ServerPlayer
-            if (serverPlayer != null && level?.isClientSide == false) {
-                onForgeClicked(serverPlayer)
-            }
+        forgeButton?.setOnPressCallback { click ->
+            if (click.isRemote) miniGame?.press()
         }
 
         root.addWidget(
-            ForgeSyncWidget(pouchSlot, displaySlot, itemName, essencePanel, miniGameGroup, successGroup, browser)
+            ForgeSyncWidget(player, pouchSlot, displaySlot, itemName, essencePanel, miniGameGroup, successGroup, browser)
         )
     }
 
@@ -525,9 +545,41 @@ class WorktableBlockEntity(
     }
 
 
-    private inner class MiniGameWidget(x: Int, y: Int, width: Int, height: Int) : Widget(x, y, width, height) {
+    private inner class MiniGameWidget(
+        x: Int, y: Int, width: Int, height: Int,
+        private val player: Player
+    ) : Widget(x, y, width, height) {
         private val scale = 0.7f
         private val iconSize = 7
+
+        private var shownTime = Double.NaN
+
+        private var heldRoundStart = Long.MIN_VALUE
+        private var heldTime = 0.0
+
+        fun press() {
+            if (!infusing) {
+                writeClientAction(BEGIN_ACTION) {}
+                return
+            }
+            if (heldRoundStart == roundStart) return
+            val time = if (shownTime.isNaN()) (level?.gameTime ?: return).toDouble() else shownTime
+            heldRoundStart = roundStart
+            heldTime = time
+            writeClientAction(STRIKE_ACTION) { buffer ->
+                buffer.writeVarLong(roundStart)
+                buffer.writeDouble(time)
+            }
+        }
+
+        override fun handleClientAction(id: Int, buffer: FriendlyByteBuf) {
+            super.handleClientAction(id, buffer)
+            val serverPlayer = player as? ServerPlayer ?: return
+            when (id) {
+                BEGIN_ACTION -> beginInfusion(serverPlayer)
+                STRIKE_ACTION -> strike(serverPlayer, buffer.readVarLong(), buffer.readDouble())
+            }
+        }
 
         private var renderTime = Double.NaN
         private var lastFrameMillis = 0L
@@ -594,7 +646,9 @@ class WorktableBlockEntity(
             val coreRight = barX + ((zoneCenter + coreHalf) * barWidth).roundToInt().coerceIn(0, barWidth)
             graphics.fill(coreLeft, barY, coreRight, barY + barHeight, ZONE_CORE_COLOR)
 
-            val needle = needlePos(smoothTime(partialTicks))
+            val liveTime = smoothTime(partialTicks)
+            val needleTime = if (heldRoundStart == roundStart) heldTime else liveTime.also { shownTime = it }
+            val needle = needlePos(needleTime)
             val needleOffset = (needle * barWidth).coerceIn(0f, (barWidth - 1).toFloat())
             val pose = graphics.pose()
             pose.pushPose()
@@ -639,6 +693,7 @@ class WorktableBlockEntity(
     }
 
     private inner class ForgeSyncWidget(
+        private val player: Player,
         private val pouchSlot: SlotWidget?,
         private val displaySlot: SlotWidget?,
         private val itemName: TextTextureWidget?,
@@ -744,9 +799,12 @@ class WorktableBlockEntity(
             val pouch = pouchStack()
             val hasPouch = pouch.item is EndlessPouchItem
             val steps = activeSteps()
+            val golemCores = recipe().golemCores
+            val golemCoresHeld = if (golemCores > 0) GolemCoreItem.carried(player) else 0
 
             val fingerprint = buildString {
                 append(selectedRecipe).append('|').append(hasPouch).append('|').append(judgementKey)
+                append('|').append(golemCoresHeld)
                 for (step in steps) {
                     append('|').append(step.aspect.name).append(':')
                     append(if (hasPouch) EssencePouchData.get(pouch, step.aspect) else 0.0)
@@ -761,17 +819,26 @@ class WorktableBlockEntity(
             var y = 2
             for (step in steps) {
                 val have = if (hasPouch) EssencePouchData.get(pouch, step.aspect) else 0.0
-                val enough = have >= step.amount
+                val enough = EssencePouchData.covers(have, step.amount)
                 val icon = ImageWidget(2, y, 8, 8, ResourceTexture(EndlessPouchItem.aspectIcon(step.aspect)))
                 group.addWidget(icon)
                 essenceRows.add(icon)
-                val line = "${EndlessPouchItem.aspectName(step.aspect).string}: " +
-                    "${EndlessPouchItem.formatAmount(have)} / ${EndlessPouchItem.formatAmount(step.amount)}"
-                val label = LabelWidget(12, y, line)
+                val label = LabelWidget(12, y, EndlessPouchItem.costLine(step.aspect, have, step.amount))
                 label.setColor(if (enough) GOOD_COLOR else MISS_COLOR)
                 group.addWidget(label)
                 essenceRows.add(label)
                 y += 10
+            }
+
+            if (golemCores > 0) {
+                val coreX = group.sizeWidth / 2
+                val icon = ImageWidget(coreX, 2, 8, 8, ItemStackTexture(HexwrightItems.GOLEM_CORE))
+                group.addWidget(icon)
+                essenceRows.add(icon)
+                val label = LabelWidget(coreX + 10, 2, "${HexwrightItems.GOLEM_CORE.description.string}: $golemCoresHeld / $golemCores")
+                label.setColor(if (golemCoresHeld >= golemCores) GOOD_COLOR else MISS_COLOR)
+                group.addWidget(label)
+                essenceRows.add(label)
             }
 
             if (judgementKey.isNotEmpty()) {

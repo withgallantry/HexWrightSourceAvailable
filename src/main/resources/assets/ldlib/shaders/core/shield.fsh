@@ -22,13 +22,6 @@ in vec3 ViewNormal;
 
 out vec4 fragColor;
 
-// ------------------------------------------------------------
-// Fresnel effect (Schlick-like) utility
-//  ‣  Normal   : surface normal   (any space, MUST be normalized later)
-//  ‣  ViewDir  : direction TO camera (same space as Normal)
-//  ‣  power    : controls edge fall-off
-//  ←  return   : Fresnel term (0‥1)
-// ------------------------------------------------------------
 float FresnelEffect(vec3 Normal, vec3 ViewDir, float power)
 {
     float cosTheta = clamp(dot(normalize(Normal), normalize(ViewDir)), 0.0, 1.0);

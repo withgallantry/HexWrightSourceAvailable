@@ -28,6 +28,7 @@ import net.minecraft.core.Registry;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
 import ram.talia.moreiotas.api.casting.iota.ItemStackIota;
 
@@ -106,11 +107,22 @@ public final class HeldSealActions {
         }
     }
 
-    private static void grantEviction(@Nullable ServerPlayer caster, ItemStack evicted) {
-        if (evicted.isEmpty() || caster == null) {
+    private static void grantEviction(CastingEnvironment env, @Nullable ServerPlayer caster, ItemStack evicted) {
+        if (evicted.isEmpty()) {
             return;
         }
-        grantOrDrop(caster, evicted);
+        if (caster != null) {
+            grantOrDrop(caster, evicted);
+        } else {
+            materialise(env, CastRecipient.dropPos(env), evicted);
+        }
+    }
+
+    private static ItemEntity materialise(CastingEnvironment env, Vec3 at, ItemStack stack) {
+        ItemEntity dropped = new ItemEntity(env.getWorld(), at.x, at.y, at.z, stack);
+        dropped.setPickUpDelay(10);
+        env.getWorld().addFreshEntity(dropped);
+        return dropped;
     }
 
     private static final ConstMediaAction RELIQUARYS_REFLECTION = new HexwrightConstMediaAction() {
@@ -159,7 +171,7 @@ public final class HeldSealActions {
                     offering.discard();
                     ReliquaryStore store = ReliquaryStore.get(castEnv.getWorld().getServer());
                     ItemStack evicted = store.placeAt(key, slot, payload);
-                    grantEviction(caster, evicted);
+                    grantEviction(castEnv, caster, evicted);
                 }
 
                 @Override
@@ -196,20 +208,15 @@ public final class HeldSealActions {
             }
             ItemStack gathered = ReliquaryStore.get(env.getWorld().getServer()).withdraw(key, wanted, wanted.getCount(), position);
             ServerPlayer caster = actingPlayer(env);
-            if (!(env instanceof ChestCastEnv) || caster == null) {
-                if (caster != null) {
-                    grantOrDrop(caster, gathered);
-                }
+            if (caster != null && !(env instanceof ChestCastEnv)) {
+                grantOrDrop(caster, gathered);
                 return List.of();
             }
             if (gathered.isEmpty()) {
                 return List.of();
             }
-            ItemEntity materialised = new ItemEntity(caster.level(),
-                caster.getX(), caster.getY() + 0.5, caster.getZ(), gathered);
-            materialised.setPickUpDelay(10);
-            caster.level().addFreshEntity(materialised);
-            return List.of(new EntityIota(materialised));
+            Vec3 at = caster != null ? caster.position().add(0, 0.5, 0) : CastRecipient.dropPos(env);
+            return List.of(new EntityIota(materialise(env, at, gathered)));
         }
     };
 }

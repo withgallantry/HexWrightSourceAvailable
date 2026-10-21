@@ -7,6 +7,7 @@ import com.bluup.hexwright.server.block.DecadentVaultExitBlockEntity;
 import com.bluup.hexwright.server.block.HexwrightBlocks;
 import com.bluup.hexwright.server.block.PlacedBottleBlockEntity;
 import com.bluup.hexwright.server.block.VaultPlinthBlockEntity;
+import com.bluup.hexwright.server.accessory.WornAccessories;
 import com.bluup.hexwright.server.pocketcaster.PocketCasterData;
 import com.bluup.hexwright.server.remnant.BottleData;
 import com.bluup.hexwright.server.vault.VaultKeyItem;
@@ -15,8 +16,8 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.RandomSource;
-import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.decoration.ArmorStand;
+import net.minecraft.world.item.Equipable;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.AbstractChestBlock;
@@ -237,15 +238,16 @@ final class DecadentVaultGenerator {
     }
 
     private static void dress(ArmorStand stand, List<ItemStack> gear) {
-        if (gear.size() != 4) {
-            return;
-        }
         stand.setNoGravity(true);
         stand.setInvulnerable(true);
-        stand.setItemSlot(EquipmentSlot.HEAD, gear.get(0));
-        stand.setItemSlot(EquipmentSlot.CHEST, gear.get(1));
-        stand.setItemSlot(EquipmentSlot.LEGS, gear.get(2));
-        stand.setItemSlot(EquipmentSlot.FEET, gear.get(3));
+        for (ItemStack piece : gear) {
+            Equipable equipable = Equipable.get(piece);
+            if (equipable != null) {
+                stand.setItemSlot(equipable.getEquipmentSlot(), piece);
+            } else if (!WornAccessories.equip(stand, piece)) {
+                Hexwright.LOGGER.warn("Decadent Vault stand could not wear {}", piece);
+            }
+        }
     }
 
     private static void stockPlinth(ServerLevel level, BlockPos pos, ItemStack item) {

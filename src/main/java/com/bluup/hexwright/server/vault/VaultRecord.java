@@ -1,6 +1,7 @@
 package com.bluup.hexwright.server.vault;
 
 import com.bluup.hexwright.server.pocketcaster.PocketCasterData;
+import com.bluup.hexwright.server.portal.PortalWindow;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.Registries;
@@ -13,8 +14,10 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -55,20 +58,53 @@ public final class VaultRecord {
         }
     }
 
+    public static final int MAIN_DOOR = 0;
+
+    public record Frame(int id, BlockPos anchor, Direction facing) {
+
+        public PortalWindow window() {
+            return VaultPortalPlacement.paneAt(anchor, facing);
+        }
+
+        CompoundTag save() {
+            CompoundTag tag = new CompoundTag();
+            tag.putInt("Id", id);
+            tag.put("Anchor", NbtUtils.writeBlockPos(anchor));
+            tag.putString("Facing", facing.getName());
+            return tag;
+        }
+
+        static @Nullable Frame load(CompoundTag tag) {
+            Direction facing = Direction.byName(tag.getString("Facing"));
+            if (facing == null || facing.getAxis().isVertical()) {
+                return null;
+            }
+            return new Frame(tag.getInt("Id"), NbtUtils.readBlockPos(tag.getCompound("Anchor")), facing);
+        }
+    }
+
     private final int id;
     private final UUID owner;
     private final BlockPos origin;
     private final PocketCasterData.Quality grade;
     private final boolean artifact;
     private final String build;
-    private final int templateVersion;
+    private int templateVersion;
     private final long createdGameTime;
 
     private Access access = Access.EVERYONE;
 
     private @Nullable Door lastDoor;
 
+    private String sky = "";
+
     private final Map<UUID, String> allowed = new LinkedHashMap<>();
+
+    private final List<Frame> frames = new ArrayList<>();
+
+    private int nextFrameId = MAIN_DOOR + 1;
+
+    private @Nullable Frame mainDoorFrame;
 
     public VaultRecord(int id, UUID owner, BlockPos origin, PocketCasterData.Quality grade,
                        boolean artifact, String build, int templateVersion, long createdGameTime) {
@@ -110,6 +146,10 @@ public final class VaultRecord {
         return templateVersion;
     }
 
+    void setTemplateVersion(int templateVersion) {
+        this.templateVersion = templateVersion;
+    }
+
     public long createdGameTime() {
         return createdGameTime;
     }
@@ -131,6 +171,46 @@ public final class VaultRecord {
         this.lastDoor = door;
     }
 
+    public String sky() {
+        return sky;
+    }
+
+    void setSky(String sky) {
+        this.sky = sky;
+    }
+
+
+    public List<Frame> frames() {
+        return Collections.unmodifiableList(frames);
+    }
+
+    public @Nullable Frame frame(int frameId) {
+        for (Frame frame : frames) {
+            if (frame.id() == frameId) {
+                return frame;
+            }
+        }
+        return null;
+    }
+
+    Frame addFrame(BlockPos anchor, Direction facing) {
+        Frame frame = new Frame(nextFrameId++, anchor, facing);
+        frames.add(frame);
+        return frame;
+    }
+
+    boolean removeFrame(int frameId) {
+        return frames.removeIf(frame -> frame.id() == frameId);
+    }
+
+    public @Nullable Frame mainDoorFrame() {
+        return mainDoorFrame;
+    }
+
+    void setMainDoorFrame(@Nullable Frame frame) {
+        this.mainDoorFrame = frame;
+    }
+
     public Map<UUID, String> allowed() {
         return Collections.unmodifiableMap(allowed);
     }
@@ -141,6 +221,10 @@ public final class VaultRecord {
 
     String revoke(UUID uuid) {
         return allowed.remove(uuid);
+    }
+
+    void revokeAll() {
+        allowed.clear();
     }
 
     public CompoundTag save() {
@@ -171,6 +255,22 @@ public final class VaultRecord {
         if (lastDoor != null) {
             tag.put("Door", lastDoor.save());
         }
+        if (!sky.isEmpty()) {
+            tag.putString("Sky", sky);
+        }
+        if (!frames.isEmpty()) {
+            ListTag frameTags = new ListTag();
+            for (Frame frame : frames) {
+                frameTags.add(frame.save());
+            }
+            tag.put("Frames", frameTags);
+        }
+        if (nextFrameId > MAIN_DOOR + 1) {
+            tag.putInt("NextFrame", nextFrameId);
+        }
+        if (mainDoorFrame != null) {
+            tag.put("MainDoorFrame", mainDoorFrame.save());
+        }
         return tag;
     }
 
@@ -195,10 +295,24 @@ public final class VaultRecord {
         if (tag.contains("Door")) {
             record.lastDoor = Door.load(tag.getCompound("Door"));
         }
+        record.sky = tag.getString("Sky");
         ListTag guests = tag.getList("Allowed", Tag.TAG_COMPOUND);
         for (int i = 0; i < guests.size(); i++) {
             CompoundTag guest = guests.getCompound(i);
             record.allowed.put(guest.getUUID("Id"), guest.getString("Name"));
+        }
+        ListTag frameTags = tag.getList("Frames", Tag.TAG_COMPOUND);
+        for (int i = 0; i < frameTags.size(); i++) {
+            Frame frame = Frame.load(frameTags.getCompound(i));
+            if (frame != null && frame.id() > MAIN_DOOR) {
+                record.frames.add(frame);
+                record.nextFrameId = Math.max(record.nextFrameId, frame.id() + 1);
+            }
+        }
+        record.nextFrameId = Math.max(record.nextFrameId, tag.getInt("NextFrame"));
+        if (tag.contains("MainDoorFrame")) {
+            Frame frame = Frame.load(tag.getCompound("MainDoorFrame"));
+            record.mainDoorFrame = frame != null && frame.id() == MAIN_DOOR ? frame : null;
         }
         return record;
     }

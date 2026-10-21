@@ -144,7 +144,7 @@ public class HarmonicBridgeState extends SavedData {
                 continue;
             }
             ServerLevel level = server.getLevel(bridge.dimension());
-            if (level == null || !level.isLoaded(bridge.pos())) {
+            if (!HarmonicNetwork.isChunkReady(level, bridge.pos())) {
                 continue;
             }
             if (level.getBlockEntity(bridge.pos()) instanceof ExchangeBridgeBlockEntity block) {
@@ -155,7 +155,7 @@ public class HarmonicBridgeState extends SavedData {
 
     private static boolean verify(MinecraftServer server, Bridge bridge) {
         ServerLevel level = server.getLevel(bridge.dimension());
-        if (level == null || !level.isLoaded(bridge.pos())) {
+        if (!HarmonicNetwork.isChunkReady(level, bridge.pos())) {
             return true;
         }
         return level.getBlockEntity(bridge.pos()) instanceof ExchangeBridgeBlockEntity block

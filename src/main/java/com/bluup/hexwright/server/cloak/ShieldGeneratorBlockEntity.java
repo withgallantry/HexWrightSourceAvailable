@@ -19,6 +19,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 
@@ -53,18 +54,29 @@ public class ShieldGeneratorBlockEntity extends BlockEntity {
         setChanged();
     }
 
-    public void configure(Vec3 center, float radius, float height, @Nullable UUID owner) {
+    public void configure(Vec3 center, float width, float height, @Nullable UUID owner) {
         UUID id = field == null ? UUID.randomUUID() : field.id();
+        Set<UUID> guests = field != null && Objects.equals(field.owner(), owner) ? field.guests() : Set.of();
         boolean up = level instanceof ServerLevel server && isUp(server);
         if (up) {
             CloakFieldStore.remove((ServerLevel) level, id);
         }
-        field = new CloakField(id, center, radius, height, owner);
+        field = new CloakField(id, center, width, height, owner, 0.0f, guests);
         guard = Guard.NONE;
         setChanged();
         if (up) {
             CloakFieldStore.add((ServerLevel) level, field);
         }
+    }
+
+    public boolean toggleGuest(ServerLevel level, UUID guest) {
+        boolean up = isUp(level);
+        field = field.toggleGuest(guest);
+        setChanged();
+        if (up) {
+            CloakFieldStore.update(level, field);
+        }
+        return field.guests().contains(guest);
     }
 
     public boolean isUp(ServerLevel level) {
@@ -100,14 +112,25 @@ public class ShieldGeneratorBlockEntity extends BlockEntity {
         setChanged();
     }
 
+    public boolean obeysRedstone() {
+        return guard == Guard.NONE && field != null;
+    }
+
+    public void neighborChanged(ServerLevel level) {
+        if (obeysRedstone() && ShieldGeneratorBlock.switchedOff(level, worldPosition) == isUp(level)) {
+            countdown = 0;
+        }
+    }
+
     private void holdUp(ServerLevel level) {
         boolean up = isUp(level);
+        if (ShieldGeneratorBlock.switchedOff(level, worldPosition)) {
+            lower(level, up);
+            return;
+        }
         Feed feed = feed();
         if (feed.status() != Status.FED) {
-            if (up) {
-                CloakFieldStore.remove(level, field.id());
-                level.playSound(null, worldPosition, SoundEvents.BEACON_DEACTIVATE, SoundSource.BLOCKS, 1.0f, 1.0f);
-            }
+            lower(level, up);
             return;
         }
         burn(feed.first(), MEDIA_PER_PORT);
@@ -115,6 +138,13 @@ public class ShieldGeneratorBlockEntity extends BlockEntity {
         if (!up) {
             CloakFieldStore.add(level, field);
             level.playSound(null, worldPosition, SoundEvents.BEACON_ACTIVATE, SoundSource.BLOCKS, 1.0f, 1.0f);
+        }
+    }
+
+    private void lower(ServerLevel level, boolean up) {
+        if (up) {
+            CloakFieldStore.remove(level, field.id());
+            level.playSound(null, worldPosition, SoundEvents.BEACON_DEACTIVATE, SoundSource.BLOCKS, 1.0f, 1.0f);
         }
     }
 

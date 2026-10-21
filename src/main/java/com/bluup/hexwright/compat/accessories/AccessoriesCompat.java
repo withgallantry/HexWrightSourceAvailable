@@ -15,6 +15,8 @@ import io.wispforest.accessories.api.attributes.AccessoryAttributeBuilder;
 import io.wispforest.accessories.api.events.CanEquipCallback;
 import io.wispforest.accessories.api.slot.SlotEntryReference;
 import io.wispforest.accessories.api.slot.SlotReference;
+import io.wispforest.accessories.api.slot.SlotType;
+import io.wispforest.accessories.data.SlotTypeLoader;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.util.TriState;
 import net.minecraft.server.level.ServerPlayer;
@@ -23,6 +25,7 @@ import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.ArrayList;
@@ -144,6 +147,32 @@ public final class AccessoriesCompat {
             }
             AccessoriesCapability.getOptionally(entity)
                 .ifPresent(AccessoriesCapability::updateContainers);
+        }
+
+        @Override
+        public boolean equip(LivingEntity entity, ItemStack stack) {
+            return AccessoriesCapability.getOptionally(entity)
+                .map(capability -> capability.equipAccessory(stack) != null)
+                .orElse(false);
+        }
+
+        @Override
+        public boolean isAccessory(Item item) {
+            if (item instanceof Accessory || AccessoriesAPI.getAccessory(item) != null) {
+                return true;
+            }
+            var holder = item.builtInRegistryHolder();
+            if (holder.is(AccessoriesAPI.ANY_ACCESSORIES) || holder.is(AccessoriesAPI.ALL_ACCESSORIES)) {
+                return true;
+            }
+            for (boolean client : new boolean[] {false, true}) {
+                for (SlotType slot : SlotTypeLoader.INSTANCE.getSlotTypes(client).values()) {
+                    if (holder.is(AccessoriesAPI.getSlotTag(slot))) {
+                        return true;
+                    }
+                }
+            }
+            return false;
         }
 
         private static AccessoriesContainer containerFor(LivingEntity entity, String slot) {

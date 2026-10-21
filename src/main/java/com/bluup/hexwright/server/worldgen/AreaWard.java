@@ -136,6 +136,10 @@ public final class AreaWard {
         return true;
     }
 
+    public static void forgetCells() {
+        CELLS.clear();
+    }
+
     public static boolean sealed(Level level, BlockPos pos) {
         if (!(level instanceof ServerLevel server)) {
             return false;

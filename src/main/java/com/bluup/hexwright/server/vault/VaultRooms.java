@@ -21,7 +21,7 @@ import java.util.List;
 
 public final class VaultRooms {
 
-    public static final int TEMPLATE_VERSION = 5;
+    public static final int TEMPLATE_VERSION = 6;
 
     public static final int GRID_WIDTH = 128;
 
@@ -262,6 +262,20 @@ public final class VaultRooms {
         generateRoom(vaultLevel, record, planOf(record));
     }
 
+    static boolean upgrade(ServerLevel vaultLevel, VaultRecord record) {
+        if (record.templateVersion() >= TEMPLATE_VERSION) {
+            return false;
+        }
+        if (layoutOf(record).isOpenAir()) {
+            for (ChunkPos chunk : roomChunks(record)) {
+                vaultLevel.getChunk(chunk.x, chunk.z);
+            }
+            VaultGrounds.sealCrenels(vaultLevel, record);
+        }
+        record.setTemplateVersion(TEMPLATE_VERSION);
+        return true;
+    }
+
     static void generateArch(ServerLevel vaultLevel, BlockPos min, Plan plan) {
         BlockState frame = HexwrightBlocks.VAULT_FRAME_BLOCK.defaultBlockState();
         int frameZ = min.getZ() + PORTAL_INSET;
@@ -272,6 +286,28 @@ public final class VaultRooms {
                 boolean ring = x == frameX0 || x == frameX0 + ARCH_WIDTH - 1 || y == floorY || y == floorY + 4;
                 vaultLevel.setBlock(new BlockPos(x, y, frameZ),
                     ring ? frame : Blocks.AIR.defaultBlockState(), 3);
+            }
+        }
+    }
+
+    static void removeArch(ServerLevel vaultLevel, VaultRecord record) {
+        Plan plan = planOf(record);
+        BlockPos min = roomOrigin(record);
+        BlockState floor = plan.openAir()
+            ? Blocks.GRASS_BLOCK.defaultBlockState()
+            : HexwrightBlocks.VAULT_FLOOR_BLOCK.defaultBlockState();
+        int frameZ = min.getZ() + PORTAL_INSET;
+        int frameX0 = min.getX() + archOffsetX(plan);
+        int floorY = plan.floorY();
+        for (int x = frameX0; x <= frameX0 + ARCH_WIDTH - 1; x++) {
+            for (int y = floorY; y <= floorY + 4; y++) {
+                BlockPos pos = new BlockPos(x, y, frameZ);
+                if (vaultLevel.getBlockState(pos).is(HexwrightBlocks.VAULT_FRAME_BLOCK)) {
+                    vaultLevel.destroyBlock(pos, false);
+                    if (y == floorY) {
+                        vaultLevel.setBlock(pos, floor, 3);
+                    }
+                }
             }
         }
     }

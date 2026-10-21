@@ -95,7 +95,6 @@ float tongue(
 }
 
 void main() {
-    // Fixed low-resolution canvas keeps the flame deliberately pixelated.
     vec2 virtualResolution = vec2(96.0, 30.0);
     vec2 pixel = floor(texCoord0 * virtualResolution);
 
@@ -103,8 +102,6 @@ void main() {
     p.x -= virtualResolution.x * 0.5;
     p.y -= virtualResolution.y * 0.08;
 
-    // Minecraft's GameTime is a repeating 0..1 value. Scaling it produces
-    // a useful animation speed while preserving seamless repetition.
     float t = GameTime * 1200.0;
 
     vec2 cell = p;
@@ -175,7 +172,6 @@ void main() {
     alpha = max(alpha, ember * 0.72);
     alpha = clamp(alpha, 0.0, 1.0);
 
-    // Preserve particle tint and opacity controls.
     vec4 particleTint = vertexColor * ColorModulator;
     vec4 finalColor = vec4(color * particleTint.rgb, alpha * particleTint.a);
 

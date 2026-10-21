@@ -1,5 +1,8 @@
 package com.bluup.hexwright.server.weapon;
 
+import com.bluup.hexwright.server.armour.ArmourTier;
+import com.bluup.hexwright.server.armour.Restylable;
+import com.bluup.hexwright.server.item.HexwrightItems;
 import com.bluup.hexwright.server.pocketcaster.PocketCasterData;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
@@ -10,6 +13,7 @@ import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Tier;
 import net.minecraft.world.level.Level;
@@ -20,7 +24,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 
-public class BattleHammerItem extends BerserkWeaponItem {
+public class BattleHammerItem extends BerserkWeaponItem implements Restylable {
 
     public static final String SLAM_CLIP = "hammer_overhead_slam";
 
@@ -71,6 +75,17 @@ public class BattleHammerItem extends BerserkWeaponItem {
     @Nullable
     public PocketCasterData.Quality quality() {
         return this.quality;
+    }
+
+
+    @Override
+    public @Nullable ArmourTier ownLook() {
+        return Restylable.gradedLook(HexwrightItems.BATTLE_HAMMERS, this, this.quality);
+    }
+
+    @Override
+    public Item lookItem(ArmourTier look) {
+        return HexwrightItems.BATTLE_HAMMERS.get(look.displayQuality());
     }
 
     @Override
@@ -127,9 +142,13 @@ public class BattleHammerItem extends BerserkWeaponItem {
         if (impact == null) {
             return false;
         }
-        List<LivingEntity> caught = GroundSlam.slam(level, player, impact, this.slamRadius);
+        List<LivingEntity> caught = slam(level, player, impact, this.slamRadius);
         castOnCaught(player, player.getItemInHand(hand), caught, GroundSlam.centreOf(impact));
         return true;
+    }
+
+    protected List<LivingEntity> slam(ServerLevel level, ServerPlayer player, BlockPos impact, float radius) {
+        return GroundSlam.slam(level, player, impact, radius);
     }
 
     @Override

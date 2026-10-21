@@ -12,6 +12,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
@@ -64,10 +65,14 @@ public final class WardingBoxVisualClient {
             poseStack.translate(-camera.x, -camera.y, -camera.z);
 
             for (WardingBoxBlockEntity box : TRACKED) {
+                Level boxLevel = box.getLevel();
                 if (box.isRemoved()
-                    || box.getLevel() != mc.level
-                    || mc.level.getBlockEntity(box.getBlockPos()) != box) {
+                    || boxLevel == null
+                    || boxLevel.getBlockEntity(box.getBlockPos()) != box) {
                     TRACKED.remove(box);
+                    continue;
+                }
+                if (boxLevel != mc.level) {
                     continue;
                 }
                 Vec3 center = Vec3.atCenterOf(box.getBlockPos());

@@ -18,18 +18,14 @@ final class MageAttire {
     private static List<ItemStack> ascension() {
         return List.of(
             new ItemStack(HexwrightItems.HAT_OF_ASCENSION),
-            new ItemStack(HexwrightItems.MANTLE_OF_ASCENSION),
-            ItemStack.EMPTY,
-            ItemStack.EMPTY
+            new ItemStack(HexwrightItems.MANTLE_OF_ASCENSION)
         );
     }
 
     private static List<ItemStack> passage() {
         return List.of(
             new ItemStack(HexwrightItems.HAT_OF_PASSAGE),
-            new ItemStack(HexwrightItems.CAPE_OF_PASSAGE),
-            ItemStack.EMPTY,
-            ItemStack.EMPTY
+            new ItemStack(HexwrightItems.CAPE_OF_PASSAGE)
         );
     }
 }

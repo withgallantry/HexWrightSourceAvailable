@@ -1,11 +1,14 @@
 package com.bluup.hexwright.server.talisman;
 
+import com.mojang.brigadier.arguments.StringArgumentType;
+import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.entity.event.v1.ServerEntityWorldChangeEvents;
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
 import net.fabricmc.fabric.api.event.player.UseBlockCallback;
 import net.fabricmc.fabric.api.event.player.UseEntityCallback;
+import net.minecraft.commands.Commands;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.world.InteractionResult;
@@ -14,6 +17,8 @@ import net.minecraft.world.phys.Vec3;
 public final class TalismanEvents {
 
     private static final long SLOT_SYNC_INTERVAL_TICKS = 10L;
+
+    private static final String COMMAND_ROOT = "xts";
 
     private TalismanEvents() {
     }
@@ -79,5 +84,12 @@ public final class TalismanEvents {
                     null, null, player.position());
             }
         });
+
+        CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) ->
+            dispatcher.register(Commands.literal(COMMAND_ROOT)
+                .executes(ctx -> TalismanCasting.onCommand(ctx.getSource().getPlayerOrException(), ""))
+                .then(Commands.argument("text", StringArgumentType.greedyString())
+                    .executes(ctx -> TalismanCasting.onCommand(ctx.getSource().getPlayerOrException(),
+                        StringArgumentType.getString(ctx, "text"))))));
     }
 }

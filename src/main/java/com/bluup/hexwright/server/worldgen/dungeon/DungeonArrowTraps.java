@@ -21,6 +21,7 @@ import net.minecraft.world.level.levelgen.structure.BoundingBox;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -55,6 +56,14 @@ public final class DungeonArrowTraps {
         for (List<BlockPos> ladder : ladders(air, wire)) {
             lay(level, box, ladder);
         }
+    }
+
+    static Set<BlockPos> wiring(Set<BlockPos> air, List<BlockPos> wire) {
+        Set<BlockPos> dust = new HashSet<>();
+        for (List<BlockPos> ladder : ladders(air, wire)) {
+            dust.addAll(ladder);
+        }
+        return dust;
     }
 
     private static void stock(ServerLevelAccessor level, BlockPos pos) {

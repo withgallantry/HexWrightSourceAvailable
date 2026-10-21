@@ -19,9 +19,7 @@ void main() {
     ParticleData data = getParticleData();
 
     vec4 ViewPos4 = ModelViewMat * vec4(data.Position, 1.0);
-    // view vec pos
     ViewPos = ViewPos4.xyz;
-    // view noramal of the vert
     ViewNormal = normalize(mat3(ModelViewMat) * data.Normal);
 
     vertexDistance = fog_distance(ViewPos4.xyz, FogShape);

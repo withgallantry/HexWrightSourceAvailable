@@ -18,11 +18,10 @@ out vec4 fragColor;
 const float PI  = 3.14159265358979323846;
 const float TAU = 6.28318530717958647692;
 
-// ---------- Main tuning ----------
-const float SPIN_PER_DAY = 42.0;          // ~28.5 seconds per full spin
+const float SPIN_PER_DAY = 42.0;
 const float RIPPLE_SPEED = 1.6;
-const float SPIKE_CYCLES_PER_DAY = 120.0; // ~10 seconds between violent surges
-const float BLOB_SIZE = 0.36; // 0.46
+const float SPIKE_CYCLES_PER_DAY = 120.0;
+const float BLOB_SIZE = 0.36;
 const float ROUNDING = 0.19;
 const int   MAX_STEPS = 60;
 const float MAX_DISTANCE = 8.0;
@@ -111,12 +110,10 @@ float sdRoundBox(vec3 p, vec3 b, float r) {
 float surgePulse(float t) {
     float cycle = fract(t * SPIKE_CYCLES_PER_DAY);
 
-    // Mostly calm, then a sudden violent spike window, then quickly back to calm.
     float rise = smoothstep(0.79, 0.845, cycle);
     float crest = 1.0 - smoothstep(0.90, 0.985, cycle);
     float pulse = rise * crest;
 
-    // Sharpen the event so it feels sudden rather than gradual.
     return pow(saturate(pulse), 1.35);
 }
 
@@ -125,7 +122,6 @@ float spikeField(vec3 p, float time, float surge) {
         return 0.0;
     }
 
-    // Preferred magnetic directions.
     vec3 d0 = normalize(vec3( 0.95,  1.15,  0.28));
     vec3 d1 = normalize(vec3(-1.10,  0.42,  0.82));
     vec3 d2 = normalize(vec3( 0.18, -0.92,  1.08));
@@ -227,7 +223,6 @@ void main() {
     vec3 planePos = vec3(uv * 1.15, 0.0);
     vec3 rayDir = normalize(planePos - cameraPos);
 
-    // Rotate the ray into object-local space so the ferrofluid cube appears to spin.
     vec3 ro = cameraPos;
     vec3 rd = rayDir;
     ro = rotateY(ro, -spinAngle);

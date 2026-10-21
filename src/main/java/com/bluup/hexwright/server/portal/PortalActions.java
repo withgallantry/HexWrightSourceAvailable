@@ -182,7 +182,7 @@ public final class PortalActions {
         if (caster == null) {
             throw new MishapBadCaster();
         }
-        if (!WorldCrystalSlot.isWorn(caster)) {
+        if (!WorldCrystalSlot.isCarried(caster)) {
             throw MishapInvalidIota.of(args.get(index), argc - 1 - index, "hexwright.portal_key");
         }
     }

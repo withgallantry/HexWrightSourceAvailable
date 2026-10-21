@@ -41,6 +41,34 @@ public final class HexwrightBlocks {
 
     public static BlockEntityType<StaffAssemblyBlockEntity> STAFF_ASSEMBLY_BLOCK_ENTITY;
 
+    public static final com.bluup.hexwright.server.armour.ArmamentWorkbenchBlock ARMAMENT_WORKBENCH_BLOCK =
+        new com.bluup.hexwright.server.armour.ArmamentWorkbenchBlock(
+            soft(Blocks.SMITHING_TABLE)
+                .noOcclusion()
+        );
+
+    public static final Item ARMAMENT_WORKBENCH_ITEM = new BlockItem(
+        ARMAMENT_WORKBENCH_BLOCK,
+        new Item.Properties()
+    );
+
+    public static BlockEntityType<com.bluup.hexwright.server.armour.ArmamentWorkbenchBlockEntity>
+        ARMAMENT_WORKBENCH_BLOCK_ENTITY;
+
+    public static final com.bluup.hexwright.server.research.ResearchTableBlock WRIGHT_RESEARCH_TABLE_BLOCK =
+        new com.bluup.hexwright.server.research.ResearchTableBlock(
+            soft(Blocks.SMITHING_TABLE)
+                .noOcclusion()
+        );
+
+    public static final Item WRIGHT_RESEARCH_TABLE_ITEM = new BlockItem(
+        WRIGHT_RESEARCH_TABLE_BLOCK,
+        new Item.Properties()
+    );
+
+    public static BlockEntityType<com.bluup.hexwright.server.research.ResearchTableBlockEntity>
+        WRIGHT_RESEARCH_TABLE_BLOCK_ENTITY;
+
     public static final CrucibleBlock CRUCIBLE_BLOCK = new CrucibleBlock(
         soft(Blocks.CAULDRON)
             .luminance(state -> state.getValue(HexwrightBlockStates.ACTIVE) ? 13 : 0)
@@ -454,9 +482,38 @@ public final class HexwrightBlocks {
 
     public static BlockEntityType<WeaponRackBlockEntity> WEAPON_RACK_BLOCK_ENTITY;
 
+    public static final com.bluup.hexwright.server.constructshand.ConstructsHandBlock CONSTRUCTS_HAND_BLOCK =
+        new com.bluup.hexwright.server.constructshand.ConstructsHandBlock(
+            soft(Blocks.POLISHED_DEEPSLATE)
+                .noOcclusion()
+        );
+
+    public static final Item CONSTRUCTS_HAND_ITEM = new BlockItem(
+        CONSTRUCTS_HAND_BLOCK,
+        new Item.Properties()
+    );
+
+    public static final com.bluup.hexwright.server.constructshand.ConstructsHandBlock IRON_CONSTRUCTS_HAND_BLOCK =
+        new com.bluup.hexwright.server.constructshand.ConstructsHandBlock(
+            soft(Blocks.IRON_BLOCK)
+                .noOcclusion()
+        );
+
+    public static final Item IRON_CONSTRUCTS_HAND_ITEM = new BlockItem(
+        IRON_CONSTRUCTS_HAND_BLOCK,
+        new Item.Properties()
+    );
+
+    public static BlockEntityType<com.bluup.hexwright.server.constructshand.ConstructsHandBlockEntity>
+        CONSTRUCTS_HAND_BLOCK_ENTITY;
+
     public static void register() {
         Registry.register(BuiltInRegistries.BLOCK, Hexwright.id("staff_assembly"), STAFF_ASSEMBLY_BLOCK);
         Registry.register(BuiltInRegistries.ITEM, Hexwright.id("staff_assembly"), STAFF_ASSEMBLY_ITEM);
+        Registry.register(BuiltInRegistries.BLOCK, Hexwright.id("armament_workbench"), ARMAMENT_WORKBENCH_BLOCK);
+        Registry.register(BuiltInRegistries.ITEM, Hexwright.id("armament_workbench"), ARMAMENT_WORKBENCH_ITEM);
+        Registry.register(BuiltInRegistries.BLOCK, Hexwright.id("wright_research_table"), WRIGHT_RESEARCH_TABLE_BLOCK);
+        Registry.register(BuiltInRegistries.ITEM, Hexwright.id("wright_research_table"), WRIGHT_RESEARCH_TABLE_ITEM);
         Registry.register(BuiltInRegistries.BLOCK, Hexwright.id("crucible"), CRUCIBLE_BLOCK);
         Registry.register(BuiltInRegistries.ITEM, Hexwright.id("crucible"), CRUCIBLE_ITEM);
         Registry.register(BuiltInRegistries.BLOCK, Hexwright.id("worktable"), WORKTABLE_BLOCK);
@@ -523,6 +580,10 @@ public final class HexwrightBlocks {
         Registry.register(BuiltInRegistries.ITEM, Hexwright.id("shield_generator"), SHIELD_GENERATOR_ITEM);
         Registry.register(BuiltInRegistries.BLOCK, Hexwright.id("weapon_rack"), WEAPON_RACK_BLOCK);
         Registry.register(BuiltInRegistries.ITEM, Hexwright.id("weapon_rack"), WEAPON_RACK_ITEM);
+        Registry.register(BuiltInRegistries.BLOCK, Hexwright.id("constructs_hand"), CONSTRUCTS_HAND_BLOCK);
+        Registry.register(BuiltInRegistries.ITEM, Hexwright.id("constructs_hand"), CONSTRUCTS_HAND_ITEM);
+        Registry.register(BuiltInRegistries.BLOCK, Hexwright.id("iron_constructs_hand"), IRON_CONSTRUCTS_HAND_BLOCK);
+        Registry.register(BuiltInRegistries.ITEM, Hexwright.id("iron_constructs_hand"), IRON_CONSTRUCTS_HAND_ITEM);
         Registry.register(BuiltInRegistries.BLOCK, Hexwright.id("plinth"), PLINTH_BLOCK);
         Registry.register(BuiltInRegistries.ITEM, Hexwright.id("plinth"), PLINTH_ITEM);
 
@@ -534,6 +595,7 @@ public final class HexwrightBlocks {
 
         com.bluup.hexwright.server.item.HexwrightCreativeTab.addTo(CreativeModeTabs.FUNCTIONAL_BLOCKS, entries -> {
             entries.accept(STAFF_ASSEMBLY_ITEM);
+            entries.accept(ARMAMENT_WORKBENCH_ITEM);
             entries.accept(CRUCIBLE_ITEM);
             entries.accept(WORKTABLE_ITEM);
             entries.accept(WARDING_BOX_ITEM);
@@ -554,6 +616,8 @@ public final class HexwrightBlocks {
             entries.accept(ALEMBIX_ITEM);
             entries.accept(LIQUEFACTRIUM_ITEM);
             entries.accept(SHIELD_GENERATOR_ITEM);
+            entries.accept(CONSTRUCTS_HAND_ITEM);
+            entries.accept(IRON_CONSTRUCTS_HAND_ITEM);
             entries.accept(PLINTH_ITEM);
         });
 
@@ -573,6 +637,22 @@ public final class HexwrightBlocks {
             BuiltInRegistries.BLOCK_ENTITY_TYPE,
             Hexwright.id("staff_assembly"),
             FabricBlockEntityTypeBuilder.create(StaffAssemblyBlockEntity::new, STAFF_ASSEMBLY_BLOCK).build()
+        );
+
+        ARMAMENT_WORKBENCH_BLOCK_ENTITY = Registry.register(
+            BuiltInRegistries.BLOCK_ENTITY_TYPE,
+            Hexwright.id("armament_workbench"),
+            FabricBlockEntityTypeBuilder.create(
+                com.bluup.hexwright.server.armour.ArmamentWorkbenchBlockEntity::new,
+                ARMAMENT_WORKBENCH_BLOCK).build()
+        );
+
+        WRIGHT_RESEARCH_TABLE_BLOCK_ENTITY = Registry.register(
+            BuiltInRegistries.BLOCK_ENTITY_TYPE,
+            Hexwright.id("wright_research_table"),
+            FabricBlockEntityTypeBuilder.create(
+                com.bluup.hexwright.server.research.ResearchTableBlockEntity::new,
+                WRIGHT_RESEARCH_TABLE_BLOCK).build()
         );
 
         CRUCIBLE_BLOCK_ENTITY = Registry.register(
@@ -734,6 +814,14 @@ public final class HexwrightBlocks {
             BuiltInRegistries.BLOCK_ENTITY_TYPE,
             Hexwright.id("weapon_rack"),
             FabricBlockEntityTypeBuilder.create(WeaponRackBlockEntity::new, WEAPON_RACK_BLOCK).build()
+        );
+
+        CONSTRUCTS_HAND_BLOCK_ENTITY = Registry.register(
+            BuiltInRegistries.BLOCK_ENTITY_TYPE,
+            Hexwright.id("constructs_hand"),
+            FabricBlockEntityTypeBuilder.create(
+                com.bluup.hexwright.server.constructshand.ConstructsHandBlockEntity::new,
+                CONSTRUCTS_HAND_BLOCK, IRON_CONSTRUCTS_HAND_BLOCK).build()
         );
     }
 

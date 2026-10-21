@@ -88,8 +88,6 @@ public final class VoidTearRenderer {
         }
 
         PoseStack poseStack = context.matrixStack();
-        poseStack.pushPose();
-        poseStack.translate(-cameraPos.x, -cameraPos.y, -cameraPos.z);
         Matrix4f pose = poseStack.last().pose();
 
         RenderSystem.enableBlend();
@@ -115,10 +113,10 @@ public final class VoidTearRenderer {
 
             BufferBuilder builder = Tesselator.getInstance().getBuilder();
             builder.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX);
-            quadVertex(builder, pose, rift, -LONG_MARGIN, -ACROSS_MARGIN, halfLength, halfAperture);
-            quadVertex(builder, pose, rift, LONG_MARGIN, -ACROSS_MARGIN, halfLength, halfAperture);
-            quadVertex(builder, pose, rift, LONG_MARGIN, ACROSS_MARGIN, halfLength, halfAperture);
-            quadVertex(builder, pose, rift, -LONG_MARGIN, ACROSS_MARGIN, halfLength, halfAperture);
+            quadVertex(builder, pose, cameraPos, rift, -LONG_MARGIN, -ACROSS_MARGIN, halfLength, halfAperture);
+            quadVertex(builder, pose, cameraPos, rift, LONG_MARGIN, -ACROSS_MARGIN, halfLength, halfAperture);
+            quadVertex(builder, pose, cameraPos, rift, LONG_MARGIN, ACROSS_MARGIN, halfLength, halfAperture);
+            quadVertex(builder, pose, cameraPos, rift, -LONG_MARGIN, ACROSS_MARGIN, halfLength, halfAperture);
             BufferUploader.drawWithShader(builder.end());
         }
         SCRATCH.clear();
@@ -128,7 +126,6 @@ public final class VoidTearRenderer {
         RenderSystem.enableCull();
         RenderSystem.depthMask(true);
         RenderSystem.disableBlend();
-        poseStack.popPose();
     }
 
     private static AABB boundsOf(Rift rift) {
@@ -137,9 +134,9 @@ public final class VoidTearRenderer {
             rift.center().add(reach, reach, reach));
     }
 
-    private static void quadVertex(BufferBuilder builder, Matrix4f pose, Rift rift,
+    private static void quadVertex(BufferBuilder builder, Matrix4f pose, Vec3 cameraPos, Rift rift,
                                    float a, float b, float halfLength, float halfAperture) {
-        Vec3 point = rift.pointAt(a, b);
+        Vec3 point = rift.pointAt(a, b).subtract(cameraPos);
         builder.vertex(pose, (float) point.x, (float) point.y, (float) point.z)
             .uv(a * halfLength, b * halfAperture)
             .endVertex();

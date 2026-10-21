@@ -16,6 +16,8 @@ import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -49,6 +51,10 @@ public final class VaultRegistry extends SavedData {
 
     public int count() {
         return records.size();
+    }
+
+    public Collection<VaultRecord> all() {
+        return Collections.unmodifiableCollection(records.values());
     }
 
     public @Nullable VaultRecord byPosition(Vec3 position) {

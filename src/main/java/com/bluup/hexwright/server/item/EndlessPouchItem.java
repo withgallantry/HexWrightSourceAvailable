@@ -57,6 +57,15 @@ public class EndlessPouchItem extends Item {
         return Component.translatable("label.hexwright.essence.entry", aspectName(aspect), formatAmount(amount));
     }
 
+    public static double roundPriceUp(double amount) {
+        return Math.ceil((amount - EssencePouchData.TOLERANCE) * 10) / 10;
+    }
+
+    public static String costLine(IngredientCategory aspect, double have, double need) {
+        double shownHave = Math.floor((have + EssencePouchData.TOLERANCE) * 10) / 10;
+        return aspectName(aspect).getString() + ": " + formatAmount(shownHave) + " / " + formatAmount(need);
+    }
+
     public static String formatAmount(double amount) {
         if (amount == Math.floor(amount)) {
             return String.valueOf((long) amount);

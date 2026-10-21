@@ -1,5 +1,6 @@
 package com.bluup.hexwright.client.render.emissive;
 
+import com.bluup.hexwright.Hexwright;
 import com.bluup.hexwright.HexwrightDebug;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -55,6 +56,8 @@ public record EmissiveModelScan(
     public static EmissiveModelScan scan(ResourceManager resources) {
         Map<ResourceLocation, ResourceLocation> masks = findGlowmaskTextures(resources);
         Map<ResourceLocation, GlowParams> brightnessSources = findBrightnessSources(resources);
+        addNamedGlowModels(resources, brightnessSources);
+        brightnessSources.values().removeIf(params -> params.strength() <= 0.0f);
         Map<ResourceLocation, PartTwin> partTwinByBase = new HashMap<>();
         Map<ResourceLocation, String> partTwinJson = new HashMap<>();
         for (ResourceLocation modelId : brightnessSources.keySet()) {
@@ -273,8 +276,33 @@ public record EmissiveModelScan(
                 }
             }
         }
-        sources.values().removeIf(params -> params.strength() <= 0.0f);
         return sources;
+    }
+
+    private static void addNamedGlowModels(ResourceManager resources,
+                                           Map<ResourceLocation, GlowParams> sources) {
+        for (Map.Entry<ResourceLocation, Resource> entry : resources.listResources("models/item",
+            path -> path.getNamespace().equals(Hexwright.MOD_ID) && path.getPath().endsWith(".json")).entrySet()) {
+
+            ResourceLocation modelId = modelIdOf(entry.getKey());
+            if (modelId == null || sources.containsKey(modelId)) {
+                continue;
+            }
+            String text = read(entry.getValue());
+            if (text == null || !text.toLowerCase(Locale.ROOT).contains("glow")) {
+                continue;
+            }
+            JsonObject json = parse(text);
+            if (json == null || !json.has("elements") || !json.get("elements").isJsonArray()) {
+                continue;
+            }
+            for (JsonElement element : json.getAsJsonArray("elements")) {
+                if ("glow".equals(glowTagOf(element))) {
+                    sources.put(modelId, GlowParams.DEFAULT);
+                    break;
+                }
+            }
+        }
     }
 
     private static boolean matches(String pattern, String value) {

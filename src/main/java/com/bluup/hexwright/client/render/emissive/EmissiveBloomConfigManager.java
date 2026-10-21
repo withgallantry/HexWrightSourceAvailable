@@ -72,7 +72,12 @@ public final class EmissiveBloomConfigManager {
             if (loaded == null) {
                 throw new JsonSyntaxException("empty or null config document");
             }
+            boolean upgraded = upgradeDullDefaults(loaded);
             applyClamped(loaded);
+            if (upgraded) {
+                save();
+                HexwrightDebug.log(HexwrightDebug.RENDER, "Upgraded untouched dull bloom defaults in {}", path);
+            }
             HexwrightDebug.log(HexwrightDebug.RENDER, "Loaded bloom config from {}", path);
         } catch (IOException | JsonSyntaxException e) {
             Hexwright.LOGGER.error("Failed to read bloom config at {}, keeping previous values", path, e);
@@ -98,6 +103,42 @@ public final class EmissiveBloomConfigManager {
         } catch (IOException e) {
             Hexwright.LOGGER.error("Failed to write bloom config to {}", path, e);
         }
+    }
+
+    private static boolean upgradeDullDefaults(EmissiveBloomConfig loaded) {
+        boolean dull = loaded.framebufferScale == 0.25f
+            && loaded.intensity == 0.6f
+            && loaded.coreStrength == 0.55f
+            && loaded.glowThreshold == 0.62f
+            && loaded.glowSaturation == 0.25f
+            && loaded.glowKnee == 0.12f
+            && loaded.blurRadius == 1.4f
+            && loaded.blockGlowStrength == 1.0f
+            && loaded.blockGlowLift == 0.0f
+            && loaded.blockGlowDepthSlope == 0.0f
+            && loaded.blockGlowDepthBias == -10.0f;
+        if (!dull) {
+            return false;
+        }
+
+        EmissiveBloomConfig defaults = new EmissiveBloomConfig();
+        loaded.framebufferScale = defaults.framebufferScale;
+        loaded.intensity = defaults.intensity;
+        loaded.coreStrength = defaults.coreStrength;
+        loaded.glowThreshold = defaults.glowThreshold;
+        loaded.glowSaturation = defaults.glowSaturation;
+        loaded.glowKnee = defaults.glowKnee;
+        loaded.blurRadius = defaults.blurRadius;
+        loaded.blockGlowStrength = defaults.blockGlowStrength;
+        loaded.blockGlowLift = defaults.blockGlowLift;
+        loaded.blockGlowDepthSlope = defaults.blockGlowDepthSlope;
+        loaded.blockGlowDepthBias = defaults.blockGlowDepthBias;
+        if (loaded.blockGlowDistance == 48) {
+            loaded.blockGlowDistance = EmissiveBloomOptions.LampGlow.NORMAL.distance();
+        } else if (loaded.blockGlowDistance == 80) {
+            loaded.blockGlowDistance = EmissiveBloomOptions.LampGlow.FAR.distance();
+        }
+        return true;
     }
 
     private static void applyClamped(EmissiveBloomConfig loaded) {

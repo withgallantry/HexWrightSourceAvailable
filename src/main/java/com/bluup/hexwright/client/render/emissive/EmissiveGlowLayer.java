@@ -12,6 +12,7 @@ import org.jetbrains.annotations.Nullable;
 
 public final class EmissiveGlowLayer extends RenderType {
     private static final String SHADER_NAME = "hexwright_item_glow";
+    private static final String SILHOUETTE_SHADER_NAME = "hexwright_item_silhouette";
 
     private static final TextureStateShard BLOCK_ATLAS_MIPPED =
         new TextureStateShard(TextureAtlas.LOCATION_BLOCKS, false, true);
@@ -59,6 +60,25 @@ public final class EmissiveGlowLayer extends RenderType {
     private static final RenderType MASKED_LAYER_UNMIPPED =
         maskedLayer("hexwright_item_glowmask_unmipped", BLOCK_ATLAS_UNMIPPED);
 
+    @Nullable
+    private static ShaderInstance silhouetteShader;
+
+    private static final RenderType SILHOUETTE_LAYER = create(
+        "hexwright_item_silhouette",
+        DefaultVertexFormat.NEW_ENTITY,
+        VertexFormat.Mode.QUADS,
+        256,
+        false,
+        true,
+        RenderType.CompositeState.builder()
+            .setShaderState(new ShaderStateShard(() -> silhouetteShader))
+            .setTextureState(BLOCK_ATLAS_MIPPED)
+            .setTransparencyState(TRANSLUCENT_TRANSPARENCY)
+            .setCullState(NO_CULL)
+            .setWriteMaskState(COLOR_WRITE)
+            .setLayeringState(DECAL_OFFSET_LAYERING)
+            .createCompositeState(false));
+
     private static RenderType maskedLayer(String name, TextureStateShard texture) {
         return create(name,
             DefaultVertexFormat.NEW_ENTITY,
@@ -87,9 +107,12 @@ public final class EmissiveGlowLayer extends RenderType {
     }
 
     public static void register() {
-        CoreShaderRegistrationCallback.EVENT.register(context ->
+        CoreShaderRegistrationCallback.EVENT.register(context -> {
             context.register(new ResourceLocation(SHADER_NAME), DefaultVertexFormat.NEW_ENTITY,
-                loaded -> shader = loaded));
+                loaded -> shader = loaded);
+            context.register(new ResourceLocation(SILHOUETTE_SHADER_NAME), DefaultVertexFormat.NEW_ENTITY,
+                loaded -> silhouetteShader = loaded);
+        });
     }
 
     @Nullable
@@ -103,6 +126,11 @@ public final class EmissiveGlowLayer extends RenderType {
 
     public static RenderType maskedLayerUnmipped() {
         return MASKED_LAYER_UNMIPPED;
+    }
+
+    @Nullable
+    public static RenderType silhouetteLayer() {
+        return silhouetteShader == null ? null : SILHOUETTE_LAYER;
     }
 
     @Nullable

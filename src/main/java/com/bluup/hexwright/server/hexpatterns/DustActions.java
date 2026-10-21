@@ -55,7 +55,7 @@ public final class DustActions {
     public static void register() {
         Registry<ActionRegistryEntry> registry = IXplatAbstractions.INSTANCE.getActionRegistry();
         Registry.register(registry, Hexwright.id("dust_manifest"),
-            new ActionRegistryEntry(HexPattern.fromAngles("waa", HexDir.EAST), MANIFEST_DUST));
+            new ActionRegistryEntry(HexPattern.fromAngles("waadd", HexDir.EAST), MANIFEST_DUST));
         Registry.register(registry, Hexwright.id("dust_direct"),
             new ActionRegistryEntry(HexPattern.fromAngles("waaqaedd", HexDir.EAST), DIRECT_DUST));
         Registry.register(registry, Hexwright.id("dust_form"),
@@ -67,7 +67,7 @@ public final class DustActions {
         Registry.register(registry, Hexwright.id("dust_constrain"),
             new ActionRegistryEntry(HexPattern.fromAngles("waaqaed", HexDir.EAST), CONSTRAIN_DUST));
         Registry.register(registry, Hexwright.id("dust_recall"),
-            new ActionRegistryEntry(HexPattern.fromAngles("wdd", HexDir.EAST), RECALL_DUST));
+            new ActionRegistryEntry(HexPattern.fromAngles("wddaa", HexDir.EAST), RECALL_DUST));
         Registry.register(registry, Hexwright.id("dust_await"),
             new ActionRegistryEntry(HexPattern.fromAngles("waaqaewaaqa", HexDir.EAST), AWAIT_DUST));
     }

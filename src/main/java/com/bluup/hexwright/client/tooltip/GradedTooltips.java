@@ -11,6 +11,8 @@ import com.bluup.hexwright.server.item.PocketCasterItem;
 import com.bluup.hexwright.server.item.WardingBoxItem;
 import com.bluup.hexwright.server.pentabox.PentaboxData;
 import com.bluup.hexwright.server.pocketcaster.PocketCasterData;
+import com.bluup.hexwright.server.powerorb.PowerOrbItem;
+import com.bluup.hexwright.server.soulforge.SoulforgedItem;
 import com.bluup.hexwright.server.staff_assembly.StaffAssemblyData;
 import com.bluup.hexwright.server.staff_assembly.StaffCoreData;
 import com.bluup.hexwright.server.staff_assembly.StaffCoreItem;
@@ -63,6 +65,12 @@ public final class GradedTooltips {
     }
 
     public static @Nullable TooltipStyle styleOf(ItemStack stack) {
+        if (SoulforgedItem.is(stack)) {
+            return TooltipStyle.SOULFORGED;
+        }
+        if (stack.getItem() instanceof PowerOrbItem) {
+            return TooltipStyle.POWER_ORB;
+        }
         if (ArtifactItem.is(stack)) {
             return TooltipStyle.ARTIFACT;
         }

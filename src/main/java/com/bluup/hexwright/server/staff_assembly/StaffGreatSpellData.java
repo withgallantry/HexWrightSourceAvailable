@@ -5,6 +5,7 @@ import at.petrak.hexcasting.api.casting.math.HexPattern;
 import at.petrak.hexcasting.api.utils.NBTHelper;
 import at.petrak.hexcasting.common.items.storage.ItemScroll;
 import at.petrak.hexcasting.common.lib.HexItems;
+import com.bluup.hexwright.server.hexpatterns.PerWorldPatterns;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
@@ -16,10 +17,9 @@ import java.util.List;
 import java.util.Locale;
 
 public final class StaffGreatSpellData {
-    public static final int MAX_LEARNED = 10;
-
     private static final String TAG_ROOT = "hexwright_amethyst_core";
     private static final String TAG_LEARNT = "great_spells";
+    private static final String TAG_GREAT_SPELL_COUNT = "great_spell_count";
     private static final String TAG_OP_ID = "op_id";
     private static final String TAG_PATTERN = "pattern";
 
@@ -55,7 +55,7 @@ public final class StaffGreatSpellData {
     }
 
     public static boolean isGreatSpellScroll(ItemStack stack) {
-        if (!(stack.getItem() instanceof ItemScroll)) {
+        if (!stack.is(HexItems.SCROLL_LARGE)) {
             return false;
         }
         String opId = NBTHelper.getString(stack, ItemScroll.TAG_OP_ID);
@@ -68,7 +68,13 @@ public final class StaffGreatSpellData {
 
     public static int maxLearned(ItemStack staff) {
         ItemStack coreItem = StaffAssemblyData.getCoreItem(staff);
-        return StaffCoreData.amethystSlots(StaffCoreData.getQuality(coreItem));
+        return StaffCoreData.amethystSlots(StaffCoreData.getQuality(coreItem), greatSpellCount(staff));
+    }
+
+    private static int greatSpellCount(ItemStack staff) {
+        CompoundTag root = NBTHelper.getCompound(staff, TAG_ROOT);
+        int seen = root == null ? 0 : root.getInt(TAG_GREAT_SPELL_COUNT);
+        return Math.max(seen, PerWorldPatterns.count());
     }
 
     public static List<LearnedGreatSpell> getLearned(ItemStack staff) {
@@ -103,9 +109,6 @@ public final class StaffGreatSpellData {
                 continue;
             }
             out.add(new LearnedGreatSpell(opId, pattern));
-            if (out.size() >= MAX_LEARNED) {
-                break;
-            }
         }
         return out;
     }
@@ -121,7 +124,7 @@ public final class StaffGreatSpellData {
         }
 
         ResourceLocation opId = ResourceLocation.tryParse(rawOpId);
-        if (opId == null) {
+        if (opId == null || !PerWorldPatterns.isGreatSpell(opId)) {
             return LearnResult.INVALID_SCROLL;
         }
 
@@ -168,6 +171,7 @@ public final class StaffGreatSpellData {
         CompoundTag root = NBTHelper.getOrCreateCompound(staff, TAG_ROOT);
         if (learned.isEmpty()) {
             root.remove(TAG_LEARNT);
+            root.remove(TAG_GREAT_SPELL_COUNT);
             return;
         }
         ListTag list = new ListTag();
@@ -175,5 +179,6 @@ public final class StaffGreatSpellData {
             list.add(entry.toTag());
         }
         root.put(TAG_LEARNT, list);
+        root.putInt(TAG_GREAT_SPELL_COUNT, greatSpellCount(staff));
     }
 }

@@ -11,6 +11,7 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.TextColor;
 import net.minecraft.world.item.DyeableLeatherItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -21,6 +22,8 @@ import org.jetbrains.annotations.Nullable;
 import java.util.List;
 
 public class PowerOrbItem extends Item implements IotaHolderItem, DyeableLeatherItem, ArtifactItem {
+
+    public static final TextColor SILVER = TextColor.fromRgb(0xCDD5E0);
 
     private final PowerOrbPower power;
 
@@ -43,12 +46,12 @@ public class PowerOrbItem extends Item implements IotaHolderItem, DyeableLeather
 
     @Override
     public Component getName(ItemStack stack) {
-        return super.getName(stack).copy().withStyle(ArtifactItem.COLOUR);
+        return super.getName(stack).copy().withStyle(style -> style.withColor(SILVER));
     }
 
     @Override
     public void appendHoverText(ItemStack stack, @Nullable Level level, List<Component> tooltip, TooltipFlag flag) {
-        tooltip.add(ArtifactItem.tooltipLine());
+        tooltip.add(ArtifactItem.tooltipLine(SILVER));
         WeaponTooltips.add(tooltip, Component.translatable(this.power.subtitleKey()), ChatFormatting.GRAY);
         switch (this.power) {
             case GOLEM -> appendConstructTooltip(stack, level, tooltip, ConstructOrbPower.GOLEM);

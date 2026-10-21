@@ -1,5 +1,6 @@
 package com.bluup.hexwright.mixin;
 
+import com.bluup.hexwright.server.hexweave.WovenOrbTriggers;
 import com.bluup.hexwright.server.talisman.TalismanCasting;
 import com.bluup.hexwright.server.talisman.TalismanData;
 import net.minecraft.server.level.ServerPlayer;
@@ -21,6 +22,14 @@ public abstract class ServerPlayerStruckWoundMixin {
                                           CallbackInfoReturnable<Boolean> cir) {
         ServerPlayer self = (ServerPlayer) (Object) this;
         this.hexwright$vitalityBeforeHurt = self.getHealth() + self.getAbsorptionAmount();
+    }
+
+    @Inject(method = "hurt", at = @At("RETURN"))
+    private void hexwright$parryWithWovenOrb(DamageSource source, float amount, CallbackInfoReturnable<Boolean> cir) {
+        ServerPlayer self = (ServerPlayer) (Object) this;
+        if (cir.getReturnValueZ() && !self.isDeadOrDying()) {
+            WovenOrbTriggers.onStruck(self, source);
+        }
     }
 
     @Inject(method = "hurt", at = @At("RETURN"))

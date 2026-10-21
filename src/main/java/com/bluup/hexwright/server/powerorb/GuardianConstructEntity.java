@@ -169,8 +169,8 @@ public class GuardianConstructEntity extends OrbConstructEntity {
     }
 
     @Override
-    protected ConstructOrbPower orbPower() {
-        return ConstructOrbPower.GUARDIAN;
+    protected boolean isClaimed() {
+        return ConstructOrbPower.GUARDIAN.claims(this);
     }
 
     @Nullable

@@ -1,14 +1,5 @@
 #version 150
 
-// Einstein-Rosen Bridge Network Visualisation
-// Menu-compositor transparent version.
-//
-// Changes:
-// - removes the opaque dark/scanline background
-// - uses straight-alpha-friendly output so translucent glows do not form dark halos
-// - alpha follows actual visible brightness rather than a broad invisible coverage mask
-// - trims extremely faint outer glow to avoid a dark circular/elliptical footprint
-// - geometry remains scaled to fill wide canvases
 
 uniform vec2 iResolution;
 uniform float iTime;
@@ -46,12 +37,8 @@ float gaussLine(float d, float w) {
     return exp(-d * d / max(0.000001, w * w));
 }
 
-// ------------------------------------------------------------
-// Bridge geometry
-// ------------------------------------------------------------
 
 float bridgeRadius(float x) {
-    // Slightly wider overall with a broader throat than before.
     float ax = abs(x);
     float c = (cosh(1.22 * ax) - 1.0) / (cosh(1.22) - 1.0);
     return 0.21 + 0.69 * c;
@@ -67,7 +54,6 @@ vec3 bridgePoint(float x, float ang) {
 }
 
 vec2 projectBridge(vec3 p) {
-    // Horizontal axis with a mild 3D tilt only.
     p.yz = rot2(0.53) * p.yz;
 
     float camDist = 4.15;
@@ -86,7 +72,6 @@ float bridgeWire(vec2 p) {
     const int MERIDIANS = 16;
     const int XSEG = 28;
 
-    // Ring loops
     for (int xi = 0; xi < RINGS; ++xi) {
         float x = mix(-1.0, 1.0, float(xi) / float(RINGS - 1));
 
@@ -98,11 +83,10 @@ float bridgeWire(vec2 p) {
             vec2 p1 = projectBridge(bridgePoint(x, a1));
 
             float d = sdSegment(p, p0, p1);
-            accum += gaussLine(d, 0.0050); // thicker
+            accum += gaussLine(d, 0.0050);
         }
     }
 
-    // Longitudinal meridians
     for (int ai = 0; ai < MERIDIANS; ++ai) {
         float ang = 2.0 * PI * float(ai) / float(MERIDIANS);
 
@@ -114,16 +98,13 @@ float bridgeWire(vec2 p) {
             vec2 p1 = projectBridge(bridgePoint(x1, ang));
 
             float d = sdSegment(p, p0, p1);
-            accum += gaussLine(d, 0.0044); // thicker
+            accum += gaussLine(d, 0.0044);
         }
     }
 
     return accum;
 }
 
-// ------------------------------------------------------------
-// Channels
-// ------------------------------------------------------------
 
 vec2 cubicBezier(vec2 a, vec2 b, vec2 c, vec2 d, float t) {
     float it = 1.0 - t;
@@ -136,7 +117,6 @@ vec2 cubicBezier(vec2 a, vec2 b, vec2 c, vec2 d, float t) {
 float channelBaseY(float idx) {
     float u = (idx + 0.5) / 16.0;
 
-    // Pulled inward a bit to leave padding inside the tunnel.
     float y = mix(-0.60, 0.60, u);
     y *= 0.96;
     y += 0.018 * sin(idx * 1.83);
@@ -203,9 +183,6 @@ float pulsePosB(float idx, float t) {
     return mix(pos, 1.0 - pos, dir);
 }
 
-// ------------------------------------------------------------
-// Main
-// ------------------------------------------------------------
 
 void mainImage(out vec4 outColor, in vec2 fragCoord) {
     vec2 uv = fragCoord.xy / iResolution.xy;
@@ -213,17 +190,12 @@ void mainImage(out vec4 outColor, in vec2 fragCoord) {
 
     vec2 p = uv * 2.0 - 1.0;
 
-    // Preserve most of the original aspect correction, but relax it on the
-    // horizontal axis so the artwork fills wide canvases more naturally.
-    // Scaling p.y down makes the rendered bridge appear taller, reducing
-    // empty space above and below it.
     p.x *= mix(1.0, aspect, 0.78);
     p.y *= 0.78;
 
     float t = iTime;
     float rad = length(vec2(p.x / max(aspect, 0.001), p.y));
 
-    // No painted background: RGB and alpha both start completely clear.
     vec3 color = vec3(0.0);
 
     float wire = bridgeWire(p);
@@ -271,22 +243,12 @@ void mainImage(out vec4 outColor, in vec2 fragCoord) {
     color += vec3(0.18, 0.35, 0.65) * leftNode * 0.22;
     color += vec3(0.65, 0.22, 0.85) * rightNode * 0.22;
 
-    // Softly fade only the artwork near the frame edges. The background
-    // itself remains alpha 0 everywhere there is no visible effect.
     float vignette = 1.0 - smoothstep(0.42, 1.28, rad);
     float edgeFade = 0.88 + 0.12 * vignette;
     color *= edgeFade;
 
-    // Treat `color` as the premultiplied/emissive contribution we want to see.
-    // Most menu UIs use standard SRC_ALPHA / ONE_MINUS_SRC_ALPHA blending,
-    // which expects straight (un-premultiplied) RGB. Deriving alpha from the
-    // brightest channel and dividing RGB by that alpha avoids the common
-    // dark-circle / dark-halo artifact around soft glows.
     float peak = max(color.r, max(color.g, color.b));
 
-    // Hard-trim only the extremely faint tail of the glow.
-    // This keeps the visible bridge soft without leaving a huge translucent
-    // footprint over the menu background.
     if (peak < 0.012) {
         outColor = vec4(0.0);
         return;

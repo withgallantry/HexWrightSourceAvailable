@@ -45,7 +45,7 @@ public class HexwrightBasePiece extends StructurePiece {
 
     public static final ResourceLocation TEMPLATE = Hexwright.id("hexwright_base");
 
-    public static final float SHIELD_RADIUS = 32.0f;
+    public static final float SHIELD_WIDTH = 64.0f;
     public static final float SHIELD_HEIGHT = 80.0f;
 
     public static final float SHIELD_TOUGHNESS = 1500.0f;
@@ -75,7 +75,7 @@ public class HexwrightBasePiece extends StructurePiece {
 
     private static BoundingBox site(StructureTemplate template, BlockPos origin) {
         Vec3i size = template.getSize();
-        int reach = Mth.ceil(SHIELD_RADIUS);
+        int reach = Mth.ceil(SHIELD_WIDTH / 2.0f);
         int centreX = origin.getX() + size.getX() / 2;
         int centreZ = origin.getZ() + size.getZ() / 2;
         return new BoundingBox(centreX - reach, origin.getY() + 1, centreZ - reach,
@@ -119,7 +119,7 @@ public class HexwrightBasePiece extends StructurePiece {
         Vec3i size = this.template.getSize();
         BoundingBox build = this.template.getBoundingBox(settings(this.rotation), this.templatePosition);
         Vec3 centre = new Vec3(build.minX() + size.getX() / 2.0, build.minY() + 1.0, build.minZ() + size.getZ() / 2.0);
-        generator.guard(new CloakField(Mth.createInsecureUUID(random), centre, SHIELD_RADIUS, SHIELD_HEIGHT,
+        generator.guard(new CloakField(Mth.createInsecureUUID(random), centre, SHIELD_WIDTH, SHIELD_HEIGHT,
             null, SHIELD_TOUGHNESS));
     }
 

@@ -19,69 +19,6 @@ import static com.bluup.hexwright.common.staff_assembly.calc.IngredientCategory.
 
 public final class IngredientRegistry {
 
-    private static final Map<Item, IngredientData> INGREDIENT_OVERRIDES = Map.ofEntries(
-        entry(Items.LEATHER, "leather", "Leather", 3, 2, LEATHER, ORGANIC, FLEXIBLE),
-        entry(Items.STRING, "string", "String", 2, 1, THREAD, FLEXIBLE, LIGHT),
-        entry(Items.PHANTOM_MEMBRANE, "phantom_membrane", "Phantom Membrane", 12, 7, LIGHT, FLEXIBLE, ARCANE),
-        entry(Items.FEATHER, "feather", "Feather", 3, 1, LIGHT, ORGANIC, FLEXIBLE),
-        entry(Items.CHAIN, "chain", "Chain", 6, 4, METALLIC, FLEXIBLE),
-
-        entry(Items.GLASS, "glass", "Glass", 2, 1, CRYSTAL, LIGHT),
-        entry(Items.AMETHYST_SHARD, "amethyst_shard", "Amethyst Shard", 10, 6, CRYSTAL, ARCANE, RADIANT),
-        entry(Items.AMETHYST_CLUSTER, "amethyst_cluster", "Amethyst Cluster", 14, 8, CRYSTAL, ARCANE, RADIANT),
-        entry(Items.QUARTZ, "quartz", "Quartz", 9, 5, CRYSTAL, NETHER, ARCANE),
-
-        entry(Items.ENDER_PEARL, "ender_pearl", "Ender Pearl", 20, 12, SPATIAL, END, ARCANE),
-        entry(Items.ENDER_EYE, "ender_eye", "Eye of Ender", 26, 16, SPATIAL, END, ARCANE, PRESTIGE),
-        entry(Items.CHORUS_FRUIT, "chorus_fruit", "Chorus Fruit", 12, 7, SPATIAL, END, ORGANIC),
-        entry(Items.POPPED_CHORUS_FRUIT, "popped_chorus_fruit", "Popped Chorus Fruit", 14, 8, SPATIAL, END),
-
-        entry(Items.REDSTONE, "redstone", "Redstone Dust", 5, 3, ENERGETIC, ARCANE),
-        entry(Items.GLOWSTONE_DUST, "glowstone_dust", "Glowstone Dust", 12, 7, RADIANT, ENERGETIC, NETHER),
-        entry(Items.GLOWSTONE, "glowstone", "Glowstone", 18, 11, RADIANT, ENERGETIC, NETHER),
-        entry(Items.BLAZE_POWDER, "blaze_powder", "Blaze Powder", 16, 10, FIRE, ENERGETIC, NETHER),
-        entry(Items.BLAZE_ROD, "blaze_rod", "Blaze Rod", 22, 14, FIRE, ENERGETIC, NETHER),
-        entry(Items.FIRE_CHARGE, "fire_charge", "Fire Charge", 12, 8, FIRE, ENERGETIC),
-
-        entry(Items.GHAST_TEAR, "ghast_tear", "Ghast Tear", 24, 15, NETHER, ARCANE, ORGANIC),
-        entry(Items.MAGMA_CREAM, "magma_cream", "Magma Cream", 14, 9, FIRE, NETHER, ORGANIC),
-        entry(Items.NETHER_WART, "nether_wart", "Nether Wart", 8, 5, NETHER, ORGANIC, ARCANE),
-        entry(Items.NETHERITE_SCRAP, "netherite_scrap", "Netherite Scrap", 30, 20, METALLIC, NETHER, PRESTIGE),
-        entry(Items.NETHERITE_INGOT, "netherite_ingot", "Netherite Ingot", 42, 28, METALLIC, NETHER, PRESTIGE),
-
-        entry(Items.ECHO_SHARD, "echo_shard", "Echo Shard", 28, 18, ECHO, END, SPATIAL),
-        entry(Items.SCULK, "sculk", "Sculk", 10, 7, ECHO, ARCANE, ORGANIC),
-        entry(Items.SCULK_SENSOR, "sculk_sensor", "Sculk Sensor", 18, 12, ECHO, ARCANE, ENERGETIC),
-        entry(Items.SCULK_CATALYST, "sculk_catalyst", "Sculk Catalyst", 26, 17, ECHO, ARCANE, ENERGETIC),
-        entry(Items.SCULK_SHRIEKER, "sculk_shrieker", "Sculk Shrieker", 24, 16, ECHO, ARCANE),
-
-        entry(Items.DIAMOND, "diamond", "Diamond", 22, 14, CRYSTAL, RADIANT, PRESTIGE),
-        entry(Items.EMERALD, "emerald", "Emerald", 18, 11, CRYSTAL, RADIANT, PRESTIGE),
-        entry(Items.LAPIS_LAZULI, "lapis_lazuli", "Lapis Lazuli", 8, 5, CRYSTAL, ARCANE),
-        entry(Items.GOLD_INGOT, "gold_ingot", "Gold Ingot", 10, 6, METALLIC, RADIANT, PRESTIGE),
-        entry(Items.IRON_INGOT, "iron_ingot", "Iron Ingot", 8, 5, METALLIC),
-        entry(Items.COPPER_INGOT, "copper_ingot", "Copper Ingot", 5, 3, METALLIC, ENERGETIC),
-        entry(Items.COAL, "coal", "Coal", 4, 2, ENERGETIC, ORGANIC),
-        entry(Items.CHARCOAL, "charcoal", "Charcoal", 3, 2, ENERGETIC, ORGANIC),
-
-        entry(Items.PRISMARINE_SHARD, "prismarine_shard", "Prismarine Shard", 12, 7, CRYSTAL, SPATIAL),
-        entry(Items.PRISMARINE_CRYSTALS, "prismarine_crystals", "Prismarine Crystals", 16, 10, CRYSTAL, RADIANT, SPATIAL),
-        entry(Items.HEART_OF_THE_SEA, "heart_of_the_sea", "Heart of the Sea", 36, 24, SPATIAL, ARCANE, PRESTIGE),
-        entry(Items.NAUTILUS_SHELL, "nautilus_shell", "Nautilus Shell", 18, 12, SPATIAL, ORGANIC, ARCANE),
-        entry(Items.CONDUIT, "conduit", "Conduit", 42, 30, SPATIAL, ARCANE, PRESTIGE),
-
-        entry(Items.TOTEM_OF_UNDYING, "totem_of_undying", "Totem of Undying", 38, 26, ARCANE, ORGANIC, PRESTIGE),
-        entry(Items.ENCHANTED_GOLDEN_APPLE, "enchanted_golden_apple", "Enchanted Golden Apple", 40, 28, ARCANE, RADIANT, PRESTIGE),
-        entry(Items.GOLDEN_APPLE, "golden_apple", "Golden Apple", 20, 13, ARCANE, RADIANT, ORGANIC),
-        entry(Items.EXPERIENCE_BOTTLE, "experience_bottle", "Bottle o' Enchanting", 18, 12, ARCANE, ENERGETIC, RADIANT),
-
-        entry(Items.DRAGON_BREATH, "dragon_breath", "Dragon's Breath", 44, 30, END, ARCANE, ENERGETIC, PRESTIGE),
-        entry(Items.END_CRYSTAL, "end_crystal", "End Crystal", 48, 32, END, CRYSTAL, ENERGETIC, PRESTIGE),
-        entry(Items.DRAGON_EGG, "dragon_egg", "Dragon Egg", 80, 50, END, ARCANE, PRESTIGE),
-        entry(Items.ELYTRA, "elytra", "Elytra", 45, 30, LIGHT, FLEXIBLE, END, PRESTIGE),
-        entry(Items.NETHER_STAR, "nether_star", "Nether Star", 60, 35, NETHER, ARCANE, ENERGETIC, PRESTIGE)
-    );
-
     private static final Map<Item, IngredientData> AUTO_CACHE = new ConcurrentHashMap<>();
 
     private IngredientRegistry() {
@@ -95,24 +32,11 @@ public final class IngredientRegistry {
         if (mapped != null) {
             return Optional.of(mapped);
         }
-        IngredientData override = INGREDIENT_OVERRIDES.get(item);
-        if (override != null) {
-            return Optional.of(override);
-        }
         IngredientData derived = com.bluup.hexwright.common.aspects.AspectMappings.derivedData(item);
         if (derived != null) {
             return Optional.of(derived);
         }
         return Optional.of(AUTO_CACHE.computeIfAbsent(item, IngredientRegistry::autoGenerate));
-    }
-
-    public static boolean hasBuiltinOverride(Item item) {
-        return INGREDIENT_OVERRIDES.containsKey(item);
-    }
-
-    private static Map.Entry<Item, IngredientData> entry(Item item, String id, String name, double baseValue, double attunementCost, IngredientCategory... categories) {
-        Set<IngredientCategory> categorySet = categories.length == 0 ? Set.of() : EnumSet.copyOf(Set.of(categories));
-        return Map.entry(item, new IngredientData(id, Component.literal(name), baseValue, categorySet, attunementCost));
     }
 
     private static IngredientData autoGenerate(Item item) {
@@ -134,11 +58,12 @@ public final class IngredientRegistry {
                 || path.contains("fungus") || path.contains("vine") || path.contains("mushroom") || path.contains("cocoa")
                 || path.contains("sugar") || path.contains("wheat") || path.contains("seed") || path.contains("cactus")
                 || path.contains("bamboo") || path.contains("dye") || path.contains("pumpkin") || path.contains("melon")
-                || path.contains("moss") || path.contains("fern") || path.contains("lily_pad")) {
+                || path.contains("moss") || path.contains("fern") || path.contains("lily_pad") || path.contains("kelp")
+                || path.contains("seagrass") || path.contains("sea_pickle") || path.contains("coral")) {
             power = 1;
             attunement = 1;
             categories.add(ORGANIC);
-            categories.add(LIGHT);
+            categories.add(FLEXIBLE);
         }
 
         if (path.contains("wool") || path.contains("carpet") || path.contains("bed") || path.contains("banner")) {
@@ -146,6 +71,19 @@ public final class IngredientRegistry {
             attunement = 1;
             categories.add(THREAD);
             categories.add(FLEXIBLE);
+        }
+
+        if (path.contains("chain")) {
+            power = Math.max(power, 6);
+            attunement = Math.max(attunement, 4);
+            categories.add(THREAD);
+            categories.add(METALLIC);
+        }
+
+        if (path.contains("torch") || path.contains("lantern") || path.contains("lamp") || path.contains("candle")
+                || path.contains("froglight") || path.contains("shroomlight") || path.contains("glow")) {
+            power = Math.max(power, 4);
+            attunement = Math.max(attunement, 2);
             categories.add(LIGHT);
         }
 
@@ -254,8 +192,7 @@ public final class IngredientRegistry {
             categories.add(SPATIAL);
         }
 
-        if (path.contains("prismarine") || path.contains("kelp") || path.contains("coral") || path.contains("sea")
-                || path.contains("nautilus") || path.contains("guster") || path.contains("trident")) {
+        if (path.contains("prismarine") || path.contains("nautilus") || path.contains("guster") || path.contains("trident")) {
             power = Math.max(power, 6);
             attunement = Math.max(attunement, 4);
             categories.add(SPATIAL);
@@ -293,7 +230,7 @@ public final class IngredientRegistry {
         if (item instanceof ArmorItem armor) {
             power = Math.max(power, 3 + armor.getDefense() * 1.5 + armor.getToughness());
             attunement = Math.max(attunement, 2 + armor.getDefense() + armor.getToughness());
-            categories.add(METALLIC);
+            categories.add(LEATHER);
         }
 
         double rarityMultiplier = switch (item.getDefaultInstance().getRarity()) {

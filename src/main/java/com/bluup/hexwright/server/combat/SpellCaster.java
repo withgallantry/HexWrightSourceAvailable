@@ -1,5 +1,8 @@
 package com.bluup.hexwright.server.combat;
 
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import org.jetbrains.annotations.Nullable;
 
@@ -38,5 +41,13 @@ public final class SpellCaster {
         }
         Frame top = stack.get(stack.size() - 1);
         return top.tick() == gameTime ? top.caster() : null;
+    }
+
+    public static @Nullable LivingEntity attackerOf(DamageSource source, ServerLevel level) {
+        Entity attacker = source.getEntity();
+        if (attacker instanceof LivingEntity living) {
+            return living;
+        }
+        return attacker == null ? current(level.getGameTime()) : null;
     }
 }

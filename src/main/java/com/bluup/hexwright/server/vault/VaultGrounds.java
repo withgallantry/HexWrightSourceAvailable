@@ -94,14 +94,32 @@ public final class VaultGrounds {
                     for (int y = BASE_Y; y < WALL_TOP_Y; y++) {
                         plot.set(x, y, z, wall);
                     }
-                    if (((x + z) & 1) == 0) {
-                        plot.set(x, WALL_TOP_Y, z, wall);
-                    }
+                    plot.set(x, WALL_TOP_Y, z, isMerlon(x, z) ? wall : barrier);
                     for (int y = WALL_TOP_Y + 1; y < lidY; y++) {
                         plot.set(x, y, z, barrier);
                     }
                 }
                 plot.set(x, lidY, z, barrier);
+            }
+        }
+    }
+
+    private static boolean isMerlon(int x, int z) {
+        return ((x + z) & 1) == 0;
+    }
+
+    static void sealCrenels(ServerLevel level, VaultRecord record) {
+        BlockState barrier = Blocks.BARRIER.defaultBlockState();
+        Plot plot = new Plot(level, VaultRooms.roomOrigin(record), VaultRooms.planOf(record).width());
+        int size = plot.size();
+        for (int x = 0; x < size; x++) {
+            for (int z = 0; z < size; z++) {
+                boolean edge = x == 0 || x == size - 1 || z == 0 || z == size - 1;
+                if (edge && !isMerlon(x, z)
+                    && plot.isAir(x, WALL_TOP_Y, z)
+                    && plot.is(x, WALL_TOP_Y - 1, z, HexwrightBlocks.VAULT_SHELL_BLOCK)) {
+                    plot.set(x, WALL_TOP_Y, z, barrier);
+                }
             }
         }
     }
@@ -312,8 +330,11 @@ public final class VaultGrounds {
         }
 
         boolean isGrass(int x, int y, int z) {
-            return level.getBlockState(new BlockPos(min.getX() + x, y, min.getZ() + z))
-                .is(Blocks.GRASS_BLOCK);
+            return is(x, y, z, Blocks.GRASS_BLOCK);
+        }
+
+        boolean is(int x, int y, int z, Block block) {
+            return level.getBlockState(new BlockPos(min.getX() + x, y, min.getZ() + z)).is(block);
         }
 
         boolean touchesWater(int x, int y, int z) {

@@ -1,14 +1,16 @@
 package com.bluup.hexwright.server.weapon;
 
-import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.monster.Enemy;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
+import java.util.function.Predicate;
 
 public final class SwingArc {
 
@@ -22,26 +24,30 @@ public final class SwingArc {
     }
 
     public static void strike(ServerPlayer player, AnimatedWeapon weapon) {
-        float reach = weapon.swingArcReach();
-        if (reach <= 0.0F) {
-            return;
-        }
-        LivingEntity victim = nearestInArc(player, reach, weapon.swingArcDegrees());
+        LivingEntity victim = nearestInArc(player, weapon, candidate -> true);
         if (victim != null) {
             player.attack(victim);
         }
     }
 
+    public static boolean reachesEnemy(Player player, AnimatedWeapon weapon) {
+        return nearestInArc(player, weapon, Enemy.class::isInstance) != null;
+    }
+
     @Nullable
-    private static LivingEntity nearestInArc(ServerPlayer player, float reach, float arcDegrees) {
-        ServerLevel level = player.serverLevel();
+    private static LivingEntity nearestInArc(Player player, AnimatedWeapon weapon,
+                                             Predicate<LivingEntity> wanted) {
+        float reach = weapon.swingArcReach();
+        if (reach <= 0.0F) {
+            return null;
+        }
         Vec3 origin = player.position();
         Vec3 facing = horizontalFacing(player);
-        double halfArcCos = Math.cos(Math.toRadians(arcDegrees / 2.0F));
+        double halfArcCos = Math.cos(Math.toRadians(weapon.swingArcDegrees() / 2.0F));
 
         AABB caught = player.getBoundingBox().inflate(reach, SWING_HEIGHT, reach);
-        List<LivingEntity> candidates = level.getEntitiesOfClass(LivingEntity.class, caught,
-            candidate -> isSwingable(player, candidate));
+        List<LivingEntity> candidates = player.level().getEntitiesOfClass(LivingEntity.class, caught,
+            candidate -> isSwingable(player, candidate) && wanted.test(candidate));
 
         LivingEntity nearest = null;
         double nearestDistance = Double.MAX_VALUE;
@@ -70,7 +76,7 @@ public final class SwingArc {
         return nearest;
     }
 
-    private static boolean isSwingable(ServerPlayer player, LivingEntity candidate) {
+    private static boolean isSwingable(Player player, LivingEntity candidate) {
         if (candidate == player || !candidate.isAlive() || candidate.isSpectator()) {
             return false;
         }
@@ -85,7 +91,7 @@ public final class SwingArc {
         return true;
     }
 
-    private static Vec3 horizontalFacing(ServerPlayer player) {
+    private static Vec3 horizontalFacing(Player player) {
         Vec3 look = player.getLookAngle();
         Vec3 flat = new Vec3(look.x, 0.0D, look.z);
         if (flat.lengthSqr() < 1.0E-6D) {

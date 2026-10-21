@@ -2,6 +2,7 @@ package com.bluup.hexwright.server.block;
 
 import com.bluup.hexwright.server.bindstone.BindstoneCube;
 import com.bluup.hexwright.server.bindstone.BindstonePillar;
+import com.bluup.hexwright.server.vault.VaultFrames;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
@@ -114,6 +115,7 @@ public class BindstoneBlock extends BaseEntityBlock {
         super.onRemove(state, level, pos, newState, isMoving);
         if (!level.isClientSide && !staysBindstone) {
             BindstoneCube.dissolveAround(level, pos);
+            VaultFrames.noteRemoved(level, pos);
         }
     }
 

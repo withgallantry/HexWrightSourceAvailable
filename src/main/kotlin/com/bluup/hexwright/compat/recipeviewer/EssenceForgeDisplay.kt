@@ -16,7 +16,8 @@ data class EssenceForgeDisplay(
     val steps: List<WorktableRecipes.InfusionStep>,
     val graded: Boolean,
     val outputs: List<ItemStack>,
-    val pouch: ItemStack
+    val pouch: ItemStack,
+    val golemCores: ItemStack
 ) {
     companion object {
         fun all(): List<EssenceForgeDisplay> = WorktableRecipes.RECIPES.map { recipe ->
@@ -34,7 +35,8 @@ data class EssenceForgeDisplay(
                 } else {
                     listOf(recipe.assemble(PocketCasterData.Quality.CRUDE))
                 },
-                pouch = pouch
+                pouch = pouch,
+                golemCores = if (recipe.golemCores > 0) ItemStack(HexwrightItems.GOLEM_CORE, recipe.golemCores) else ItemStack.EMPTY
             )
         }
     }

@@ -79,7 +79,7 @@ public class EternalWakizashiItem extends SwordItem
     @Override
     public boolean hurtEnemy(ItemStack stack, LivingEntity target, LivingEntity attacker) {
         boolean hurt = super.hurtEnemy(stack, target, attacker);
-        if (!(attacker instanceof ServerPlayer wielder)) {
+        if (!castsOnHit() || !(attacker instanceof ServerPlayer wielder)) {
             return hurt;
         }
 
@@ -98,6 +98,14 @@ public class EternalWakizashiItem extends SwordItem
 
         WeaponHexCasting.castOnTarget(wielder, hex, target, target.position());
         return hurt;
+    }
+
+    protected boolean castsOnHit() {
+        return true;
+    }
+
+    protected Component castTooltip() {
+        return Component.translatable("tooltip.hexwright.eternal_wakizashi.cast");
     }
 
 
@@ -153,10 +161,7 @@ public class EternalWakizashiItem extends SwordItem
     public void appendHoverText(ItemStack stack, @Nullable Level level, List<Component> tooltip,
                                 TooltipFlag flag) {
         tooltip.add(ArtifactItem.tooltipLine());
-        WeaponTooltips.add(tooltip, Component.translatable("tooltip.hexwright.eternal_wakizashi.cast"),
-            ChatFormatting.DARK_PURPLE);
-        WeaponTooltips.add(tooltip, Component.translatable("tooltip.hexwright.eternal_wakizashi.recharge"),
-            ChatFormatting.GRAY);
+        WeaponTooltips.add(tooltip, castTooltip(), ChatFormatting.DARK_PURPLE);
 
         CompoundTag hex = readIotaTag(stack);
         if (hex == null || hex.isEmpty()) {

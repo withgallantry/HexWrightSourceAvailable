@@ -52,6 +52,9 @@ public class HexwrightMixinPlugin implements IMixinConfigPlugin {
         if (simple.startsWith("Iris")) {
             return FabricLoader.getInstance().isModLoaded("iris");
         }
+        if (simple.startsWith("BetterCombat")) {
+            return FabricLoader.getInstance().isModLoaded("bettercombat");
+        }
         return true;
     }
 

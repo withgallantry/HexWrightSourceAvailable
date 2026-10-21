@@ -40,10 +40,9 @@ public final class StaffCoreData {
         return SCRIBE_CHAPTERS[Math.min(quality.ordinal(), SCRIBE_CHAPTERS.length - 1)];
     }
 
-    private static final int[] AMETHYST_SLOTS = {2, 4, 6, 8, 10};
-
-    public static int amethystSlots(PocketCasterData.Quality quality) {
-        return AMETHYST_SLOTS[Math.min(quality.ordinal(), AMETHYST_SLOTS.length - 1)];
+    public static int amethystSlots(PocketCasterData.Quality quality, int greatSpellCount) {
+        int tenths = Math.min(10, 5 + quality.ordinal() + 1);
+        return (greatSpellCount * tenths + 9) / 10;
     }
 
     private static final int[] AREA_CAST_INTERVAL_TICKS = {40, 30, 20, 14, 10};

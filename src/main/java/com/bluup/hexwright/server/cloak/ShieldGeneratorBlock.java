@@ -62,6 +62,27 @@ public class ShieldGeneratorBlock extends Block implements EntityBlock {
         return side.getAxis() == state.getValue(FACING).getClockWise().getAxis();
     }
 
+    public static boolean switchedOff(Level level, BlockPos pos) {
+        if (level.hasNeighborSignal(pos)) {
+            return false;
+        }
+        for (Direction side : Direction.values()) {
+            if (level.getBlockState(pos.relative(side)).isSignalSource()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @Override
+    public void neighborChanged(BlockState state, Level level, BlockPos pos, Block neighbor, BlockPos neighborPos,
+                                boolean moving) {
+        super.neighborChanged(state, level, pos, neighbor, neighborPos, moving);
+        if (level instanceof ServerLevel server && level.getBlockEntity(pos) instanceof ShieldGeneratorBlockEntity generator) {
+            generator.neighborChanged(server);
+        }
+    }
+
     @Override
     public @Nullable BlockState getStateForPlacement(BlockPlaceContext context) {
         return defaultBlockState().setValue(FACING, context.getHorizontalDirection().getOpposite());
@@ -117,6 +138,10 @@ public class ShieldGeneratorBlock extends Block implements EntityBlock {
     private static void report(Player player, ServerLevel level, ShieldGeneratorBlockEntity generator) {
         if (generator.field() == null) {
             say(player, "hexwright.shield_generator.status.unwritten");
+            return;
+        }
+        if (generator.obeysRedstone() && switchedOff(level, generator.getBlockPos())) {
+            say(player, "hexwright.shield_generator.status.switched_off");
             return;
         }
         ShieldGeneratorBlockEntity.Feed feed = generator.feed();

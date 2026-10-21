@@ -59,6 +59,18 @@ public final class RegionDistance {
             double outA = Math.max(axial, 0.0);
             return Math.min(Math.max(radial, axial), 0.0) + Math.sqrt(outR * outR + outA * outA);
         }
+        if (region instanceof Region.Cone cone) {
+            return coneDistance(cone, x, y, z);
+        }
+        if (region instanceof Region.Torus torus) {
+            double dx = x - torus.center().x;
+            double dy = y - torus.center().y;
+            double dz = z - torus.center().z;
+            double height = dx * torus.axis().x + dy * torus.axis().y + dz * torus.axis().z;
+            double fromRing = Math.sqrt(Math.max(0.0, dx * dx + dy * dy + dz * dz - height * height))
+                - torus.majorRadius();
+            return Math.sqrt(fromRing * fromRing + height * height) - torus.minorRadius();
+        }
         if (region instanceof Region.Union union) {
             return Math.min(evaluate(union.a(), x, y, z), evaluate(union.b(), x, y, z));
         }
@@ -77,6 +89,30 @@ public final class RegionDistance {
             return Math.max(evaluate(cut.source(), x, y, z), cut.positiveSide() ? -side : side);
         }
         return FAR;
+    }
+
+    private static double coneDistance(Region.Cone cone, double x, double y, double z) {
+        double ax = cone.endpointB().x - cone.endpointA().x;
+        double ay = cone.endpointB().y - cone.endpointA().y;
+        double az = cone.endpointB().z - cone.endpointA().z;
+        double ox = x - cone.endpointA().x;
+        double oy = y - cone.endpointA().y;
+        double oz = z - cone.endpointA().z;
+        double radiusA = cone.radiusA();
+        double radiusB = cone.radiusB();
+        double taper = radiusB - radiusA;
+        double lengthSqr = ax * ax + ay * ay + az * az;
+        double along = (ox * ax + oy * ay + oz * az) / lengthSqr;
+        double radial = Math.sqrt(Math.max(0.0, ox * ox + oy * oy + oz * oz - along * along * lengthSqr));
+        double capRadial = Math.max(0.0, radial - (along < 0.5 ? radiusA : radiusB));
+        double capAlong = Math.abs(along - 0.5) - 0.5;
+        double slope = Math.max(0.0, Math.min(1.0, (taper * (radial - radiusA) + along * lengthSqr) / (taper * taper + lengthSqr)));
+        double sideRadial = radial - radiusA - slope * taper;
+        double sideAlong = along - slope;
+        double sign = sideRadial < 0.0 && capAlong < 0.0 ? -1.0 : 1.0;
+        return sign * Math.sqrt(Math.min(
+            capRadial * capRadial + capAlong * capAlong * lengthSqr,
+            sideRadial * sideRadial + sideAlong * sideAlong * lengthSqr));
     }
 
     public static void gradient(Region region, double x, double y, double z, double[] out, int offset) {
@@ -168,6 +204,9 @@ public final class RegionDistance {
         if (subtrahend instanceof Region.Cylinder cylinder) {
             return extendCylinder(cylinder, minuend);
         }
+        if (subtrahend instanceof Region.Cone cone) {
+            return extendCone(cone, minuend);
+        }
         if (subtrahend instanceof Region.Sphere sphere) {
             double push = push(minuend, (m, depth) -> sphereClear(m, sphere.center(), sphere.radius() + depth));
             return push > 0.0 ? new Region.Sphere(sphere.center(), sphere.radius() + push) : sphere;
@@ -233,6 +272,28 @@ public final class RegionDistance {
             return cylinder;
         }
         return new Region.Cylinder(a2, b2, r + pushR);
+    }
+
+    private static Region extendCone(Region.Cone cone, Region minuend) {
+        Vec3 a = cone.endpointA();
+        Vec3 b = cone.endpointB();
+        double length = b.subtract(a).length();
+        Vec3 w = b.subtract(a).scale(1.0 / length);
+        Vec3 helper = Math.abs(w.y) < 0.9 ? new Vec3(0.0, 1.0, 0.0) : new Vec3(1.0, 0.0, 0.0);
+        Vec3 u = w.cross(helper).normalize();
+        Vec3 v = w.cross(u);
+        double slope = (cone.radiusB() - cone.radiusA()) / length;
+        double reachA = slope > 0.0 ? cone.radiusA() / slope : Double.POSITIVE_INFINITY;
+        double reachB = slope < 0.0 ? cone.radiusB() / -slope : Double.POSITIVE_INFINITY;
+        double pushA = push(minuend, (m, depth) -> depth <= reachA
+            && discClear(m, a.subtract(w.scale(depth)), u, v, Math.max(0.0, cone.radiusA() - slope * depth)));
+        double pushB = push(minuend, (m, depth) -> depth <= reachB
+            && discClear(m, b.add(w.scale(depth)), u, v, Math.max(0.0, cone.radiusB() + slope * depth)));
+        if (pushA == 0.0 && pushB == 0.0) {
+            return cone;
+        }
+        return new Region.Cone(a.subtract(w.scale(pushA)), b.add(w.scale(pushB)),
+            Math.max(0.0, cone.radiusA() - slope * pushA), Math.max(0.0, cone.radiusB() + slope * pushB));
     }
 
     private static boolean discClear(Region minuend, Vec3 centre, Vec3 u, Vec3 v, double radius) {
@@ -323,6 +384,19 @@ public final class RegionDistance {
             double r = cylinder.radius();
             double length = cylinder.endpointB().subtract(cylinder.endpointA()).length();
             return new Measure(Math.PI * r * r * length, 2.0 * Math.PI * r * (r + length));
+        }
+        if (region instanceof Region.Cone cone) {
+            double ra = cone.radiusA();
+            double rb = cone.radiusB();
+            double length = cone.endpointB().subtract(cone.endpointA()).length();
+            double slant = Math.sqrt(length * length + (ra - rb) * (ra - rb));
+            return new Measure(Math.PI * length / 3.0 * (ra * ra + ra * rb + rb * rb),
+                Math.PI * ((ra + rb) * slant + ra * ra + rb * rb));
+        }
+        if (region instanceof Region.Torus torus && torus.minorRadius() <= torus.majorRadius()) {
+            double major = torus.majorRadius();
+            double minor = torus.minorRadius();
+            return new Measure(2.0 * Math.PI * Math.PI * major * minor * minor, 4.0 * Math.PI * Math.PI * major * minor);
         }
         if (region instanceof Region.Union union && Region.overlap(union.a().bounds(), union.b().bounds()) == null) {
             Measure a = measure(union.a());

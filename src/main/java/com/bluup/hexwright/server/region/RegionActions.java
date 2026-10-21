@@ -22,6 +22,7 @@ import at.petrak.hexcasting.api.casting.mishaps.MishapNotEnoughArgs;
 import at.petrak.hexcasting.common.lib.hex.HexEvalSounds;
 import at.petrak.hexcasting.xplat.IXplatAbstractions;
 import com.bluup.hexwright.Hexwright;
+import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Registry;
 import net.minecraft.server.level.ServerLevel;
@@ -35,6 +36,7 @@ import net.minecraft.world.phys.Vec3;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 
@@ -54,6 +56,10 @@ public final class RegionActions {
             new ActionRegistryEntry(HexPattern.fromAngles("wqwqwqwqwqwaeqqqqqae", HexDir.WEST), BOX));
         Registry.register(registry, Hexwright.id("region_cylinder"),
             new ActionRegistryEntry(HexPattern.fromAngles("wqwqwqwqwqwadaeaeaeaeaea", HexDir.WEST), CYLINDER));
+        Registry.register(registry, Hexwright.id("region_cone"),
+            new ActionRegistryEntry(HexPattern.fromAngles("wqwqwqwqwqwaqdd", HexDir.WEST), CONE));
+        Registry.register(registry, Hexwright.id("region_torus"),
+            new ActionRegistryEntry(HexPattern.fromAngles("wqwqwqwqwqwaeawddw", HexDir.WEST), TORUS));
 
         Registry.register(registry, Hexwright.id("region_union"),
             new ActionRegistryEntry(HexPattern.fromAngles("eewqqqqqweedqeeq", HexDir.NORTH_EAST), UNION));
@@ -76,8 +82,14 @@ public final class RegionActions {
             new ActionRegistryEntry(HexPattern.fromAngles("eeeadeaqq", HexDir.EAST), REGION_THOTH));
         Registry.register(registry, Hexwright.id("region_fill"),
             new ActionRegistryEntry(HexPattern.fromAngles("eeeeedeqqqwqwqq", HexDir.SOUTH_WEST), REGION_FILL));
+        if (FabricLoader.getInstance().isModLoaded(RegionBulk.CONJURED_COLOR_BLOCK.getNamespace())) {
+            Registry.register(registry, Hexwright.id("region_conjure_color"),
+                new ActionRegistryEntry(HexPattern.fromAngles("qqaaeeeweweew", HexDir.NORTH_EAST), REGION_CONJURE_COLOR));
+        }
         Registry.register(registry, Hexwright.id("region_break"),
             new ActionRegistryEntry(HexPattern.fromAngles("qaqqqqqdeewewee", HexDir.EAST), REGION_BREAK));
+        Registry.register(registry, Hexwright.id("region_annihilate"),
+            new ActionRegistryEntry(HexPattern.fromAngles("qaqqqqqdeeweweeqaqqqqq", HexDir.EAST), REGION_ANNIHILATE));
 
         Registry<ContinuationFrame.Type<?>> frames = IXplatAbstractions.INSTANCE.getContinuationTypeRegistry();
         Registry.register(frames, Hexwright.id("region_foreach"), FrameRegionForEach.TYPE);
@@ -114,6 +126,34 @@ public final class RegionActions {
                 throw MishapInvalidIota.of(args.get(1), getArgc() - 2, "hexwright.region_axis");
             }
             return List.of(new RegionIota(Region.cylinder(endpointA, endpointB, radius)));
+        }
+    };
+
+    private static final PureRegionAction CONE = new PureRegionAction(4) {
+        @Override
+        public List<Iota> execute(List<? extends Iota> args, CastingEnvironment env) {
+            Vec3 endpointA = finiteVec(args, 0, getArgc());
+            Vec3 endpointB = finiteVec(args, 1, getArgc());
+            double radiusA = finiteRadius(args, 2, getArgc());
+            double radiusB = finiteRadius(args, 3, getArgc());
+            if (endpointB.subtract(endpointA).lengthSqr() < Region.Cylinder.MIN_AXIS_LENGTH_SQR) {
+                throw MishapInvalidIota.of(args.get(1), getArgc() - 2, "hexwright.region_axis");
+            }
+            return List.of(new RegionIota(Region.cone(endpointA, endpointB, radiusA, radiusB)));
+        }
+    };
+
+    private static final PureRegionAction TORUS = new PureRegionAction(4) {
+        @Override
+        public List<Iota> execute(List<? extends Iota> args, CastingEnvironment env) {
+            Vec3 center = finiteVec(args, 0, getArgc());
+            Vec3 axis = finiteVec(args, 1, getArgc());
+            double majorRadius = finiteRadius(args, 2, getArgc());
+            double minorRadius = finiteRadius(args, 3, getArgc());
+            if (axis.lengthSqr() < Region.Torus.MIN_AXIS_LENGTH_SQR) {
+                throw MishapInvalidIota.of(args.get(1), getArgc() - 2, "hexwright.region_normal");
+            }
+            return List.of(new RegionIota(Region.torus(center, axis, majorRadius, minorRadius)));
         }
     };
 
@@ -283,43 +323,89 @@ public final class RegionActions {
         return new OperationResult(image2, effects, continuation, HexEvalSounds.SPELL);
     };
 
-    private static final Action REGION_BREAK = (env, image, continuation) -> {
+    private static final Action REGION_CONJURE_COLOR = (env, image, continuation) -> {
         List<Iota> stack = new ArrayList<>(image.getStack());
-        if (stack.isEmpty()) {
-            throw new MishapNotEnoughArgs(1, 0);
+        if (stack.size() < 2) {
+            throw new MishapNotEnoughArgs(2, stack.size());
         }
-        Iota regionIota = stack.get(stack.size() - 1);
+        List<Iota> args = stack.subList(stack.size() - 2, stack.size());
+        Iota regionIota = args.get(0);
         if (!(regionIota instanceof RegionIota iota)) {
-            throw MishapInvalidIota.ofType(regionIota, 0, "hexwright.region");
+            throw MishapInvalidIota.ofType(regionIota, 1, "hexwright.region");
         }
+        int color = OperatorUtils.getIntBetween(args, 1, 0, 15, 2);
         Region region = iota.getRegion();
-        RegionAmbit.assertScannable(region, regionIota, 0);
+        RegionAmbit.assertScannable(region, regionIota, 1);
 
-        RegionBulk.Plan plan = RegionBulk.planBreak(env, region, regionIota, 0);
+        RegionBulk.Plan plan = RegionBulk.planFill(env, region, regionIota, 1);
 
-        stack.remove(stack.size() - 1);
+        args.clear();
         CastingImage image2 = FrameRegionForEach.withStack(image.withUsedOp(), stack);
         if (plan.isEmpty()) {
             return new OperationResult(image2, List.of(), continuation, HexEvalSounds.SPELL);
         }
 
         List<BlockPos> targets = plan.positions();
+        BlockState state = RegionBulk.conjuredColorState(color, env);
         List<OperatorSideEffect> effects = List.of(
-            new OperatorSideEffect.ConsumeMedia(plan.mediaCost()),
+            new OperatorSideEffect.ConsumeMedia(targets.size() * RegionBulk.CONJURE_COLOR_COST_PER_BLOCK),
             new OperatorSideEffect.AttemptSpell(
                 new BulkSpell(spellEnv -> {
-                    ServerLevel level = spellEnv.getWorld();
-                    List<BlockState> before = RegionBulk.captureStates(level, targets);
                     RegionBatch.open(spellEnv);
                     try {
-                        RegionBulk.breakBlocks(level, targets, spellEnv.getCastingEntity());
+                        RegionBulk.fill(spellEnv.getWorld(), targets, state);
                     } finally {
                         RegionBatch.close(spellEnv);
                     }
-                    RegionBulk.playBreakEffects(level, targets, before);
                 }), true, true));
         return new OperationResult(image2, effects, continuation, HexEvalSounds.SPELL);
     };
+
+    private static final Action REGION_BREAK = bulkClear((env, targets) ->
+        RegionBulk.breakBlocks(env.getWorld(), targets, env.getCastingEntity()));
+
+    private static final Action REGION_ANNIHILATE = bulkClear((env, targets) ->
+        RegionBulk.annihilateBlocks(env.getWorld(), targets));
+
+    private static Action bulkClear(BiConsumer<CastingEnvironment, List<BlockPos>> clear) {
+        return (env, image, continuation) -> {
+            List<Iota> stack = new ArrayList<>(image.getStack());
+            if (stack.isEmpty()) {
+                throw new MishapNotEnoughArgs(1, 0);
+            }
+            Iota regionIota = stack.get(stack.size() - 1);
+            if (!(regionIota instanceof RegionIota iota)) {
+                throw MishapInvalidIota.ofType(regionIota, 0, "hexwright.region");
+            }
+            Region region = iota.getRegion();
+            RegionAmbit.assertScannable(region, regionIota, 0);
+
+            RegionBulk.Plan plan = RegionBulk.planBreak(env, region, regionIota, 0);
+
+            stack.remove(stack.size() - 1);
+            CastingImage image2 = FrameRegionForEach.withStack(image.withUsedOp(), stack);
+            if (plan.isEmpty()) {
+                return new OperationResult(image2, List.of(), continuation, HexEvalSounds.SPELL);
+            }
+
+            List<BlockPos> targets = plan.positions();
+            List<OperatorSideEffect> effects = List.of(
+                new OperatorSideEffect.ConsumeMedia(plan.mediaCost()),
+                new OperatorSideEffect.AttemptSpell(
+                    new BulkSpell(spellEnv -> {
+                        ServerLevel level = spellEnv.getWorld();
+                        List<BlockState> before = RegionBulk.captureStates(level, targets);
+                        RegionBatch.open(spellEnv);
+                        try {
+                            clear.accept(spellEnv, targets);
+                        } finally {
+                            RegionBatch.close(spellEnv);
+                        }
+                        RegionBulk.playBreakEffects(level, targets, before);
+                    }), true, true));
+            return new OperationResult(image2, effects, continuation, HexEvalSounds.SPELL);
+        };
+    }
 
 
     private record BulkSpell(Consumer<CastingEnvironment> action) implements RenderedSpell {

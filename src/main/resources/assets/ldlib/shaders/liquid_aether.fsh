@@ -1,7 +1,5 @@
 #version 150
 
-// Mana Pool / Liquid Aether
-// A purple magical liquid look with ripples, depth, and soft glow.
 
 uniform vec2 iResolution;
 uniform float iTime;
@@ -54,7 +52,6 @@ void mainImage(out vec4 outColor, in vec2 fragCoord) {
     float t = iTime * 0.42;
     float d = length(p);
 
-    // Distorted coordinates for liquid motion
     vec2 st = uv * 4.0;
     vec2 warp = vec2(
         fbm(st + vec2(0.0, t * 0.35)),
@@ -80,15 +77,12 @@ void mainImage(out vec4 outColor, in vec2 fragCoord) {
     vec3 color = mix(deep, base, 0.45 + 0.25 * (1.0 - d));
     color = mix(color, mid, smoothstep(0.15, 0.85, liquid) * 0.75);
 
-    // Bright ripple highlights
     float highlight = smoothstep(0.52, 0.92, liquid + waves * 0.12);
     color += glow * highlight * 0.22;
 
-    // Soft caustic-like shimmer
     float shimmer = smoothstep(0.55, 0.90, sin(liquid * 10.0 + t * 2.0) * 0.5 + 0.5);
     color += vec3(0.55, 0.28, 0.82) * shimmer * 0.06;
 
-    // Central luminous pool feeling
     float centerGlow = exp(-2.5 * d * d);
     color += glow * centerGlow * 0.08;
 

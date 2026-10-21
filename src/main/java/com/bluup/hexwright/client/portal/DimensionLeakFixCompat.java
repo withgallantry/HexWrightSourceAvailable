@@ -2,6 +2,7 @@ package com.bluup.hexwright.client.portal;
 
 import com.bluup.hexwright.Hexwright;
 import com.bluup.hexwright.HexwrightDebug;
+import com.bluup.hexwright.server.dungeon.DungeonDimension;
 import com.bluup.hexwright.server.vault.VaultDimension;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
@@ -48,7 +49,7 @@ public final class DimensionLeakFixCompat {
     }
 
     public static boolean isVault(@Nullable ResourceKey<Level> key) {
-        return VaultDimension.KEY.equals(key);
+        return VaultDimension.KEY.equals(key) || DungeonDimension.KEY.equals(key);
     }
 
     public static void noteTransition(@Nullable ClientLevel outgoing,

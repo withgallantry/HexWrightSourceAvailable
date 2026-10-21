@@ -5,6 +5,7 @@ import com.bluup.hexwright.server.worldgen.SiteSurvey;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.core.BlockPos;
+import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.levelgen.WorldgenRandom;
@@ -17,7 +18,7 @@ import java.util.Optional;
 public class ArenaStructure extends Structure {
 
     private static final int WIDTH = 31;
-    private static final int LENGTH = 54;
+    static final int LENGTH = 54;
 
     private static final int ARENA_MIN = 1;
     private static final int ARENA_MAX = 27;
@@ -35,7 +36,11 @@ public class ArenaStructure extends Structure {
             Codec.intRange(-64, 320).optionalFieldOf("max_y", 140).forGetter(s -> s.maxY),
             Codec.intRange(0, 32).optionalFieldOf("flatness", FLAT_TOLERANCE).forGetter(s -> s.flatness),
             Codec.intRange(0, 64).optionalFieldOf("site_flatness", SITE_TOLERANCE)
-                .forGetter(s -> s.siteFlatness)
+                .forGetter(s -> s.siteFlatness),
+            Codec.intRange(0, 24 * 365).optionalFieldOf("regenerate_min_hours", 24)
+                .forGetter(s -> s.regenerateMinHours),
+            Codec.intRange(0, 24 * 365).optionalFieldOf("regenerate_max_hours", 48)
+                .forGetter(s -> s.regenerateMaxHours)
         ).apply(instance, ArenaStructure::new));
 
     private final int minY;
@@ -43,13 +48,28 @@ public class ArenaStructure extends Structure {
     private final int flatness;
     private final int siteFlatness;
 
+    private final int regenerateMinHours;
+    private final int regenerateMaxHours;
+
     public ArenaStructure(StructureSettings settings, int minY, int maxY, int flatness,
-                          int siteFlatness) {
+                          int siteFlatness, int regenerateMinHours, int regenerateMaxHours) {
         super(settings);
         this.minY = minY;
         this.maxY = Math.max(minY, maxY);
         this.flatness = flatness;
         this.siteFlatness = Math.max(flatness, siteFlatness);
+        this.regenerateMinHours = Math.min(regenerateMinHours, regenerateMaxHours);
+        this.regenerateMaxHours = Math.max(regenerateMinHours, regenerateMaxHours);
+    }
+
+    boolean regenerates() {
+        return this.regenerateMaxHours > 0;
+    }
+
+    long regenerationDelayMillis(RandomSource random) {
+        int spreadMinutes = (this.regenerateMaxHours - this.regenerateMinHours) * 60;
+        long minutes = this.regenerateMinHours * 60L + random.nextInt(spreadMinutes + 1);
+        return minutes * 60_000L;
     }
 
     @Override
@@ -83,7 +103,7 @@ public class ArenaStructure extends Structure {
         BlockPos origin = new BlockPos(
             originX, pit.mean() - ArenaPiece.GROUND_Y + ArenaPiece.LIFT, originZ);
         return Optional.of(new GenerationStub(origin, builder ->
-            builder.addPiece(new ArenaPiece(context.structureTemplateManager(), origin, rotation, chunk))));
+            builder.addPiece(new ArenaPiece(context.structureTemplateManager(), origin, rotation))));
     }
 
     private static BoundingBox arenaFootprint(Rotation rotation) {

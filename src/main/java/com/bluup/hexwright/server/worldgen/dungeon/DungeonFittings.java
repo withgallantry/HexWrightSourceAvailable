@@ -83,8 +83,15 @@ public final class DungeonFittings {
             return false;
         }
 
+        ladderShaft(level, box, random, column, roomCeiling, caveFloor);
+        collar(level, box, random, column, caveFloor);
+        return true;
+    }
+
+    static void ladderShaft(ServerLevelAccessor level, BoundingBox box, RandomSource random,
+                            BlockPos column, int from, int to) {
         Direction ladderFace = Direction.from2DDataValue(Math.floorMod(column.getX() + column.getZ(), 4));
-        for (int y = roomCeiling; y < caveFloor; y++) {
+        for (int y = from; y < to; y++) {
             BlockPos pos = new BlockPos(column.getX(), y, column.getZ());
             if (!box.isInside(pos)) {
                 continue;
@@ -93,9 +100,6 @@ public final class DungeonFittings {
             level.setBlock(pos, Blocks.LADDER.defaultBlockState()
                 .setValue(LadderBlock.FACING, ladderFace), Block.UPDATE_CLIENTS);
         }
-
-        collar(level, box, random, column, caveFloor);
-        return true;
     }
 
     private static void line(ServerLevelAccessor level, BoundingBox box, RandomSource random,
@@ -495,7 +499,7 @@ public final class DungeonFittings {
         return best;
     }
 
-    private static BlockPos shaftFoot(Set<BlockPos> air, BlockPos column) {
+    static BlockPos shaftFoot(Set<BlockPos> air, BlockPos column) {
         BlockPos foot = column;
         while (air.contains(foot.below())) {
             foot = foot.below();

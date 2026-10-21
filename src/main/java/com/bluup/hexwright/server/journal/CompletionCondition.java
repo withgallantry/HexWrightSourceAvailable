@@ -1,6 +1,8 @@
 package com.bluup.hexwright.server.journal;
 
 import com.bluup.hexwright.common.staff_assembly.calc.IngredientCategory;
+import com.bluup.hexwright.server.cloak.CloakField;
+import com.bluup.hexwright.server.cloak.CloakFieldStore;
 import com.bluup.hexwright.server.worldgen.decadentvault.DecadentVaultRegistry;
 import com.bluup.hexwright.server.worldgen.dungeon.DungeonRooms;
 import com.google.gson.JsonArray;
@@ -22,6 +24,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.levelgen.structure.Structure;
 import net.minecraft.world.level.levelgen.structure.StructureStart;
+import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
@@ -60,11 +63,13 @@ public interface CompletionCondition {
             case "crucible_burn" -> new CrucibleBurn(
                 parseAspect(GsonHelper.getAsString(json, "aspect", null)),
                 GsonHelper.getAsDouble(json, "amount", 1.0));
+            case "restore_tablet" -> new RestoreTablet(GsonHelper.getAsInt(json, "count", 1));
             case "visit_biome" -> new VisitBiome(Matcher.parse(GsonHelper.getAsString(json, "biome")));
             case "visit_structure" -> new VisitStructure(Matcher.parse(GsonHelper.getAsString(json, "structure")));
             case "visit_dungeon_room" -> new VisitDungeonRoom(
                 new ResourceLocation(GsonHelper.getAsString(json, "room")));
             case "visit_decadent_vault" -> VisitDecadentVault.INSTANCE;
+            case "near_shield" -> new NearShield(GsonHelper.getAsDouble(json, "distance", 16.0));
             case "visit_dimension" -> new VisitDimension(
                 ResourceKey.create(Registries.DIMENSION, new ResourceLocation(GsonHelper.getAsString(json, "dimension"))));
             case "advancement" -> new HasAdvancement(new ResourceLocation(GsonHelper.getAsString(json, "advancement")));
@@ -212,6 +217,27 @@ public interface CompletionCondition {
         }
     }
 
+    record NearShield(double distance) implements CompletionCondition {
+        @Override
+        public boolean discoversStructure() {
+            return true;
+        }
+
+        @Override
+        public boolean isMet(ServerPlayer player, InvestigationState state) {
+            if (!(player.level() instanceof ServerLevel level)) {
+                return false;
+            }
+            Vec3 at = player.position();
+            for (CloakField field : CloakFieldStore.fieldsIn(level)) {
+                if (field.toughness() > 0.0f && at.distanceTo(field.surfacePoint(at)) <= distance) {
+                    return true;
+                }
+            }
+            return false;
+        }
+    }
+
     record VisitDimension(ResourceKey<Level> dimension) implements CompletionCondition {
         @Override
         public boolean isMet(ServerPlayer player, InvestigationState state) {
@@ -280,6 +306,31 @@ public interface CompletionCondition {
 
         boolean watches(IngredientCategory produced) {
             return aspect == null || aspect == produced;
+        }
+    }
+
+    record RestoreTablet(int count) implements Counted {
+
+        static final String COUNTER = "tablet:restored";
+
+        @Override
+        public boolean isMet(ServerPlayer player, InvestigationState state) {
+            return state.counter(player.getUUID(), COUNTER) >= count;
+        }
+
+        @Override
+        public void collectCounted(List<Counted> into) {
+            into.add(this);
+        }
+
+        @Override
+        public String counterKey() {
+            return COUNTER;
+        }
+
+        @Override
+        public int required() {
+            return count;
         }
     }
 

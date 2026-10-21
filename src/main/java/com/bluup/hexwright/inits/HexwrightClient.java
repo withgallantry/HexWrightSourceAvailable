@@ -1,15 +1,16 @@
 package com.bluup.hexwright.inits;
 
 import at.petrak.hexcasting.api.HexAPI;
-import at.petrak.hexcasting.api.pigment.ColorProvider;
-import at.petrak.hexcasting.api.pigment.FrozenPigment;
-import at.petrak.hexcasting.common.lib.HexItems;
 import com.bluup.hexwright.Hexwright;
 import com.bluup.hexwright.HexwrightDebug;
 import com.bluup.hexwright.client.block.ManifoldVaultRenderer;
 import com.bluup.hexwright.client.block.ReliquaryMirrorRenderer;
 import com.bluup.hexwright.client.block.StaffWorkstationRenderer;
 import com.bluup.hexwright.client.hexicon.HexiconOverlay;
+import com.bluup.hexwright.client.hexweave.LoomButtonWidget;
+import com.bluup.hexwright.client.hexweave.LoomCanvasWidget;
+import com.bluup.hexwright.client.hexweave.LoomLabelWidget;
+import com.bluup.hexwright.client.hexweave.LoomModeGroupWidget;
 import com.bluup.hexwright.client.ldlib.widget.ContainerSlotGridWidget;
 import com.bluup.hexwright.client.ldlib.widget.StaffItemDisplayWidget;
 import com.bluup.hexwright.client.pentabox.PentaboxOverlay;
@@ -33,11 +34,9 @@ import com.bluup.hexwright.common.staff_assembly.StaffPartCategory;
 import com.bluup.hexwright.common.staff_assembly.StaffParts;
 import com.bluup.hexwright.common.staff_assembly.calc.IngredientCategory;
 import com.bluup.hexwright.server.block.HexwrightBlocks;
-import com.bluup.hexwright.server.item.AnchorSlateItem;
 import com.bluup.hexwright.server.item.EndlessPouchItem;
 import com.bluup.hexwright.server.item.HexiconItem;
 import com.bluup.hexwright.server.item.HexwrightItems;
-import com.bluup.hexwright.server.worldgen.dungeon.DungeonGroups;
 import com.bluup.hexwright.server.menu.HexwrightMenus;
 import com.bluup.hexwright.server.pentabox.PentaboxData;
 import com.bluup.hexwright.server.reliquary.ReliquarySealItem;
@@ -50,6 +49,8 @@ import com.bluup.hexwright.server.staff_assembly.StaffAssemblyData;
 import com.lowdragmc.lowdraglib.gui.editor.annotation.LDLRegister;
 import com.lowdragmc.lowdraglib.gui.editor.configurator.IConfigurableWidget;
 import com.lowdragmc.lowdraglib.gui.editor.runtime.AnnotationDetector;
+import com.lowdragmc.lowdraglib.gui.editor.ui.tool.WidgetToolBox;
+import com.lowdragmc.lowdraglib.gui.texture.ResourceTexture;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
@@ -70,20 +71,15 @@ import net.minecraft.client.renderer.item.ItemProperties;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
-import net.minecraft.Util;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.DyeableLeatherItem;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.phys.Vec3;
 import com.mojang.blaze3d.platform.InputConstants;
 import org.jetbrains.annotations.Nullable;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 
 public final class HexwrightClient implements ClientModInitializer {
@@ -101,6 +97,13 @@ public final class HexwrightClient implements ClientModInitializer {
         "category.hexwright"
     );
 
+    private static final KeyMapping SOULFORGE_KEY = new KeyMapping(
+        "key.hexwright.soulforge",
+        InputConstants.Type.KEYSYM,
+        GLFW.GLFW_KEY_R,
+        "category.hexwright"
+    );
+
     private static final KeyMapping TRAIL_TUNE_KEY = tunerKey("trail_tune");
     private static final KeyMapping TRAIL_TUNE_AXIS_KEY = tunerKey("trail_tune_axis");
     private static final KeyMapping TRAIL_TUNE_UP_KEY = tunerKey("trail_tune_up");
@@ -111,14 +114,16 @@ public final class HexwrightClient implements ClientModInitializer {
             InputConstants.UNKNOWN.getValue(), "category.hexwright");
     }
 
-    private static final Map<UUID, ColorProvider> SOUL_COLOR_CACHE = new ConcurrentHashMap<>();
-
     private static final float BROOM_SHADOW_RADIUS = 0.5f;
     private static final float CARPET_SHADOW_RADIUS = 0.8f;
 
     @Override
     public void onInitializeClient() {
         HexwrightNetworking.registerClient();
+        com.bluup.hexwright.client.hexweave.LoomClient.register();
+        com.bluup.hexwright.client.hexweave.WovenOrbClient.register();
+        com.bluup.hexwright.client.hexweave.WovenOrbModel.register();
+        com.bluup.hexwright.client.hexweave.WovenOrbFlashVisualClient.register();
         TooltipComponentCallback.EVENT.register(data ->
             data instanceof SignatureTooltip signature ? new SignatureTooltipRenderer(signature) : null);
         PlayerAnimationRegistry.register();
@@ -137,6 +142,14 @@ public final class HexwrightClient implements ClientModInitializer {
         com.bluup.hexwright.client.weapon.SlashWaveVisualClient.register();
         com.bluup.hexwright.client.weapon.SkyfallVisualClient.register();
         com.bluup.hexwright.client.weapon.FrostPursuitVisualClient.register();
+        com.bluup.hexwright.client.weapon.TeleportStrikeVisualClient.register();
+        com.bluup.hexwright.client.weapon.HailpiercerVisualClient.register();
+        com.bluup.hexwright.client.weapon.ViciousStrikeVisualClient.register();
+        com.bluup.hexwright.client.weapon.MeteorOfDoomVisualClient.register();
+        com.bluup.hexwright.client.weapon.StillnessVisualClient.register();
+        com.bluup.hexwright.client.weapon.SoulCleaveVisualClient.register();
+        com.bluup.hexwright.client.weapon.PestilentSlashVisualClient.register();
+        com.bluup.hexwright.client.soulforge.SoulforgedMaterialisation.register();
         WardingBoxLensOverlay.register();
         BroomTrailVisualClient.register();
         com.bluup.hexwright.client.dust.DustClient.register();
@@ -149,6 +162,8 @@ public final class HexwrightClient implements ClientModInitializer {
         com.bluup.hexwright.client.block.DungeonPropRenderer.register();
         com.bluup.hexwright.client.block.PlacedBottleRenderer.register();
         com.bluup.hexwright.client.block.WeaponRackRenderer.register();
+        com.bluup.hexwright.client.armour.ArmamentWorkbenchRenderer.register();
+        com.bluup.hexwright.client.block.ConstructsHandRenderer.register();
         com.bluup.hexwright.client.block.LiquefactriumRenderer.register();
         com.bluup.hexwright.client.block.HexidTankRenderer.register();
         com.bluup.hexwright.client.block.HexidPipePreview.register();
@@ -156,7 +171,6 @@ public final class HexwrightClient implements ClientModInitializer {
         com.bluup.hexwright.client.block.AlembixDebugCommands.register();
         com.bluup.hexwright.client.armour.MageAttireCommands.register();
         com.bluup.hexwright.client.powerorb.PowerOrbBloomCommands.register();
-        com.bluup.hexwright.client.armour.MageAttireRenderer.register();
         com.bluup.hexwright.client.armour.PassagePortalVisualClient.register();
         com.bluup.hexwright.client.render.TranslucentBlockOutline.register();
         com.bluup.hexwright.client.render.emissive.EmissiveItemModels.register();
@@ -166,6 +180,7 @@ public final class HexwrightClient implements ClientModInitializer {
         com.bluup.hexwright.client.settings.SettingsCommand.register();
         com.bluup.hexwright.client.photon.PhotonSceneTextures.register();
         com.bluup.hexwright.client.portal.PortalOptions.load();
+        com.bluup.hexwright.client.hexicon.HexiconOptions.load();
         com.bluup.hexwright.client.portal.PortalShaders.register();
         com.bluup.hexwright.client.portal.PortalPlaneRenderer.register();
         com.bluup.hexwright.client.portal.ClientPortalManager.register();
@@ -173,6 +188,12 @@ public final class HexwrightClient implements ClientModInitializer {
         com.bluup.hexwright.client.portal.VoidTearRenderer.register();
         com.bluup.hexwright.client.portal.ClientVoidTears.register();
         com.bluup.hexwright.client.block.RuinedPortalRifts.register();
+        com.bluup.hexwright.client.dungeon.ClientDungeonRifts.register();
+        com.bluup.hexwright.client.sky.ClientSkies.register();
+        com.bluup.hexwright.client.sky.SkyLibrary.register();
+        com.bluup.hexwright.client.dungeon.TravelStoneRenderer.register();
+        com.bluup.hexwright.client.bindstone.BindstoneDissolveShaders.register();
+        com.bluup.hexwright.client.bindstone.BindstoneDissolveRenderer.register();
         com.bluup.hexwright.client.cloak.CloakFieldShaders.register();
         com.bluup.hexwright.client.cloak.CloakFieldRenderer.register();
         com.bluup.hexwright.client.cloak.ClientCloakFields.register();
@@ -221,10 +242,16 @@ public final class HexwrightClient implements ClientModInitializer {
         EntityRendererRegistry.register(HexwrightEntities.HEX_ARROW,
             com.bluup.hexwright.client.weapon.HexArrowRenderer::new);
         EntityRendererRegistry.register(HexwrightEntities.SLASH_WAVE, NoopRenderer::new);
+        EntityRendererRegistry.register(HexwrightEntities.SILK_LINE,
+            com.bluup.hexwright.client.weapon.SilkLineRenderer::new);
+        EntityRendererRegistry.register(HexwrightEntities.RISEN_THRALL,
+            com.bluup.hexwright.client.weapon.RisenThrallRenderer::new);
         EntityRendererRegistry.register(HexwrightEntities.BROOM,
             context -> new com.bluup.hexwright.client.vehicle.VehicleEntityRenderer<>(context, BROOM_SHADOW_RADIUS));
         EntityRendererRegistry.register(HexwrightEntities.CARPET,
             context -> new com.bluup.hexwright.client.vehicle.VehicleEntityRenderer<>(context, CARPET_SHADOW_RADIUS));
+        EntityRendererRegistry.register(HexwrightEntities.INSPIRATION_ORB,
+            com.bluup.hexwright.client.inspiration.InspirationOrbRenderer::new);
         EntityRendererRegistry.register(com.bluup.hexwright.server.boss.HexwrightBossEntities.QUARTZ_GOLEM,
             com.bluup.hexwright.client.boss.QuartzGolemRenderer::new);
         EntityRendererRegistry.register(com.bluup.hexwright.server.boss.HexwrightBossEntities.QUARTZ_SPIKES,
@@ -272,6 +299,27 @@ public final class HexwrightClient implements ClientModInitializer {
                 new com.bluup.hexwright.client.boss.corrupt.CorruptConstructModel(), 0.6f));
         EntityRendererRegistry.register(com.bluup.hexwright.server.boss.HexwrightBossEntities.CORRUPT_SHARD,
             com.bluup.hexwright.client.boss.corrupt.CorruptShardRenderer::new);
+        EntityRendererRegistry.register(com.bluup.hexwright.server.boss.HexwrightBossEntities.TALUS_KNIGHT,
+            com.bluup.hexwright.client.boss.talus.TalusKnightRenderer::new);
+        EntityRendererRegistry.register(com.bluup.hexwright.server.boss.HexwrightBossEntities.TALUS_GROUND_CRACK,
+            com.bluup.hexwright.client.boss.talus.TalusGroundCrackRenderer::new);
+        EntityRendererRegistry.register(com.bluup.hexwright.server.boss.HexwrightBossEntities.TALUS_ROCK,
+            com.bluup.hexwright.client.boss.talus.TalusRockRenderer::new);
+        EntityRendererRegistry.register(com.bluup.hexwright.server.boss.HexwrightBossEntities.TOWER_SKELETON,
+            com.bluup.hexwright.client.boss.tower.TowerSkeletonRenderer::new);
+        EntityRendererRegistry.register(com.bluup.hexwright.server.boss.HexwrightBossEntities.TOWER_SKELETON_MINION,
+            com.bluup.hexwright.client.boss.tower.TowerSkeletonMinionRenderer::new);
+        EntityRendererRegistry.register(com.bluup.hexwright.server.boss.HexwrightBossEntities.TOWER_SKELETON_PROP,
+            com.bluup.hexwright.client.boss.tower.TowerSkeletonPropRenderer::new);
+        EntityRendererRegistry.register(com.bluup.hexwright.server.boss.HexwrightBossEntities.MAGNUS,
+            com.bluup.hexwright.client.boss.magnus.MagnusRenderer::new);
+        EntityRendererRegistry.register(com.bluup.hexwright.server.boss.HexwrightBossEntities.MAGNUS_PROP,
+            com.bluup.hexwright.client.boss.magnus.MagnusPropRenderer::new);
+        EntityRendererRegistry.register(com.bluup.hexwright.server.boss.HexwrightBossEntities.MAGNUS_BONFIRE,
+            com.bluup.hexwright.client.boss.magnus.MagnusBonfireRenderer::new);
+        net.fabricmc.fabric.api.client.particle.v1.ParticleFactoryRegistry.getInstance().register(
+            com.bluup.hexwright.server.boss.tower.TowerSkeletonParticles.FLAME,
+            com.bluup.hexwright.client.boss.tower.TowerFlameParticle.Provider::new);
         EntityRendererRegistry.register(com.bluup.hexwright.server.mob.HexwrightMobEntities.EXPERIMENTAL_CONSTRUCT,
             context -> new com.bluup.hexwright.client.mob.ConstructRenderer<>(context, "experimental_construct", 0.7f));
         EntityRendererRegistry.register(com.bluup.hexwright.server.mob.HexwrightMobEntities.SERVITOR_CONSTRUCT,
@@ -302,12 +350,20 @@ public final class HexwrightClient implements ClientModInitializer {
 
         KeyBindingHelper.registerKeyBinding(PENTABOX_OVERLAY_KEY);
         KeyBindingHelper.registerKeyBinding(HEXICON_OVERLAY_KEY);
+        KeyBindingHelper.registerKeyBinding(SOULFORGE_KEY);
         KeyBindingHelper.registerKeyBinding(TRAIL_TUNE_KEY);
         KeyBindingHelper.registerKeyBinding(TRAIL_TUNE_AXIS_KEY);
         KeyBindingHelper.registerKeyBinding(TRAIL_TUNE_UP_KEY);
         KeyBindingHelper.registerKeyBinding(TRAIL_TUNE_DOWN_KEY);
         ClientTickEvents.END_CLIENT_TICK.register(client -> PentaboxOverlay.onClientTick(client, PENTABOX_OVERLAY_KEY.isDown()));
         ClientTickEvents.END_CLIENT_TICK.register(client -> HexiconOverlay.onClientTick(client, HEXICON_OVERLAY_KEY.isDown()));
+        ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            while (SOULFORGE_KEY.consumeClick()) {
+                if (client.player != null) {
+                    HexwrightNetworking.sendSoulforgeToggle();
+                }
+            }
+        });
         ClientTickEvents.END_CLIENT_TICK.register(SatchelBackpackInventoryOverlay::onClientTick);
         ClientTickEvents.END_CLIENT_TICK.register(StaffBookOpenTracker::onClientTick);
         ClientTickEvents.END_CLIENT_TICK.register(AnchoriteFlightAnimationClient::onClientTick);
@@ -326,11 +382,14 @@ public final class HexwrightClient implements ClientModInitializer {
         HudRenderCallback.EVENT.register(com.bluup.hexwright.client.vehicle.VehicleDebugOverlay::onHudRender);
         HudRenderCallback.EVENT.register(com.bluup.hexwright.client.debug.SpectaclesBlockOverlay::onHudRender);
         HudRenderCallback.EVENT.register(com.bluup.hexwright.client.hud.CooldownHud::onHudRender);
+        com.bluup.hexwright.client.inspiration.InspirationHud.register();
         ItemTooltipCallback.EVENT.register((stack, context, lines) -> {
             Minecraft client = Minecraft.getInstance();
             if (isCrucibleScreenOpen(client)) {
                 appendCrucibleOutputTooltip(stack, lines);
             }
+            com.bluup.hexwright.client.tooltip.IotaTooltipClamp.clamp(lines);
+            com.bluup.hexwright.client.tooltip.MediaConsumptionTooltip.recolour(lines);
 
             if (!PentaboxData.isLinkedStack(stack)) {
                 return;
@@ -338,21 +397,9 @@ public final class HexwrightClient implements ClientModInitializer {
             lines.add(Component.translatable("tooltip.hexwright.pentabox.contained").withStyle(ChatFormatting.DARK_AQUA));
         });
 
-        ColorProviderRegistry.ITEM.register((stack, tintIndex) -> {
-            if (tintIndex != 1) {
-                return 0xFFFFFFFF;
-            }
-
-            Minecraft client = Minecraft.getInstance();
-            UUID owner = client.player != null ? client.player.getUUID() : Util.NIL_UUID;
-            ColorProvider provider = SOUL_COLOR_CACHE.computeIfAbsent(owner, uuid ->
-                new FrozenPigment(new ItemStack(HexItems.UUID_PIGMENT), uuid).getColorProvider());
-
-            float time = client.level != null
-                ? client.level.getGameTime() + client.getFrameTime()
-                : (System.currentTimeMillis() / 50f);
-            return provider.getColor(time, Vec3.ZERO);
-        }, HexwrightItems.HEXICON);
+        ColorProviderRegistry.ITEM.register((stack, tintIndex) ->
+            tintIndex == 1 ? com.bluup.hexwright.client.render.SoulglimmerColor.now() : 0xFFFFFFFF,
+            HexwrightItems.HEXICON);
 
         ColorProviderRegistry.ITEM.register((stack, tintIndex) -> {
             if (tintIndex != 0 || !(stack.getItem() instanceof DyeableLeatherItem dyeable)) {
@@ -408,6 +455,27 @@ public final class HexwrightClient implements ClientModInitializer {
                 }
             });
 
+        for (var item : net.minecraft.core.registries.BuiltInRegistries.ITEM) {
+            if (!(item instanceof com.bluup.hexwright.server.armour.Restylable piece)) {
+                continue;
+            }
+            ItemProperties.register(item, HexAPI.modLoc("variant"),
+                new ClampedItemPropertyFunction() {
+                    @SuppressWarnings("deprecation")
+                    @Override
+                    public float call(ItemStack stack, @Nullable ClientLevel level, @Nullable LivingEntity entity,
+                                      int seed) {
+                        return this.unclampedCall(stack, level, entity, seed);
+                    }
+
+                    @Override
+                    public float unclampedCall(ItemStack stack, @Nullable ClientLevel level,
+                                               @Nullable LivingEntity entity, int seed) {
+                        return piece.clampVariant(piece.getVariant(stack));
+                    }
+                });
+        }
+
         ItemProperties.register(HexwrightItems.CONFIGURABLE_STAFF, Hexwright.id("model"),
             (stack, level, entity, seed) -> {
                 List<StaffPart> models = StaffParts.options(StaffPartCategory.MODEL);
@@ -462,6 +530,11 @@ public final class HexwrightClient implements ClientModInitializer {
         ItemProperties.register(HexwrightItems.RELIQUARY_SEAL, Hexwright.id("attuned"),
             (stack, level, entity, seed) -> ReliquarySealItem.attunedPos(stack) != null ? 1.0f : 0.0f);
 
+        ItemProperties.register(HexwrightItems.VAULT_KEY, Hexwright.id("frame"),
+            (stack, level, entity, seed) ->
+                com.bluup.hexwright.server.vault.VaultKeyItem.frameId(stack)
+                    != com.bluup.hexwright.server.vault.VaultRecord.MAIN_DOOR ? 1.0f : 0.0f);
+
         ColorProviderRegistry.ITEM.register((stack, tintIndex) -> {
             if (tintIndex != 0) {
                 return 0xFFFFFFFF;
@@ -489,6 +562,7 @@ public final class HexwrightClient implements ClientModInitializer {
         var drawableBows = new java.util.ArrayList<>(HexwrightItems.ARCHER_GREAT_BOWS.values());
         drawableBows.add(HexwrightItems.ETERNAL_BOW);
         drawableBows.add(HexwrightItems.STARFALL_BOW);
+        drawableBows.add(HexwrightItems.SPIDER_BOW);
         for (var bow : drawableBows) {
             ItemProperties.register(bow, new ResourceLocation("pull"),
                 (stack, level, entity, seed) -> {
@@ -506,22 +580,6 @@ public final class HexwrightClient implements ClientModInitializer {
             (stack, level, entity, seed) -> BroomVariant.of(stack).modelFraction());
         ItemProperties.register(HexwrightItems.CARPET, Hexwright.id("variant"),
             (stack, level, entity, seed) -> CarpetVariant.of(stack).modelFraction());
-
-        ItemProperties.register(HexwrightItems.ANCHOR_SLATE, Hexwright.id("rune"),
-            new ClampedItemPropertyFunction() {
-                @SuppressWarnings("deprecation")
-                @Override
-                public float call(ItemStack stack, @Nullable ClientLevel level, @Nullable LivingEntity entity,
-                                  int seed) {
-                    return this.unclampedCall(stack, level, entity, seed);
-                }
-
-                @Override
-                public float unclampedCall(ItemStack stack, @Nullable ClientLevel level,
-                                           @Nullable LivingEntity entity, int seed) {
-                    return DungeonGroups.runeIndexOf(AnchorSlateItem.runeOf(stack));
-                }
-            });
     }
 
     private static boolean isCrucibleScreenOpen(Minecraft client) {
@@ -554,6 +612,12 @@ public final class HexwrightClient implements ClientModInitializer {
     private static void registerCustomLdlibWidgets() {
         registerCustomLdlibWidget(StaffItemDisplayWidget.class, StaffItemDisplayWidget::new);
         registerCustomLdlibWidget(ContainerSlotGridWidget.class, ContainerSlotGridWidget::new);
+        WidgetToolBox.Default.registerTab(LoomCanvasWidget.EDITOR_GROUP,
+            new ResourceTexture("hexwright:textures/gui/hex_loom/thread.png"));
+        registerCustomLdlibWidget(LoomCanvasWidget.class, LoomCanvasWidget::new);
+        registerCustomLdlibWidget(LoomButtonWidget.class, LoomButtonWidget::new);
+        registerCustomLdlibWidget(LoomLabelWidget.class, LoomLabelWidget::new);
+        registerCustomLdlibWidget(LoomModeGroupWidget.class, LoomModeGroupWidget::new);
         AnnotationDetector.REGISTER_WIDGETS.sort((a, b) -> b.annotation().priority() - a.annotation().priority());
     }
 

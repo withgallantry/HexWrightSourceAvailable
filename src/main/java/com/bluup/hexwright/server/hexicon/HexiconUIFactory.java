@@ -12,6 +12,7 @@ import com.lowdragmc.lowdraglib.gui.texture.ColorBorderTexture;
 import com.lowdragmc.lowdraglib.gui.texture.ColorRectTexture;
 import com.lowdragmc.lowdraglib.gui.texture.GuiTextureGroup;
 import com.lowdragmc.lowdraglib.gui.texture.IGuiTexture;
+import com.lowdragmc.lowdraglib.gui.texture.ItemStackTexture;
 import com.lowdragmc.lowdraglib.gui.texture.ResourceTexture;
 import com.lowdragmc.lowdraglib.gui.texture.TextTexture;
 import com.lowdragmc.lowdraglib.gui.util.DrawerHelper;
@@ -39,6 +40,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 
@@ -111,6 +113,10 @@ public final class HexiconUIFactory extends UIFactory<HexiconUIFactory.Holder> {
         ItemStack stack = entityPlayer.getItemInHand(holder.hand);
         if (!HexiconData.isHexiconStack(stack)) {
             return null;
+        }
+
+        if (entityPlayer.level() instanceof ServerLevel serverLevel) {
+            HexiconData.refreshCachedDisplays(serverLevel, stack);
         }
 
         EditorState editorState = new EditorState(entityPlayer, holder.hand, stack);
@@ -361,9 +367,9 @@ public final class HexiconUIFactory extends UIFactory<HexiconUIFactory.Holder> {
         for (int i = 0; i < pageBindings.size(); i++) {
             PageBinding binding = pageBindings.get(i);
             SelectableSlotWidget replacement = new SelectableSlotWidget(binding.slotWidget, () -> editorState.selectSpell(binding.chapterNumber - 1, binding.pageNumber - 1));
-            replacement.setContainerSlot(pageContainer, i);
-            replacement.setCanPutItems(true);
-            replacement.setCanTakeItems(true);
+            replacement.bindPage(pageContainer, i);
+            replacement.setCanPutItems(false);
+            replacement.setCanTakeItems(false);
             replacement.setLocationInfo(false, false);
             replacement.setBackgroundTexture(binding.slotWidget.getBackgroundTexture());
             WidgetGroup parent = binding.slotWidget.getParent();
@@ -960,8 +966,14 @@ public final class HexiconUIFactory extends UIFactory<HexiconUIFactory.Holder> {
     }
 
     private static final class SelectableSlotWidget extends SlotWidget {
+        private static final int ACTION_SELECT = 1;
+        private static final int ACTION_DROP = 2;
+
         private final Runnable onSelect;
         private boolean selected;
+        private HexiconPageContainer pages;
+        private int pageIndex;
+        private boolean pressed;
 
         private SelectableSlotWidget(SlotWidget original, Runnable onSelect) {
             super();
@@ -983,10 +995,17 @@ public final class HexiconUIFactory extends UIFactory<HexiconUIFactory.Holder> {
             }
         }
 
+        private void bindPage(HexiconPageContainer pages, int pageIndex) {
+            this.pages = pages;
+            this.pageIndex = pageIndex;
+            setContainerSlot(pages, pageIndex);
+        }
+
         @Override
         public boolean mouseClicked(double mouseX, double mouseY, int button) {
             if (isMouseOverElement(mouseX, mouseY)) {
-                writeClientAction(1, buffer -> { });
+                pressed = button == 0;
+                writeClientAction(ACTION_SELECT, buffer -> { });
                 if (onSelect != null) {
                     onSelect.run();
                 }
@@ -996,11 +1015,58 @@ public final class HexiconUIFactory extends UIFactory<HexiconUIFactory.Holder> {
         }
 
         @Override
+        @Environment(EnvType.CLIENT)
+        public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+            if (pressed && !isMouseOverElement(mouseX, mouseY)) {
+                pressed = false;
+                if (HexiconPageContainer.payloadIdFromStack(getItem()) != null) {
+                    getGui().getModularUIGui().setDraggingElement(new SpellDrag(this), dragGhost());
+                }
+            }
+            return false;
+        }
+
+        @Override
+        @Environment(EnvType.CLIENT)
+        public boolean mouseReleased(double mouseX, double mouseY, int button) {
+            pressed = false;
+            if (!isMouseOverElement(mouseX, mouseY)
+                || !(getGui().getModularUIGui().getDraggingElement() instanceof SpellDrag drag)
+                || drag.source() == this) {
+                return false;
+            }
+            int fromPage = drag.source().pageIndex;
+            writeClientAction(ACTION_DROP, buffer -> buffer.writeVarInt(fromPage));
+            receiveSpell(fromPage);
+            return true;
+        }
+
+        @Override
         public void handleClientAction(int id, FriendlyByteBuf buffer) {
             super.handleClientAction(id, buffer);
-            if (id == 1 && onSelect != null) {
+            if (id == ACTION_SELECT && onSelect != null) {
+                onSelect.run();
+            } else if (id == ACTION_DROP) {
+                receiveSpell(buffer.readVarInt());
+            }
+        }
+
+        @Override
+        public ItemStack slotClick(int dragType, ClickType clickType, Player player) {
+            return ItemStack.EMPTY;
+        }
+
+        private void receiveSpell(int fromPage) {
+            if (pages != null && pages.moveSpell(fromPage, pageIndex) && onSelect != null) {
                 onSelect.run();
             }
+        }
+
+        @Environment(EnvType.CLIENT)
+        private IGuiTexture dragGhost() {
+            CompoundTag tag = getItem().getTag();
+            ResourceLocation icon = tag == null ? null : parseIcon(tag.getString(TAG_UI_DISPLAY_ICON));
+            return (icon == null ? new ItemStackTexture(getItem().copy()) : new ResourceTexture(icon)).scale(0.4f);
         }
 
         @Override
@@ -1053,6 +1119,9 @@ public final class HexiconUIFactory extends UIFactory<HexiconUIFactory.Holder> {
     private record PageBinding(int absoluteSlot, int chapterNumber, int pageNumber, SlotWidget slotWidget) {
     }
 
+    private record SpellDrag(SelectableSlotWidget source) {
+    }
+
     private static final class HexiconPageContainer extends SimpleContainer {
         private final List<PageBinding> bindings;
         private final ServerLevel serverLevel;
@@ -1084,6 +1153,25 @@ public final class HexiconUIFactory extends UIFactory<HexiconUIFactory.Holder> {
         @Override
         public boolean canPlaceItem(int slot, ItemStack stack) {
             return stack.isEmpty() || payloadIdFromStack(stack) != null;
+        }
+
+        private boolean moveSpell(int fromPage, int toPage) {
+            if (fromPage == toPage || fromPage < 0 || toPage < 0 || fromPage >= getContainerSize() || toPage >= getContainerSize()
+                || payloadIdFromStack(getItem(fromPage)) == null) {
+                return false;
+            }
+
+            ItemStack moving = getItem(fromPage);
+            ItemStack displaced = getItem(toPage);
+            syncing = true;
+            try {
+                super.setItem(fromPage, displaced);
+                super.setItem(toPage, moving);
+            } finally {
+                syncing = false;
+            }
+            setChanged();
+            return true;
         }
 
         @Override
@@ -1125,6 +1213,7 @@ public final class HexiconUIFactory extends UIFactory<HexiconUIFactory.Holder> {
 
                 if (hexiconStack != null) {
                     HexiconData.refreshCachedWrittenCount(serverLevel, hexiconStack);
+                    HexiconData.refreshCachedDisplays(serverLevel, hexiconStack);
                 }
             } finally {
                 syncing = false;

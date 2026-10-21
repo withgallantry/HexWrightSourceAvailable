@@ -56,16 +56,10 @@ float planeDistance(vec3 pos)
 
 
 float cubeSDF(vec3 p) {
-    // If d.x < 0, then -1 < p.x < 1, and same logic applies to p.y, p.z
-    // So if all components of d are negative, then p is inside the unit cube
     vec3 d = abs(p) - vec3(0.4,0.1,0.4);
 
-    // Assuming p is inside the cube, how far is it from the surface?
-    // Result will be negative or zero.
     float insideDistance = min(max(d.x, max(d.y, d.z)), 0.0);
 
-    // Assuming p is outside the cube, how far is it from the surface?
-    // Result will be positive or zero.
     float outsideDistance = length(max(d, 0.0));
 
     return insideDistance + outsideDistance;
@@ -104,7 +98,6 @@ float trace(vec3 o, vec3 r)
 
 vec2 ltrace(vec3 o, vec3 r)
 {
-    /* http://iquilezles.org/www/articles/rmshadows/rmshadows.htm */
     float t = 0.0;
     float md = 1000.0;
     float lt = 0.0;
@@ -112,7 +105,7 @@ vec2 ltrace(vec3 o, vec3 r)
         vec3 pos = o + r * t;
         float d = map(pos);
         md = min(md, 16.0*d/t);
-        t += min(d, 0.1); /* <-- you need to clamp the distance for it to work :) */
+        t += min(d, 0.1);
     }
     return vec2(t,clamp(md,0.0,1.0));
 }
@@ -139,7 +132,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord ) {
     vec3 ray = normalize(vec3(uv, 1.3));
     ray *= xrot(pi*0.27);
 
-    mat3 rotr = mat3(1.0);//yrot(iTime);
+    mat3 rotr = mat3(1.0);
     vec2 mp = iMouse.xy / iResolution.xy * 0.5;
     rotr = xrot(-mp.y) * yrot(-mp.x*3.0);
 

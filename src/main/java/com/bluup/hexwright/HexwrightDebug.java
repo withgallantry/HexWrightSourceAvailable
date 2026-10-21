@@ -15,9 +15,30 @@ public final class HexwrightDebug {
     public static final String RENDER = "render";
     public static final String WEAPON = "weapon";
     public static final String CLOAK = "cloak";
+    public static final String WEAVE = "weave";
+    public static final String FORGE = "forge";
+
+    public static final String DUNGEON = "dungeon";
+
+    public static final String SOULFORGE = "soulforge";
+
+    public static final String BOSS = "boss";
+
+    public static final String BINDSTONE = "bindstone";
+
+    public static final String GOLEM = "golem";
+
+    public static final String INSPIRATION = "inspiration";
+
+    public static final String TABLET = "tablet";
+
+    public static final String QUOTA = "quota";
+
+    public static final String PROVENANCE = "provenance";
 
     public static final Set<String> AREAS =
-        Set.of(PORTAL, VAULT, CASTING, CONTENT, RENDER, WEAPON, CLOAK);
+        Set.of(PORTAL, VAULT, CASTING, CONTENT, RENDER, WEAPON, CLOAK, WEAVE, FORGE, DUNGEON, SOULFORGE, BOSS,
+            BINDSTONE, GOLEM, INSPIRATION, TABLET, QUOTA, PROVENANCE);
 
     private static final String PROPERTY = "hexwright.debug";
 

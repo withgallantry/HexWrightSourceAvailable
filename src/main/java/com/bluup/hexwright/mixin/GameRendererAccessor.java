@@ -6,6 +6,7 @@ import net.minecraft.client.renderer.LightTexture;
 import org.spongepowered.asm.mixin.Mutable;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Accessor;
+import org.spongepowered.asm.mixin.gen.Invoker;
 
 @Mixin(GameRenderer.class)
 public interface GameRendererAccessor {
@@ -23,4 +24,7 @@ public interface GameRendererAccessor {
     @Mutable
     @Accessor("lightTexture")
     void hexwright$setLightTexture(LightTexture lightTexture);
+
+    @Invoker("getFov")
+    double hexwright$getFov(Camera camera, float partialTick, boolean useFovSetting);
 }

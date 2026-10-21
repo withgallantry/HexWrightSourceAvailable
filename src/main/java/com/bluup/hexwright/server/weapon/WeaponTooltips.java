@@ -2,8 +2,10 @@ package com.bluup.hexwright.server.weapon;
 
 import com.bluup.hexwright.server.item.ArtifactItem;
 import com.bluup.hexwright.server.pocketcaster.PocketCasterData;
+import com.bluup.hexwright.server.soulforge.SoulforgedItem;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.TextColor;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
 
@@ -19,6 +21,9 @@ public final class WeaponTooltips {
 
     public static Component graded(ItemStack stack, Component name,
                                    @Nullable PocketCasterData.Quality quality) {
+        if (stack.getItem() instanceof SoulforgedItem) {
+            return name.copy().withStyle(style -> style.withColor(SoulforgedItem.COLOUR));
+        }
         if (stack.getItem() instanceof ArtifactItem) {
             return name.copy().withStyle(ArtifactItem.COLOUR);
         }
@@ -28,6 +33,12 @@ public final class WeaponTooltips {
     public static void add(List<Component> tooltip, Component line, ChatFormatting style) {
         for (String wrapped : wrap(line.getString())) {
             tooltip.add(Component.literal(wrapped).withStyle(style));
+        }
+    }
+
+    public static void add(List<Component> tooltip, Component line, TextColor colour) {
+        for (String wrapped : wrap(line.getString())) {
+            tooltip.add(Component.literal(wrapped).withStyle(style -> style.withColor(colour)));
         }
     }
 

@@ -18,11 +18,10 @@ out vec4 fragColor;
 const float PI  = 3.14159265358979323846;
 const float TAU = 6.28318530717958647692;
 
-// --------- Tuning ---------
 const float PORTAL_RADIUS = 0.98;
 const float EDGE_SOFTNESS = 0.18;
-const float CUBES_PER_DAY = 95.0;   // repeating inward-collapse speed
-const float SPIN_PER_DAY  = 70.0;   // overall scene spin
+const float CUBES_PER_DAY = 95.0;
+const float SPIN_PER_DAY  = 70.0;
 
 const vec3 VOID_PURPLE   = vec3(0.028, 0.008, 0.055);
 const vec3 DARK_PURPLE   = vec3(0.105, 0.028, 0.180);
@@ -104,14 +103,12 @@ vec3 cubeVertex(int id, float halfSize) {
 }
 
 vec3 manifoldTransform(vec3 p, float halfSize, float spin, float fold, float collapse) {
-    // Collapse/squash inward before rotation.
     p *= mix(1.0, 0.84, collapse);
     p.y *= mix(1.0, 0.68, collapse);
 
     float yMask = 1.0 - abs(p.y) / max(halfSize, 0.001);
     float xMask = 1.0 - abs(p.x) / max(halfSize, 0.001);
 
-    // "Folding" deformation so the cube does not just shrink, it buckles.
     p.x += sign(p.z) * fold * yMask * halfSize * 0.42;
     p.z -= sign(p.x) * fold * yMask * halfSize * 0.38;
     p.y += sign(p.x) * fold * xMask * halfSize * 0.16;
@@ -149,17 +146,14 @@ void cubeLayer(vec2 uv, float globalTime, float phase, out float edges, out floa
     vec2 p7 = projectPoint(manifoldTransform(cubeVertex(7, halfSize), halfSize, spin, fold, collapse));
 
     float d = 1e9;
-    // Back face
     d = min(d, segmentDistance(uv, p0, p1));
     d = min(d, segmentDistance(uv, p1, p3));
     d = min(d, segmentDistance(uv, p3, p2));
     d = min(d, segmentDistance(uv, p2, p0));
-    // Front face
     d = min(d, segmentDistance(uv, p4, p5));
     d = min(d, segmentDistance(uv, p5, p7));
     d = min(d, segmentDistance(uv, p7, p6));
     d = min(d, segmentDistance(uv, p6, p4));
-    // Connections
     d = min(d, segmentDistance(uv, p0, p4));
     d = min(d, segmentDistance(uv, p1, p5));
     d = min(d, segmentDistance(uv, p2, p6));
@@ -168,8 +162,6 @@ void cubeLayer(vec2 uv, float globalTime, float phase, out float edges, out floa
     float lineWidth = mix(0.028, 0.010, collapse);
     edges = (1.0 - smoothstep(lineWidth, lineWidth + 0.020, d)) * visibility;
 
-    // Additional square-shell fold ripples to make the space feel like it is
-    // folding through nested cube-like layers.
     vec2 q = rotate2D(spin * 0.35 + phase * 2.0) * uv;
     q.x += q.y * fold * 0.28;
     q.y -= q.x * fold * 0.10;
@@ -189,7 +181,6 @@ void main() {
     float tCollapse = GameTime * CUBES_PER_DAY;
     float tSpin = GameTime * TAU * SPIN_PER_DAY;
 
-    // Slow overall viewport rotation so the manifold space feels active.
     uv = rotate2D(tSpin * 0.12) * uv;
 
     float background = 1.0 - smoothstep(0.08, 0.92, radius);
@@ -212,7 +203,6 @@ void main() {
                                        PORTAL_RADIUS,
                                        radius);
 
-    // Break up the silhouette slightly so it dissipates instead of remaining a perfect disc.
     float irregularEdge = smoothstep(0.20, 0.82,
         outerFade + (foldNoise - 0.5) * 0.35);
 

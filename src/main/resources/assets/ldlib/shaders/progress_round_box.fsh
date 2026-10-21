@@ -6,11 +6,7 @@ in vec2 uv;
 
 out vec4 fragColor;
 
-uniform vec4 SquareVertex;// left-top's vertex's x and y than right-buttom's vertex's x and y
-// x = roundness top-right
-// y = roundness boottom-right
-// z = roundness top-left
-// w = roundness bottom-left
+uniform vec4 SquareVertex;
 uniform vec4 RoundRadius;
 uniform vec2 ScreenSize;
 uniform float Blur = 2.;
@@ -21,7 +17,6 @@ uniform vec4 Color2;
 uniform float Progress;
 
 
-//change from https://www.shadertoy.com/view/4llXD7
 float sdRoundedBox(in vec2 p, in vec2 b, in vec4 r) {
     r.xy = (p.x > 0.0) ? r.xy : r.zw;
     r.x = (p.y > 0.0) ? r.x : r.y;

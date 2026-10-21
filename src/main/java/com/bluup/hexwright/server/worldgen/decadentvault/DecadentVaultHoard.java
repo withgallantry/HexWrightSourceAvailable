@@ -8,8 +8,6 @@ import at.petrak.hexcasting.common.loot.AddPerWorldPatternToScrollFunc;
 import com.bluup.hexwright.common.staff_assembly.calc.IngredientCategory;
 import com.bluup.hexwright.server.crucible.EssencePouchData;
 import com.bluup.hexwright.server.item.HexwrightItems;
-import com.bluup.hexwright.server.item.StoneTabletItem;
-import com.bluup.hexwright.server.progression.RecipeTablets;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.RandomSource;
@@ -109,9 +107,7 @@ public final class DecadentVaultHoard {
 
     private static List<ItemStack> guaranteed(ServerLevel level, RandomSource random) {
         List<ItemStack> stacks = new ArrayList<>();
-        for (String recipe : recipes(random, TABLETS)) {
-            stacks.add(StoneTabletItem.of(recipe));
-        }
+        stacks.addAll(ruinedTablets(TABLETS));
         for (int i = 0; i < POUCHES; i++) {
             stacks.add(pouch(random));
         }
@@ -145,11 +141,12 @@ public final class DecadentVaultHoard {
         return ItemMediaHolder.withMedia(new ItemStack(HexItems.BATTERY), media, media);
     }
 
-    public static List<String> recipes(RandomSource random, int count) {
-        List<String> gated = new ArrayList<>(RecipeTablets.get().gatedRecipes());
-        Collections.sort(gated);
-        Collections.shuffle(gated, new java.util.Random(random.nextLong()));
-        return gated.subList(0, Math.min(count, gated.size()));
+    public static List<ItemStack> ruinedTablets(int count) {
+        List<ItemStack> tablets = new ArrayList<>();
+        for (int i = 0; i < count; i++) {
+            tablets.add(new ItemStack(HexwrightItems.RUINED_TABLET));
+        }
+        return tablets;
     }
 
     private static ItemStack pouch(RandomSource random) {

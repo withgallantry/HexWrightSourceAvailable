@@ -40,12 +40,21 @@ public final class VehicleDebugOverlay {
     private static final int COLOR_VALUE = 0xFFC8D7FF;
     private static final int COLOR_HEADING = 0xFFD9C48C;
 
+    private static boolean enabled;
     private static int snapshotEntityId = -1;
     private static @Nullable VehicleDebugSnapshot snapshot;
     private static int snapshotAgeTicks;
     private static int pollCountdown;
 
     private VehicleDebugOverlay() {
+    }
+
+    public static boolean enabled() {
+        return enabled;
+    }
+
+    public static void setEnabled(boolean value) {
+        enabled = value;
     }
 
     public static void acceptSnapshot(int entityId, VehicleDebugSnapshot fresh) {
@@ -89,7 +98,7 @@ public final class VehicleDebugOverlay {
         if (client.player == null || client.level == null || client.screen != null || client.options.hideGui) {
             return null;
         }
-        if (!WornSpectacles.worn()) {
+        if (!enabled || !WornSpectacles.worn()) {
             return null;
         }
         if (client.player.getVehicle() instanceof VehicleEntity ridden) {

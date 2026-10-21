@@ -25,7 +25,9 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.core.Registry;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.phys.Vec3;
 
 import java.util.List;
 import java.util.Optional;
@@ -106,6 +108,7 @@ public final class WielderActions {
             if (removed == null) {
                 return;
             }
+            returnScroll(caster, removed.toDisplayScroll());
             caster.displayClientMessage(
                 Component.translatable("message.hexwright.core.great_spell_erased",
                         Component.translatable("hexcasting.action." + removed.opId()))
@@ -113,6 +116,16 @@ public final class WielderActions {
                 true
             );
         });
+    }
+
+    private static void returnScroll(ServerPlayer caster, ItemStack scroll) {
+        if (caster.getInventory().add(scroll)) {
+            return;
+        }
+        ItemEntity dropped = new ItemEntity(caster.level(), caster.getX(), caster.getY(), caster.getZ(), scroll);
+        dropped.setNoPickUpDelay();
+        dropped.setDeltaMovement(Vec3.ZERO);
+        caster.level().addFreshEntity(dropped);
     }
 
 

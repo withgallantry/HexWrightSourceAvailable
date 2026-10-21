@@ -1,5 +1,6 @@
 package com.bluup.hexwright.client.settings;
 
+import com.bluup.hexwright.client.hexicon.HexiconOptions;
 import com.bluup.hexwright.client.portal.PortalOptions;
 import com.bluup.hexwright.client.render.emissive.EmissiveBloomOptions;
 import net.minecraft.client.Minecraft;
@@ -27,6 +28,7 @@ public class HexwrightSettingsScreen extends OptionsSubScreen {
             PortalOptions.portalViewsOption(),
             EmissiveBloomOptions.bloomOption(),
             EmissiveBloomOptions.lampGlowOption(),
+            HexiconOptions.wheelSoundsOption(),
         });
         this.addWidget(this.list);
         this.addRenderableWidget(Button.builder(CommonComponents.GUI_DONE, button -> this.onClose())

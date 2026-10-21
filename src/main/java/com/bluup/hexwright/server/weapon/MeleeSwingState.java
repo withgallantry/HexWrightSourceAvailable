@@ -1,17 +1,22 @@
 package com.bluup.hexwright.server.weapon;
 
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.Item;
 import org.jetbrains.annotations.Nullable;
 
 public final class MeleeSwingState {
 
+    public interface Holder {
+        MeleeSwingState hexwright$meleeSwingState();
+    }
+
+    public static MeleeSwingState of(ServerPlayer player) {
+        return ((Holder) player.connection).hexwright$meleeSwingState();
+    }
+
     private static final int NEVER_STRUCK = Integer.MIN_VALUE;
 
     private int lastStrikeTick = NEVER_STRUCK;
-
-    private int lastAimedAttackTick = NEVER_STRUCK;
-
-    private int lastInteractTick = NEVER_STRUCK;
 
     private boolean swingHeld;
 
@@ -33,22 +38,6 @@ public final class MeleeSwingState {
             return 0;
         }
         return (this.comboStep + 1) % comboLength;
-    }
-
-    public void noteAimedAttack(int now) {
-        this.lastAimedAttackTick = now;
-    }
-
-    public boolean aimedAtSomething(int now) {
-        return this.lastAimedAttackTick == now;
-    }
-
-    public void noteInteract(int now) {
-        this.lastInteractTick = now;
-    }
-
-    public boolean interactedThisTick(int now) {
-        return this.lastInteractTick == now;
     }
 
     public void holdSwing(int now, int attackIntervalTicks) {

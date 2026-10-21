@@ -11,6 +11,7 @@ import at.petrak.hexcasting.common.casting.PatternRegistryManifest;
 import at.petrak.hexcasting.server.ScrungledPatternsSave;
 import at.petrak.hexcasting.xplat.IXplatAbstractions;
 import com.bluup.hexwright.Hexwright;
+import net.minecraft.core.HolderSet;
 import net.minecraft.core.Registry;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
@@ -92,6 +93,19 @@ public final class PerWorldPatterns {
             }
         }
         return out;
+    }
+
+    public static int count() {
+        return IXplatAbstractions.INSTANCE.getActionRegistry()
+            .getTag(HexTags.Actions.PER_WORLD_PATTERN)
+            .map(HolderSet::size)
+            .orElse(0);
+    }
+
+    public static boolean isGreatSpell(ResourceLocation action) {
+        Registry<ActionRegistryEntry> registry = IXplatAbstractions.INSTANCE.getActionRegistry();
+        ResourceKey<ActionRegistryEntry> key = ResourceKey.create(registry.key(), action);
+        return registry.containsKey(key) && HexUtils.isOfTag(registry, key, HexTags.Actions.PER_WORLD_PATTERN);
     }
 
     private static List<ResourceKey<ActionRegistryEntry>> perWorldKeys() {

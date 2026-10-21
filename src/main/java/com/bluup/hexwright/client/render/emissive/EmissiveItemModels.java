@@ -1,6 +1,7 @@
 package com.bluup.hexwright.client.render.emissive;
 
 import com.bluup.hexwright.Hexwright;
+import com.bluup.hexwright.client.render.SodiumCompat;
 import com.google.gson.JsonObject;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Transformation;
@@ -176,6 +177,7 @@ public final class EmissiveItemModels {
                              int overlay, float red, float green, float blue) {
         for (BakedQuad quad : quads) {
             consumer.putBulkData(pose, quad, red, green, blue, LightTexture.FULL_BRIGHT, overlay);
+            SodiumCompat.markSpriteActive(quad.getSprite());
         }
     }
 }

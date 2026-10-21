@@ -21,6 +21,7 @@ public final class HexwrightCriteria {
 
     public static final QualityCraftedTrigger QUALITY_CRAFTED = new QualityCraftedTrigger();
     public static final EssenceCollectedTrigger ESSENCE_COLLECTED = new EssenceCollectedTrigger();
+    public static final ShieldBreachedTrigger SHIELD_BREACHED = new ShieldBreachedTrigger();
 
     private HexwrightCriteria() {
     }
@@ -28,6 +29,7 @@ public final class HexwrightCriteria {
     public static void register() {
         CriteriaTriggers.register(QUALITY_CRAFTED);
         CriteriaTriggers.register(ESSENCE_COLLECTED);
+        CriteriaTriggers.register(SHIELD_BREACHED);
     }
 
     public static final class QualityCraftedTrigger extends SimpleCriterionTrigger<QualityCraftedTrigger.TriggerInstance> {
@@ -98,6 +100,31 @@ public final class HexwrightCriteria {
             TriggerInstance(ContextAwarePredicate predicate, double minTotal) {
                 super(ID, predicate);
                 this.minTotal = minTotal;
+            }
+        }
+    }
+
+    public static final class ShieldBreachedTrigger extends SimpleCriterionTrigger<ShieldBreachedTrigger.TriggerInstance> {
+        static final ResourceLocation ID = Hexwright.id("shield_breached");
+
+        @Override
+        public ResourceLocation getId() {
+            return ID;
+        }
+
+        @Override
+        protected TriggerInstance createInstance(JsonObject json, ContextAwarePredicate predicate,
+                                                 DeserializationContext context) {
+            return new TriggerInstance(predicate);
+        }
+
+        public void trigger(ServerPlayer player) {
+            this.trigger(player, instance -> true);
+        }
+
+        public static final class TriggerInstance extends AbstractCriterionTriggerInstance {
+            TriggerInstance(ContextAwarePredicate predicate) {
+                super(ID, predicate);
             }
         }
     }

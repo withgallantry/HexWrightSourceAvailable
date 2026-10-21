@@ -1,13 +1,16 @@
 package com.bluup.hexwright.server.progression;
 
 import com.bluup.hexwright.server.item.HexwrightItems;
-import com.bluup.hexwright.server.item.StoneTabletItem;
 import net.fabricmc.fabric.api.loot.v2.LootTableEvents;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.level.storage.loot.LootPool;
+import net.minecraft.world.level.storage.loot.LootTable;
 import net.minecraft.world.level.storage.loot.entries.LootItem;
-import net.minecraft.world.level.storage.loot.functions.SetNbtFunction;
+import net.minecraft.world.level.storage.loot.entries.LootPoolSingletonContainer;
+import net.minecraft.world.level.storage.loot.functions.SetItemCountFunction;
 import net.minecraft.world.level.storage.loot.predicates.LootItemRandomChanceCondition;
 import net.minecraft.world.level.storage.loot.providers.number.ConstantValue;
+import net.minecraft.world.level.storage.loot.providers.number.UniformGenerator;
 
 public final class TabletLoot {
 
@@ -19,22 +22,35 @@ public final class TabletLoot {
             if (!source.isBuiltin()) {
                 return;
             }
-            for (RecipeTablets.LootDrop drop : RecipeTablets.get().drops()) {
-                if (!drop.table().equals(id)) {
-                    continue;
+            RecipeTablets.Config config = RecipeTablets.get();
+            for (RecipeTablets.TabletDrop drop : config.ruinedDrops()) {
+                if (drop.tables().contains(id)) {
+                    addTablets(tableBuilder, drop, HexwrightItems.RUINED_TABLET, false);
                 }
-                LootPool.Builder pool = LootPool.lootPool()
-                    .setRolls(ConstantValue.exactly(drop.rolls()))
-                    .when(LootItemRandomChanceCondition.randomChance(drop.chance()));
-                for (RecipeTablets.LootEntry entry : drop.entries()) {
-                    pool.add(
-                        LootItem.lootTableItem(HexwrightItems.STONE_TABLET)
-                            .setWeight(entry.weight())
-                            .apply(SetNbtFunction.setTag(StoneTabletItem.lootTag(entry.recipe())))
-                    );
+            }
+            for (RecipeTablets.TabletDrop drop : config.artifactDrops()) {
+                if (drop.tables().contains(id)) {
+                    addTablets(tableBuilder, drop, HexwrightItems.ARTIFACT_RUINED_TABLET, true);
                 }
-                tableBuilder.withPool(pool);
             }
         });
+    }
+
+    private static void addTablets(LootTable.Builder table, RecipeTablets.TabletDrop drop, Item item, boolean stamp) {
+        LootPoolSingletonContainer.Builder<?> tablet = LootItem.lootTableItem(item);
+        if (drop.maxCount() > drop.minCount()) {
+            tablet.apply(SetItemCountFunction.setCount(UniformGenerator.between(drop.minCount(), drop.maxCount())));
+        } else if (drop.minCount() > 1) {
+            tablet.apply(SetItemCountFunction.setCount(ConstantValue.exactly(drop.minCount())));
+        }
+        if (stamp) {
+            tablet.apply(StampProvenanceFunc.stamp());
+        }
+        table.withPool(
+            LootPool.lootPool()
+                .setRolls(ConstantValue.exactly(1))
+                .when(LootItemRandomChanceCondition.randomChance(drop.chance()))
+                .add(tablet)
+        );
     }
 }

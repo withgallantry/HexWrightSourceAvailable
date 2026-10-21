@@ -1,6 +1,8 @@
 package com.bluup.hexwright.mixin;
 
+import com.bluup.hexwright.server.dungeon.DungeonInstances;
 import com.bluup.hexwright.server.pentabox.PentaboxEvents;
+import com.bluup.hexwright.server.soulforge.Soulforge;
 import com.bluup.hexwright.server.talisman.TalismanCasting;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.damagesource.DamageSource;
@@ -16,5 +18,7 @@ public abstract class ServerPlayerDeathMixin {
     private void hexwright$rearmReprieve(DamageSource source, CallbackInfo ci) {
         TalismanCasting.onDied((ServerPlayer) (Object) this);
         PentaboxEvents.onDied((ServerPlayer) (Object) this);
+        Soulforge.onDied((ServerPlayer) (Object) this);
+        DungeonInstances.onDying((ServerPlayer) (Object) this);
     }
 }

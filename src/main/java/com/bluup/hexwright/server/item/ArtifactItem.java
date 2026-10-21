@@ -2,6 +2,7 @@ package com.bluup.hexwright.server.item;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.TextColor;
 import net.minecraft.world.item.ItemStack;
 
 public interface ArtifactItem {
@@ -21,7 +22,12 @@ public interface ArtifactItem {
     }
 
     static Component tooltipLine() {
-        return Component.translatable("tooltip.hexwright.artifact.quality", label().copy().withStyle(COLOUR))
+        return tooltipLine(TextColor.fromLegacyFormat(COLOUR));
+    }
+
+    static Component tooltipLine(TextColor colour) {
+        return Component.translatable("tooltip.hexwright.artifact.quality",
+                label().copy().withStyle(style -> style.withColor(colour)))
             .withStyle(ChatFormatting.GRAY);
     }
 }

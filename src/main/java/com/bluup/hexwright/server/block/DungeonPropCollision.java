@@ -103,10 +103,20 @@ public final class DungeonPropCollision {
     }
 
     private static Map<BlockPos, VoxelShape> split(Placement placement) {
-        Map<BlockPos, VoxelShape> cells = new HashMap<>();
         Measured measured = TABLE_ROWS.get(placement.prop());
-        for (int[] north : measured == null ? List.<int[]>of() : measured.boxes()) {
-            int[] b = place(north, placement);
+        return cut(measured == null ? List.of() : measured.boxes(), placement.facing(), placement.turn(),
+            placement.x(), placement.y(), placement.z());
+    }
+
+    public static Map<BlockPos, VoxelShape> cut(List<int[]> boxes, Direction facing) {
+        return cut(boxes, facing, 0, 0, 0, 0);
+    }
+
+    private static Map<BlockPos, VoxelShape> cut(List<int[]> boxes, Direction facing, float turn,
+                                                 float x, float y, float z) {
+        Map<BlockPos, VoxelShape> cells = new HashMap<>();
+        for (int[] north : boxes) {
+            int[] b = place(north, facing, turn, x, y, z);
             for (int cx = Math.floorDiv(b[0], 16); cx <= Math.floorDiv(b[3] - 1, 16); cx++) {
                 for (int cy = Math.floorDiv(b[1], 16); cy <= Math.floorDiv(b[4] - 1, 16); cy++) {
                     for (int cz = Math.floorDiv(b[2], 16); cz <= Math.floorDiv(b[5] - 1, 16); cz++) {
@@ -131,9 +141,10 @@ public final class DungeonPropCollision {
         return Collections.unmodifiableMap(optimised);
     }
 
-    private static int[] place(int[] b, Placement placement) {
-        double turn = Math.toRadians(placement.turn());
-        double facing = Math.toRadians(switch (placement.facing()) {
+    private static int[] place(int[] b, Direction towards, float turnDegrees, float shiftX, float shiftY,
+                               float shiftZ) {
+        double turn = Math.toRadians(turnDegrees);
+        double facing = Math.toRadians(switch (towards) {
             case SOUTH -> 180;
             case WEST -> 90;
             case EAST -> 270;
@@ -146,14 +157,14 @@ public final class DungeonPropCollision {
         for (int x : new int[] {b[0], b[3]}) {
             for (int z : new int[] {b[2], b[5]}) {
                 double[] p = rotateY(x - 8, z - 8, turn);
-                p = rotateY(p[0] + placement.x() * 16, p[1] + placement.z() * 16, facing);
+                p = rotateY(p[0] + shiftX * 16, p[1] + shiftZ * 16, facing);
                 minX = Math.min(minX, p[0]);
                 maxX = Math.max(maxX, p[0]);
                 minZ = Math.min(minZ, p[1]);
                 maxZ = Math.max(maxZ, p[1]);
             }
         }
-        double dy = placement.y() * 16;
+        double dy = shiftY * 16;
         return new int[] {
             snapDown(minX + 8), snapDown(b[1] + dy), snapDown(minZ + 8),
             snapUp(maxX + 8), snapUp(b[4] + dy), snapUp(maxZ + 8)};

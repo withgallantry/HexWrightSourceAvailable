@@ -45,6 +45,9 @@ public final class Investigations {
     public static List<Investigation> visible(Collection<String> completed) {
         List<Investigation> shown = new ArrayList<>();
         for (Investigation investigation : all()) {
+            if (investigation.hidden()) {
+                continue;
+            }
             if (completed.contains(investigation.id()) || completed.containsAll(investigation.requires())) {
                 shown.add(investigation);
             }

@@ -12,6 +12,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.ArmorItem;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.level.Level;
@@ -28,18 +29,20 @@ import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
-public class HexwrightArmourItem extends ArmorItem implements GeoItem, IotaHolderItem {
+public class HexwrightArmourItem extends ArmorItem implements GeoItem, IotaHolderItem, Restylable {
 
     private final AnimatableInstanceCache cache = GeckoLibUtil.createInstanceCache(this);
     private final Supplier<Object> renderProvider = GeoItem.makeRenderer(this);
 
     private final ArmourSet set;
     private final ArmourTier tier;
+    private final ArmourPiece piece;
 
     public HexwrightArmourItem(ArmourSet set, ArmourTier tier, ArmourPiece piece, Properties properties) {
         super(tier, piece.type(), properties);
         this.set = set;
         this.tier = tier;
+        this.piece = piece;
     }
 
     public ArmourSet set() {
@@ -48,6 +51,21 @@ public class HexwrightArmourItem extends ArmorItem implements GeoItem, IotaHolde
 
     public ArmourTier tier() {
         return tier;
+    }
+
+    public ArmourPiece piece() {
+        return piece;
+    }
+
+
+    @Override
+    public ArmourTier ownLook() {
+        return tier;
+    }
+
+    @Override
+    public Item lookItem(ArmourTier look) {
+        return HexwrightArmour.piece(set, look, piece);
     }
 
     @Override
@@ -66,6 +84,7 @@ public class HexwrightArmourItem extends ArmorItem implements GeoItem, IotaHolde
         tooltip.add(Component.translatable("tooltip.hexwright.armour.quality",
             Component.translatable(tier.displayQuality().translationKey()).withStyle(tier.displayQuality().color()))
             .withStyle(ChatFormatting.GRAY));
+        appendLookTooltip(stack, tooltip);
         tooltip.add(Component.translatable("tooltip.hexwright.armour.set",
             ArmourPowerToggle.wornPieces(tooltipWearer(level), set), ArmourPowerToggle.SET_PIECES)
             .withStyle(ChatFormatting.GRAY));

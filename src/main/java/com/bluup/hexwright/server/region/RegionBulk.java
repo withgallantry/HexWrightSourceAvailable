@@ -4,16 +4,22 @@ import at.petrak.hexcasting.api.casting.eval.CastingEnvironment;
 import at.petrak.hexcasting.api.casting.iota.Iota;
 import at.petrak.hexcasting.api.casting.mishaps.MishapInvalidIota;
 import at.petrak.hexcasting.api.mod.HexTags;
+import at.petrak.hexcasting.common.items.pigment.ItemDyePigment;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.Clearable;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.DirectionalPlaceContext;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.Property;
 import net.minecraft.world.level.material.FluidState;
 import org.jetbrains.annotations.Nullable;
 
@@ -28,6 +34,10 @@ public final class RegionBulk {
     public static final long BREAK_COST_PER_BLOCK = 1250L;
 
     public static final long BREAK_COST_CHEAP = 100L;
+
+    public static final long CONJURE_COLOR_COST_PER_BLOCK = 20000L;
+
+    public static final ResourceLocation CONJURED_COLOR_BLOCK = new ResourceLocation("lapisworks", "conjureable");
 
     public static final int BREAK_EFFECT_SAMPLES = 32;
 
@@ -97,6 +107,24 @@ public final class RegionBulk {
         return placed != null ? placed : blockItem.getBlock().defaultBlockState();
     }
 
+    public static BlockState conjuredColorState(int color, CastingEnvironment env) {
+        BlockState state = BuiltInRegistries.BLOCK.get(CONJURED_COLOR_BLOCK).defaultBlockState();
+        DyeColor glow = env.getPigment().item().getItem() instanceof ItemDyePigment dye
+            ? dye.getDyeColor()
+            : DyeColor.PURPLE;
+        state = withNamedValue(state, "color", String.valueOf(color));
+        return withNamedValue(state, "pigment", glow.getSerializedName());
+    }
+
+    private static BlockState withNamedValue(BlockState state, String propertyName, String value) {
+        Property<?> property = state.getBlock().getStateDefinition().getProperty(propertyName);
+        return property == null ? state : withValue(state, property, value);
+    }
+
+    private static <T extends Comparable<T>> BlockState withValue(BlockState state, Property<T> property, String value) {
+        return property.getValue(value).map(parsed -> state.setValue(property, parsed)).orElse(state);
+    }
+
 
     public static Plan planBreak(CastingEnvironment env, Region region, Iota iota, int reverseIdx) {
         ServerLevel level = env.getWorld();
@@ -129,6 +157,21 @@ public final class RegionBulk {
             }
             BlockEntity blockEntity = state.hasBlockEntity() ? level.getBlockEntity(pos) : null;
             Block.dropResources(state, level, pos, blockEntity, breaker, ItemStack.EMPTY);
+            FluidState fluid = level.getFluidState(pos);
+            level.setBlock(pos, fluid.createLegacyBlock(), Block.UPDATE_CLIENTS);
+        }
+    }
+
+    public static void annihilateBlocks(ServerLevel level, List<BlockPos> positions) {
+        for (BlockPos pos : positions) {
+            BlockState state = level.getBlockState(pos);
+            if (state.isAir()) {
+                continue;
+            }
+            if (state.hasBlockEntity()) {
+                Clearable.tryClear(level.getBlockEntity(pos));
+                level.removeBlockEntity(pos);
+            }
             FluidState fluid = level.getFluidState(pos);
             level.setBlock(pos, fluid.createLegacyBlock(), Block.UPDATE_CLIENTS);
         }

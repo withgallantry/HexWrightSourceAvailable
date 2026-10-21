@@ -23,7 +23,6 @@ void main() {
     vertexDistance = fog_distance(ModelViewMat, Position, FogShape);
     vertexColor = Color * texelFetch(Sampler2, UV2 / 16, 0);
 
-    // Reconstruct a stable 0..1 coordinate across the particle quad.
     int corner = gl_VertexID & 3;
     if (corner == 0) {
         particleCoord = vec2(1.0, 1.0);

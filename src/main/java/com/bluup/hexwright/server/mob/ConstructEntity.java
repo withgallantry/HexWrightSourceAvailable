@@ -28,6 +28,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.pathfinder.Path;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
@@ -59,6 +60,11 @@ public abstract class ConstructEntity extends Monster implements GeoEntity {
     private static final RawAnimation WALK = RawAnimation.begin().thenLoop("walk");
     private static final RawAnimation DEATH = RawAnimation.begin().thenPlayAndHold("death");
 
+    private static final int ROUTE_INTERVAL = 10;
+    private static final int ROUTE_LOOKAHEAD = 6;
+    private static final double ROUTE_POINT_REACHED = 1.5D;
+    private static final double ROUTE_MARGIN = 0.3D;
+
     private static final EntityDataAccessor<Byte> DATA_ACTION =
         SynchedEntityData.defineId(ConstructEntity.class, EntityDataSerializers.BYTE);
     private static final EntityDataAccessor<Integer> DATA_ACTION_STAMP =
@@ -71,6 +77,11 @@ public abstract class ConstructEntity extends Monster implements GeoEntity {
 
     private Action action;
     protected int actionTick;
+
+    @Nullable
+    private Path route;
+    private int routeAge = ROUTE_INTERVAL;
+    private int routeAim = -1;
 
     protected ConstructEntity(EntityType<? extends ConstructEntity> type, Level level,
                               float perHitCap, float perSecondCap, double platingHeight, double platingRadius) {
@@ -200,9 +211,74 @@ public abstract class ConstructEntity extends Monster implements GeoEntity {
         return to.normalize().dot(Vec3.directionFromRotation(0.0F, this.getYRot())) >= cone;
     }
 
+    protected void turnTowards(Vec3 point, float rate) {
+        float wanted = (float) (Mth.atan2(point.z - this.getZ(), point.x - this.getX()) * Mth.RAD_TO_DEG) - 90.0F;
+        float yaw = Mth.approachDegrees(this.getYRot(), wanted, rate);
+        this.setYRot(yaw);
+        this.setYHeadRot(yaw);
+        this.yBodyRot = yaw;
+    }
+
+    protected float angleTo(Vec3 point) {
+        float wanted = (float) (Mth.atan2(point.z - this.getZ(), point.x - this.getX()) * Mth.RAD_TO_DEG) - 90.0F;
+        return Mth.wrapDegrees(wanted - this.getYRot());
+    }
+
+    protected double lateral(Vec3 point) {
+        double radians = this.yBodyRot * Mth.DEG_TO_RAD;
+        return (point.x - this.getX()) * Math.cos(radians) + (point.z - this.getZ()) * Math.sin(radians);
+    }
+
+    protected double flatDistanceTo(Vec3 point) {
+        return flat(point.subtract(this.position())).length();
+    }
+
+    protected static Vec3 flat(Vec3 vector) {
+        return new Vec3(vector.x, 0.0D, vector.z);
+    }
+
     protected void lunge(double strength) {
         Vec3 forward = Vec3.directionFromRotation(0.0F, this.getYRot());
         this.setDeltaMovement(this.getDeltaMovement().add(forward.x * strength, 0.0D, forward.z * strength));
+    }
+
+    protected Vec3 waypoint(Vec3 goal) {
+        if (++this.routeAge >= ROUTE_INTERVAL) {
+            this.routeAge = 0;
+            this.route = clearWalk(goal) ? null : this.getNavigation().createPath(BlockPos.containing(goal), 1);
+            this.routeAim = -1;
+        }
+        Path route = this.route;
+        if (route != null && this.routeAim >= route.getNextNodeIndex() && this.routeAim < route.getNodeCount()
+            && flatDistanceTo(route.getEntityPosAtNode(this, this.routeAim)) < ROUTE_POINT_REACHED) {
+            route.setNextNodeIndex(this.routeAim + 1);
+        }
+        while (route != null && !route.isDone() && flatDistanceTo(route.getNextEntityPos(this)) < ROUTE_POINT_REACHED) {
+            route.advance();
+        }
+        if (route == null || route.isDone()) {
+            return goal;
+        }
+        if (this.routeAim < route.getNextNodeIndex()) {
+            this.routeAim = route.getNextNodeIndex();
+            int last = Math.min(route.getNextNodeIndex() + ROUTE_LOOKAHEAD, route.getNodeCount() - 1);
+            while (this.routeAim < last && clearWalk(route.getEntityPosAtNode(this, this.routeAim + 1))) {
+                this.routeAim++;
+            }
+        }
+        return route.getEntityPosAtNode(this, this.routeAim);
+    }
+
+    protected boolean clearWalk(Vec3 to) {
+        Vec3 way = flat(to.subtract(this.position()));
+        int steps = Mth.ceil(way.length());
+        AABB box = this.getBoundingBox().inflate(ROUTE_MARGIN, 0.0D, ROUTE_MARGIN).move(0.0D, this.maxUpStep(), 0.0D);
+        for (int step = 1; step < steps; step++) {
+            if (!this.level().noCollision(this, box.move(way.scale(step / (double) steps)))) {
+                return false;
+            }
+        }
+        return true;
     }
 
 
@@ -214,13 +290,17 @@ public abstract class ConstructEntity extends Monster implements GeoEntity {
         }
         float allowed = this.damage.limit(this, source, amount);
         if (allowed <= 0.0F) {
-            BossDamage.rebuff(this, source, this.platingHeight, this.platingRadius);
+            rebuff(source);
             return false;
         }
         float health = this.getHealth();
         boolean hurt = super.hurt(source, allowed);
         this.damage.spend(health - this.getHealth());
         return hurt;
+    }
+
+    protected void rebuff(DamageSource source) {
+        BossDamage.rebuff(this, source, this.platingHeight, this.platingRadius);
     }
 
     @Override

@@ -6,12 +6,7 @@ in vec2 uv;
 
 out vec4 fragColor;
 
-// left-top's vertex's x and y than right-buttom's vertex's x and y
 uniform vec4 SquareVertex;
-// x = roundness top-right
-// y = roundness boottom-right
-// z = roundness top-left
-// w = roundness bottom-left
 uniform vec4 RoundRadius1;
 uniform vec4 RoundRadius2;
 uniform float Thickness = 10.;

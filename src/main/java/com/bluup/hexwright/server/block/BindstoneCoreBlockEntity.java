@@ -1,16 +1,14 @@
 package com.bluup.hexwright.server.block;
 
+import com.bluup.hexwright.server.bindstone.BindstoneDissolve;
 import com.bluup.hexwright.server.bindstone.BindstonePillar;
 import com.bluup.hexwright.server.bindstone.BindstoneRegistry;
 import com.bluup.hexwright.server.bindstone.BindstoneReward;
-import com.bluup.hexwright.server.sound.HexwrightSoundEvents;
+import com.bluup.hexwright.server.worldgen.bindstone.BindstoneRegenerator;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.Holder;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.network.protocol.game.ClientboundSoundPacket;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.player.Player;
@@ -23,6 +21,7 @@ public class BindstoneCoreBlockEntity extends BlockEntity {
     private static final String TAG_RUNES = "Runes";
     private static final String TAG_SPENT = "Spent";
     private static final String TAG_ACTIVE = "Active";
+    private static final String TAG_DISSOLVE = "Dissolve";
 
     private static final int SCAN_INTERVAL_TICKS = 10;
 
@@ -35,6 +34,11 @@ public class BindstoneCoreBlockEntity extends BlockEntity {
 
     private int scanCooldown;
     private boolean warding;
+
+    private boolean scheduled;
+
+    private int dissolveStage = -1;
+    private int dissolveIn;
 
     private int strikeIn = 1;
 
@@ -58,6 +62,11 @@ public class BindstoneCoreBlockEntity extends BlockEntity {
 
         if (spent) {
             stopWarding();
+            if (!scheduled && level instanceof ServerLevel serverLevel) {
+                scheduled = true;
+                BindstoneRegenerator.noteClaimed(serverLevel, worldPosition);
+            }
+            tickDissolve();
             return;
         }
         if (!warding) {
@@ -146,32 +155,18 @@ public class BindstoneCoreBlockEntity extends BlockEntity {
             : BindstonePillar.nextGap(level.getRandom(), noteTicks);
         flashRing = topOfColumn ? 0 : flashRing + 1;
 
-        sendNote(pitch);
+        BindstonePillar.sendNote(level, worldPosition, pitch);
     }
 
-    private void sendNote(float pitch) {
-        if (level == null) {
+    private void tickDissolve() {
+        if (dissolveStage < 0 || !(level instanceof ServerLevel serverLevel) || --dissolveIn > 0) {
             return;
         }
-        Holder<SoundEvent> note = BuiltInRegistries.SOUND_EVENT
-            .wrapAsHolder(HexwrightSoundEvents.bindstoneNote());
-        Vec3 source = Vec3.atCenterOf(worldPosition);
-        ClientboundSoundPacket packet = new ClientboundSoundPacket(
-            note,
-            SoundSource.BLOCKS,
-            source.x,
-            source.y,
-            source.z,
-            BindstonePillar.NOTE_VOLUME,
-            pitch,
-            level.getRandom().nextLong()
-        );
-        double reachSqr = BindstonePillar.INFLUENCE_RADIUS * BindstonePillar.INFLUENCE_RADIUS;
-        for (Player player : level.players()) {
-            if (player instanceof ServerPlayer listener && listener.distanceToSqr(source) <= reachSqr) {
-                listener.connection.send(packet);
-            }
-        }
+        int stage = dissolveStage;
+        dissolveStage = stage + 1 < BindstoneDissolve.STAGES ? stage + 1 : -1;
+        dissolveIn = BindstoneDissolve.STAGE_TICKS;
+        setChanged();
+        BindstoneDissolve.advance(serverLevel, worldPosition, stage);
     }
 
     private boolean hasAudience() {
@@ -193,16 +188,30 @@ public class BindstoneCoreBlockEntity extends BlockEntity {
             return false;
         }
 
+        BindstonePillar.setAllRings(level, worldPosition, runes);
+        active = false;
+        java.util.Arrays.fill(bandLit, 0);
+        spent = true;
+        dissolveStage = 0;
+        dissolveIn = BindstoneDissolve.STAGE_TICKS;
+        stopWarding();
+        setChanged();
+
+        level.playSound(null, worldPosition, SoundEvents.BEACON_DEACTIVATE, SoundSource.BLOCKS, 1.0f, 1.4f);
+        BindstoneReward.grantTablet(player);
+        return true;
+    }
+
+    public void standDown() {
+        if (level == null || spent) {
+            return;
+        }
         BindstonePillar.clearAllRings(level, worldPosition);
         active = false;
         java.util.Arrays.fill(bandLit, 0);
         spent = true;
         stopWarding();
         setChanged();
-
-        level.playSound(null, worldPosition, SoundEvents.BEACON_DEACTIVATE, SoundSource.BLOCKS, 1.0f, 1.4f);
-        BindstoneReward.grant(player);
-        return true;
     }
 
     private void stopWarding() {
@@ -224,6 +233,9 @@ public class BindstoneCoreBlockEntity extends BlockEntity {
         tag.putIntArray(TAG_RUNES, runes);
         tag.putBoolean(TAG_SPENT, spent);
         tag.putBoolean(TAG_ACTIVE, active);
+        if (dissolveStage >= 0) {
+            tag.putInt(TAG_DISSOLVE, dissolveStage);
+        }
     }
 
     @Override
@@ -235,5 +247,7 @@ public class BindstoneCoreBlockEntity extends BlockEntity {
         strikeIn = 1;
         flashRing = 0;
         tidyBands = true;
+        dissolveStage = tag.contains(TAG_DISSOLVE) ? tag.getInt(TAG_DISSOLVE) : -1;
+        dissolveIn = BindstoneDissolve.STAGE_TICKS;
     }
 }

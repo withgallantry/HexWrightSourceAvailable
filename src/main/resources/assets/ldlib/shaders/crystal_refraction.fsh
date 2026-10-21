@@ -1,7 +1,5 @@
 #version 150
 
-// Crystal Refraction
-// Angular amethyst-like shard/facet shader for a sharper magical look.
 
 uniform vec2 iResolution;
 uniform float iTime;
@@ -47,13 +45,11 @@ void mainImage(out vec4 outColor, in vec2 fragCoord) {
     float t = iTime * 0.22;
     float d = length(p);
 
-    // Slow drift in the crystal field
     vec2 q = rot2(0.25 * sin(t * 0.7)) * (p * 3.2);
 
-    // Multi-angle crystal facets
     vec2 a = q;
-    vec2 b = rot2(1.0472) * q;  // ~60 deg
-    vec2 c = rot2(-0.7854) * q; // ~-45 deg
+    vec2 b = rot2(1.0472) * q;
+    vec2 c = rot2(-0.7854) * q;
 
     float gridA = abs(fract(a.x) - 0.5);
     float gridB = abs(fract(b.x) - 0.5);
@@ -64,11 +60,9 @@ void mainImage(out vec4 outColor, in vec2 fragCoord) {
     facetLines += 1.0 - smoothstep(0.05, 0.09, gridB);
     facetLines += 1.0 - smoothstep(0.05, 0.09, gridC);
 
-    // Diamond shard shapes within a repeated field
     vec2 cell = fract(q) - 0.5;
     float shard = 1.0 - smoothstep(0.18, 0.42, diamondDist(cell));
 
-    // Subtle internal texture
     float tex = noise(q * 1.8 + vec2(t * 0.3, -t * 0.2));
     float flicker = 0.85 + 0.15 * sin(t * 3.5 + tex * 8.0);
 
@@ -83,11 +77,9 @@ void mainImage(out vec4 outColor, in vec2 fragCoord) {
     color += edge * facetLines * 0.12 * flicker;
     color += cyan * facetLines * 0.035 * (0.5 + 0.5 * sin(t + q.x * 2.0));
 
-    // Larger crystalline glints
     float glint = smoothstep(0.78, 0.96, facetLines * 0.55 + shard * 0.65);
     color += edge * glint * 0.18;
 
-    // Edge darkening / framing
     float vignette = 1.0 - smoothstep(0.35, 1.08, d);
     color *= 0.78 + 0.22 * vignette;
 

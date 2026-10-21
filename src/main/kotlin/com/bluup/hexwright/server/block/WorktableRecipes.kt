@@ -4,6 +4,8 @@ import com.bluup.hexwright.common.staff_assembly.calc.IngredientCategory
 import com.bluup.hexwright.server.armour.ArmourGemData
 import com.bluup.hexwright.server.armour.ArmourSet
 import com.bluup.hexwright.server.armour.HexwrightArmour
+import com.bluup.hexwright.server.hexweave.HexLoom
+import com.bluup.hexwright.server.item.ArtifactItem
 import com.bluup.hexwright.server.item.HexwrightItems
 import com.bluup.hexwright.server.pentabox.PentaboxData
 import com.bluup.hexwright.server.pocketcaster.PocketCasterData
@@ -20,6 +22,8 @@ import net.minecraft.world.item.ItemStack
 object WorktableRecipes {
 
     private const val PIPES_PER_CRAFT = 8
+
+    const val ARTIFACT_GOLEM_CORES = 2
 
     data class InfusionStep(
         val aspect: IngredientCategory,
@@ -358,13 +362,243 @@ object WorktableRecipes {
         InfusionStep(IngredientCategory.ECHO, 8.0, 34, 0.07f)
     )
 
+
+    val ETERNAL_WAR_HAMMER_STEPS = listOf(
+        InfusionStep(IngredientCategory.METALLIC, 70.0, 60, 0.12f),
+        InfusionStep(IngredientCategory.ENERGETIC, 60.0, 50, 0.10f),
+        InfusionStep(IngredientCategory.FIRE, 52.0, 42, 0.085f),
+        InfusionStep(IngredientCategory.PRESTIGE, 48.0, 34, 0.07f)
+    )
+
+    val ETERNAL_BATTLE_AXE_STEPS = listOf(
+        InfusionStep(IngredientCategory.METALLIC, 66.0, 60, 0.12f),
+        InfusionStep(IngredientCategory.ENERGETIC, 58.0, 50, 0.10f),
+        InfusionStep(IngredientCategory.FLEXIBLE, 50.0, 42, 0.085f),
+        InfusionStep(IngredientCategory.PRESTIGE, 46.0, 34, 0.07f)
+    )
+
+    val ETERNAL_GREAT_SWORD_STEPS = listOf(
+        InfusionStep(IngredientCategory.METALLIC, 68.0, 60, 0.12f),
+        InfusionStep(IngredientCategory.RADIANT, 56.0, 50, 0.10f),
+        InfusionStep(IngredientCategory.ENERGETIC, 50.0, 42, 0.085f),
+        InfusionStep(IngredientCategory.PRESTIGE, 46.0, 34, 0.07f)
+    )
+
+    val ETERNAL_ODACHI_STEPS = listOf(
+        InfusionStep(IngredientCategory.METALLIC, 62.0, 60, 0.12f),
+        InfusionStep(IngredientCategory.FLEXIBLE, 56.0, 50, 0.10f),
+        InfusionStep(IngredientCategory.ENERGETIC, 50.0, 42, 0.085f),
+        InfusionStep(IngredientCategory.PRESTIGE, 44.0, 34, 0.07f)
+    )
+
+    val ETERNAL_SCYTHE_STEPS = listOf(
+        InfusionStep(IngredientCategory.ECHO, 64.0, 60, 0.12f),
+        InfusionStep(IngredientCategory.METALLIC, 58.0, 50, 0.10f),
+        InfusionStep(IngredientCategory.ORGANIC, 50.0, 42, 0.085f),
+        InfusionStep(IngredientCategory.PRESTIGE, 48.0, 34, 0.07f)
+    )
+
+    val ETERNAL_WAKIZASHI_STEPS = listOf(
+        InfusionStep(IngredientCategory.METALLIC, 60.0, 60, 0.12f),
+        InfusionStep(IngredientCategory.ARCANE, 56.0, 50, 0.10f),
+        InfusionStep(IngredientCategory.FLEXIBLE, 50.0, 42, 0.085f),
+        InfusionStep(IngredientCategory.PRESTIGE, 44.0, 34, 0.07f)
+    )
+
+    val FROSTBITE_STEPS = listOf(
+        InfusionStep(IngredientCategory.CRYSTAL, 62.0, 60, 0.12f),
+        InfusionStep(IngredientCategory.METALLIC, 58.0, 50, 0.10f),
+        InfusionStep(IngredientCategory.SPATIAL, 54.0, 42, 0.085f),
+        InfusionStep(IngredientCategory.PRESTIGE, 50.0, 34, 0.07f)
+    )
+
+    val KING_OF_PURGATORY_STEPS = listOf(
+        InfusionStep(IngredientCategory.ENERGETIC, 64.0, 60, 0.12f),
+        InfusionStep(IngredientCategory.SPATIAL, 58.0, 50, 0.10f),
+        InfusionStep(IngredientCategory.METALLIC, 54.0, 42, 0.085f),
+        InfusionStep(IngredientCategory.PRESTIGE, 50.0, 34, 0.07f)
+    )
+
+    val SILVER_STARLIGHT_STEPS = listOf(
+        InfusionStep(IngredientCategory.CRYSTAL, 66.0, 60, 0.12f),
+        InfusionStep(IngredientCategory.RADIANT, 58.0, 50, 0.10f),
+        InfusionStep(IngredientCategory.METALLIC, 52.0, 42, 0.085f),
+        InfusionStep(IngredientCategory.PRESTIGE, 48.0, 34, 0.07f)
+    )
+
+    val ETERNAL_BOW_STEPS = listOf(
+        InfusionStep(IngredientCategory.SPATIAL, 62.0, 60, 0.12f),
+        InfusionStep(IngredientCategory.ENERGETIC, 58.0, 50, 0.10f),
+        InfusionStep(IngredientCategory.FLEXIBLE, 52.0, 42, 0.085f),
+        InfusionStep(IngredientCategory.PRESTIGE, 46.0, 34, 0.07f)
+    )
+
+    val STARFALL_BOW_STEPS = listOf(
+        InfusionStep(IngredientCategory.RADIANT, 66.0, 60, 0.12f),
+        InfusionStep(IngredientCategory.SPATIAL, 58.0, 50, 0.10f),
+        InfusionStep(IngredientCategory.ENERGETIC, 52.0, 42, 0.085f),
+        InfusionStep(IngredientCategory.PRESTIGE, 48.0, 34, 0.07f)
+    )
+
+    val NECROMANCER_SWORD_STEPS = listOf(
+        InfusionStep(IngredientCategory.ECHO, 64.0, 60, 0.12f),
+        InfusionStep(IngredientCategory.METALLIC, 58.0, 50, 0.10f),
+        InfusionStep(IngredientCategory.ARCANE, 52.0, 42, 0.085f),
+        InfusionStep(IngredientCategory.PRESTIGE, 48.0, 34, 0.07f)
+    )
+
+    val SPIDER_BOW_STEPS = listOf(
+        InfusionStep(IngredientCategory.THREAD, 64.0, 60, 0.12f),
+        InfusionStep(IngredientCategory.SPATIAL, 56.0, 50, 0.10f),
+        InfusionStep(IngredientCategory.ORGANIC, 52.0, 42, 0.085f),
+        InfusionStep(IngredientCategory.PRESTIGE, 46.0, 34, 0.07f)
+    )
+
+    val FORGE_HAMMER_STEPS = listOf(
+        InfusionStep(IngredientCategory.FIRE, 66.0, 60, 0.12f),
+        InfusionStep(IngredientCategory.METALLIC, 60.0, 50, 0.10f),
+        InfusionStep(IngredientCategory.ENERGETIC, 50.0, 42, 0.085f),
+        InfusionStep(IngredientCategory.PRESTIGE, 46.0, 34, 0.07f)
+    )
+
+    val BROOM_STARBEAM_STEPS = listOf(
+        InfusionStep(IngredientCategory.SPATIAL, 66.0, 60, 0.12f),
+        InfusionStep(IngredientCategory.RADIANT, 58.0, 50, 0.10f),
+        InfusionStep(IngredientCategory.ARCANE, 50.0, 42, 0.085f),
+        InfusionStep(IngredientCategory.PRESTIGE, 46.0, 34, 0.07f)
+    )
+
+    val BROOM_NIGHTSWEEP_STEPS = listOf(
+        InfusionStep(IngredientCategory.SPATIAL, 66.0, 60, 0.12f),
+        InfusionStep(IngredientCategory.ECHO, 56.0, 50, 0.10f),
+        InfusionStep(IngredientCategory.ARCANE, 52.0, 42, 0.085f),
+        InfusionStep(IngredientCategory.PRESTIGE, 46.0, 34, 0.07f)
+    )
+
+    val BROOM_TWIN_WHISK_STEPS = listOf(
+        InfusionStep(IngredientCategory.SPATIAL, 70.0, 60, 0.12f),
+        InfusionStep(IngredientCategory.THREAD, 58.0, 50, 0.10f),
+        InfusionStep(IngredientCategory.ORGANIC, 52.0, 42, 0.085f),
+        InfusionStep(IngredientCategory.PRESTIGE, 48.0, 34, 0.07f)
+    )
+
+    val RING_OF_REPRISAL_STEPS = listOf(
+        InfusionStep(IngredientCategory.ARCANE, 64.0, 60, 0.12f),
+        InfusionStep(IngredientCategory.METALLIC, 56.0, 50, 0.10f),
+        InfusionStep(IngredientCategory.ENERGETIC, 52.0, 42, 0.085f),
+        InfusionStep(IngredientCategory.PRESTIGE, 48.0, 34, 0.07f)
+    )
+
+    val TALISMAN_OF_REPRIEVE_STEPS = listOf(
+        InfusionStep(IngredientCategory.ORGANIC, 62.0, 60, 0.12f),
+        InfusionStep(IngredientCategory.ARCANE, 58.0, 50, 0.10f),
+        InfusionStep(IngredientCategory.ECHO, 52.0, 42, 0.085f),
+        InfusionStep(IngredientCategory.PRESTIGE, 46.0, 34, 0.07f)
+    )
+
+    val GOLEM_POWER_ORB_STEPS = listOf(
+        InfusionStep(IngredientCategory.METALLIC, 64.0, 60, 0.12f),
+        InfusionStep(IngredientCategory.ARCANE, 58.0, 50, 0.10f),
+        InfusionStep(IngredientCategory.CRYSTAL, 52.0, 42, 0.085f),
+        InfusionStep(IngredientCategory.ENERGETIC, 46.0, 34, 0.07f)
+    )
+
+    val CAT_POWER_ORB_STEPS = listOf(
+        InfusionStep(IngredientCategory.SPATIAL, 62.0, 60, 0.12f),
+        InfusionStep(IngredientCategory.ORGANIC, 56.0, 50, 0.10f),
+        InfusionStep(IngredientCategory.ARCANE, 52.0, 42, 0.085f),
+        InfusionStep(IngredientCategory.ENERGETIC, 46.0, 34, 0.07f)
+    )
+
+    val GUARDIAN_POWER_ORB_STEPS = listOf(
+        InfusionStep(IngredientCategory.LEATHER, 64.0, 60, 0.12f),
+        InfusionStep(IngredientCategory.METALLIC, 58.0, 50, 0.10f),
+        InfusionStep(IngredientCategory.ARCANE, 52.0, 42, 0.085f),
+        InfusionStep(IngredientCategory.CRYSTAL, 46.0, 34, 0.07f)
+    )
+
+    val SANCTUARY_POWER_ORB_STEPS = listOf(
+        InfusionStep(IngredientCategory.ORGANIC, 64.0, 60, 0.12f),
+        InfusionStep(IngredientCategory.RADIANT, 58.0, 50, 0.10f),
+        InfusionStep(IngredientCategory.ARCANE, 52.0, 42, 0.085f),
+        InfusionStep(IngredientCategory.LEATHER, 46.0, 34, 0.07f)
+    )
+
+    val TEETH_POWER_ORB_STEPS = listOf(
+        InfusionStep(IngredientCategory.SPATIAL, 66.0, 60, 0.12f),
+        InfusionStep(IngredientCategory.END, 58.0, 50, 0.10f),
+        InfusionStep(IngredientCategory.ARCANE, 52.0, 42, 0.085f),
+        InfusionStep(IngredientCategory.METALLIC, 44.0, 34, 0.07f)
+    )
+
+    val DUST_POWER_ORB_STEPS = listOf(
+        InfusionStep(IngredientCategory.ARCANE, 64.0, 60, 0.12f),
+        InfusionStep(IngredientCategory.FLEXIBLE, 58.0, 50, 0.10f),
+        InfusionStep(IngredientCategory.ENERGETIC, 52.0, 42, 0.085f),
+        InfusionStep(IngredientCategory.CRYSTAL, 46.0, 34, 0.07f)
+    )
+
+    val MANTLE_OF_ASCENSION_STEPS = listOf(
+        InfusionStep(IngredientCategory.SPATIAL, 66.0, 60, 0.12f),
+        InfusionStep(IngredientCategory.THREAD, 58.0, 50, 0.10f),
+        InfusionStep(IngredientCategory.ARCANE, 52.0, 42, 0.085f),
+        InfusionStep(IngredientCategory.PRESTIGE, 48.0, 34, 0.07f)
+    )
+
+    val HAT_OF_ASCENSION_STEPS = listOf(
+        InfusionStep(IngredientCategory.THREAD, 50.0, 60, 0.12f),
+        InfusionStep(IngredientCategory.ARCANE, 44.0, 50, 0.10f),
+        InfusionStep(IngredientCategory.PRESTIGE, 40.0, 42, 0.085f),
+        InfusionStep(IngredientCategory.SPATIAL, 36.0, 34, 0.07f)
+    )
+
+    val CAPE_OF_PASSAGE_STEPS = listOf(
+        InfusionStep(IngredientCategory.SPATIAL, 66.0, 60, 0.12f),
+        InfusionStep(IngredientCategory.END, 58.0, 50, 0.10f),
+        InfusionStep(IngredientCategory.THREAD, 52.0, 42, 0.085f),
+        InfusionStep(IngredientCategory.ARCANE, 48.0, 34, 0.07f)
+    )
+
+    val HAT_OF_PASSAGE_STEPS = listOf(
+        InfusionStep(IngredientCategory.THREAD, 50.0, 60, 0.12f),
+        InfusionStep(IngredientCategory.END, 44.0, 50, 0.10f),
+        InfusionStep(IngredientCategory.ARCANE, 40.0, 42, 0.085f),
+        InfusionStep(IngredientCategory.PRESTIGE, 36.0, 34, 0.07f)
+    )
+
+    val ARTIFACT_VAULT_KEY_STEPS = listOf(
+        InfusionStep(IngredientCategory.METALLIC, 64.0, 60, 0.12f),
+        InfusionStep(IngredientCategory.SPATIAL, 60.0, 50, 0.10f),
+        InfusionStep(IngredientCategory.ECHO, 52.0, 42, 0.085f),
+        InfusionStep(IngredientCategory.PRESTIGE, 48.0, 34, 0.07f)
+    )
+
+
+    val HEX_LOOM_STEPS = listOf(
+        InfusionStep(IngredientCategory.ECHO, 120.0, 60, 0.12f),
+        InfusionStep(IngredientCategory.PRESTIGE, 104.0, 50, 0.10f),
+        InfusionStep(IngredientCategory.SPATIAL, 96.0, 42, 0.085f)
+    )
+
+    val WOVEN_ORB_STEPS = listOf(
+        InfusionStep(IngredientCategory.THREAD, 68.0, 60, 0.12f),
+        InfusionStep(IngredientCategory.ARCANE, 62.0, 50, 0.10f),
+        InfusionStep(IngredientCategory.ECHO, 58.0, 42, 0.085f),
+        InfusionStep(IngredientCategory.CRYSTAL, 52.0, 34, 0.07f)
+    )
+
     data class WorktableRecipe(
         val nameKey: String,
         val steps: List<InfusionStep>,
         val graded: Boolean = true,
+        private val golemCoreCount: Int? = null,
         val assemble: (PocketCasterData.Quality) -> ItemStack
     ) {
         fun preview(): ItemStack = assemble(PocketCasterData.Quality.SOUND)
+
+        val isArtifact: Boolean by lazy { ArtifactItem.`is`(preview()) }
+
+        val golemCores: Int by lazy { golemCoreCount ?: if (isArtifact) ARTIFACT_GOLEM_CORES else 0 }
     }
 
     val RECIPES = listOf(
@@ -569,7 +803,169 @@ object WorktableRecipes {
             "block.hexwright.liquefactrium",
             LIQUEFACTRIUM_STEPS,
             graded = false
-        ) { ItemStack(HexwrightBlocks.LIQUEFACTRIUM_ITEM) }
+        ) { ItemStack(HexwrightBlocks.LIQUEFACTRIUM_ITEM) },
+        WorktableRecipe(
+            "item.hexwright.eternal_war_hammer",
+            ETERNAL_WAR_HAMMER_STEPS,
+            graded = false
+        ) { ItemStack(HexwrightItems.ETERNAL_WAR_HAMMER) },
+        WorktableRecipe(
+            "item.hexwright.eternal_battle_axe",
+            ETERNAL_BATTLE_AXE_STEPS,
+            graded = false
+        ) { ItemStack(HexwrightItems.ETERNAL_BATTLE_AXE) },
+        WorktableRecipe(
+            "item.hexwright.eternal_great_sword",
+            ETERNAL_GREAT_SWORD_STEPS,
+            graded = false
+        ) { ItemStack(HexwrightItems.ETERNAL_GREAT_SWORD) },
+        WorktableRecipe(
+            "item.hexwright.eternal_odachi",
+            ETERNAL_ODACHI_STEPS,
+            graded = false
+        ) { ItemStack(HexwrightItems.ETERNAL_ODACHI) },
+        WorktableRecipe(
+            "item.hexwright.eternal_scythe",
+            ETERNAL_SCYTHE_STEPS,
+            graded = false
+        ) { ItemStack(HexwrightItems.ETERNAL_SCYTHE) },
+        WorktableRecipe(
+            "item.hexwright.eternal_wakizashi",
+            ETERNAL_WAKIZASHI_STEPS,
+            graded = false
+        ) { ItemStack(HexwrightItems.ETERNAL_WAKIZASHI) },
+        WorktableRecipe(
+            "item.hexwright.frostbite",
+            FROSTBITE_STEPS,
+            graded = false
+        ) { ItemStack(HexwrightItems.FROSTBITE) },
+        WorktableRecipe(
+            "item.hexwright.king_of_purgatory",
+            KING_OF_PURGATORY_STEPS,
+            graded = false
+        ) { ItemStack(HexwrightItems.KING_OF_PURGATORY) },
+        WorktableRecipe(
+            "item.hexwright.silver_starlight",
+            SILVER_STARLIGHT_STEPS,
+            graded = false
+        ) { ItemStack(HexwrightItems.SILVER_STARLIGHT) },
+        WorktableRecipe(
+            "item.hexwright.eternal_bow",
+            ETERNAL_BOW_STEPS,
+            graded = false
+        ) { ItemStack(HexwrightItems.ETERNAL_BOW) },
+        WorktableRecipe(
+            "item.hexwright.starfall_bow",
+            STARFALL_BOW_STEPS,
+            graded = false
+        ) { ItemStack(HexwrightItems.STARFALL_BOW) },
+        WorktableRecipe(
+            BroomVariant.STARBEAM.nameKey(),
+            BROOM_STARBEAM_STEPS,
+            graded = false
+        ) { BroomVariant.STARBEAM.createStack() },
+        WorktableRecipe(
+            BroomVariant.NIGHTSWEEP.nameKey(),
+            BROOM_NIGHTSWEEP_STEPS,
+            graded = false
+        ) { BroomVariant.NIGHTSWEEP.createStack() },
+        WorktableRecipe(
+            BroomVariant.TWIN_WHISK.nameKey(),
+            BROOM_TWIN_WHISK_STEPS,
+            graded = false
+        ) { BroomVariant.TWIN_WHISK.createStack() },
+        WorktableRecipe(
+            "item.hexwright.ring_of_reprisal",
+            RING_OF_REPRISAL_STEPS,
+            graded = false
+        ) { ItemStack(HexwrightItems.RING_OF_REPRISAL) },
+        WorktableRecipe(
+            "item.hexwright.talisman_of_reprieve",
+            TALISMAN_OF_REPRIEVE_STEPS,
+            graded = false
+        ) { ItemStack(HexwrightItems.TALISMAN_OF_REPRIEVE) },
+        WorktableRecipe(
+            "tooltip.hexwright.power_orb.golem",
+            GOLEM_POWER_ORB_STEPS,
+            graded = false
+        ) { ItemStack(HexwrightItems.GOLEM_POWER_ORB) },
+        WorktableRecipe(
+            "tooltip.hexwright.power_orb.cat",
+            CAT_POWER_ORB_STEPS,
+            graded = false
+        ) { ItemStack(HexwrightItems.CAT_POWER_ORB) },
+        WorktableRecipe(
+            "tooltip.hexwright.power_orb.guardian",
+            GUARDIAN_POWER_ORB_STEPS,
+            graded = false
+        ) { ItemStack(HexwrightItems.GUARDIAN_POWER_ORB) },
+        WorktableRecipe(
+            "tooltip.hexwright.power_orb.sanctuary",
+            SANCTUARY_POWER_ORB_STEPS,
+            graded = false
+        ) { ItemStack(HexwrightItems.SANCTUARY_POWER_ORB) },
+        WorktableRecipe(
+            "tooltip.hexwright.power_orb.teeth",
+            TEETH_POWER_ORB_STEPS,
+            graded = false
+        ) { ItemStack(HexwrightItems.TEETH_POWER_ORB) },
+        WorktableRecipe(
+            "tooltip.hexwright.power_orb.dust",
+            DUST_POWER_ORB_STEPS,
+            graded = false
+        ) { ItemStack(HexwrightItems.DUST_POWER_ORB) },
+        WorktableRecipe(
+            "item.hexwright.mantle_of_ascension",
+            MANTLE_OF_ASCENSION_STEPS,
+            graded = false
+        ) { ItemStack(HexwrightItems.MANTLE_OF_ASCENSION) },
+        WorktableRecipe(
+            "item.hexwright.hat_of_ascension",
+            HAT_OF_ASCENSION_STEPS,
+            graded = false,
+            golemCoreCount = 1
+        ) { ItemStack(HexwrightItems.HAT_OF_ASCENSION) },
+        WorktableRecipe(
+            "item.hexwright.cape_of_passage",
+            CAPE_OF_PASSAGE_STEPS,
+            graded = false
+        ) { ItemStack(HexwrightItems.CAPE_OF_PASSAGE) },
+        WorktableRecipe(
+            "item.hexwright.hat_of_passage",
+            HAT_OF_PASSAGE_STEPS,
+            graded = false,
+            golemCoreCount = 1
+        ) { ItemStack(HexwrightItems.HAT_OF_PASSAGE) },
+        WorktableRecipe(
+            "item.hexwright.vault_key.artifact",
+            ARTIFACT_VAULT_KEY_STEPS,
+            graded = false
+        ) { VaultKeyItem.artifact() },
+        WorktableRecipe(
+            "block.hexwright.hex_loom",
+            HEX_LOOM_STEPS,
+            graded = false
+        ) { ItemStack(HexLoom.ITEM) },
+        WorktableRecipe(
+            "item.hexwright.woven_orb",
+            WOVEN_ORB_STEPS,
+            graded = false
+        ) { ItemStack(HexLoom.WOVEN_ORB) },
+        WorktableRecipe(
+            "item.hexwright.necromancer_sword",
+            NECROMANCER_SWORD_STEPS,
+            graded = false
+        ) { ItemStack(HexwrightItems.NECROMANCER_SWORD) },
+        WorktableRecipe(
+            "item.hexwright.spider_bow",
+            SPIDER_BOW_STEPS,
+            graded = false
+        ) { ItemStack(HexwrightItems.SPIDER_BOW) },
+        WorktableRecipe(
+            "item.hexwright.forge_hammer",
+            FORGE_HAMMER_STEPS,
+            graded = false
+        ) { ItemStack(HexwrightItems.FORGE_HAMMER) }
     )
 
     fun allOutputItems(): Set<Item> {
@@ -583,5 +979,5 @@ object WorktableRecipes {
     }
 
     fun defaultRecipe(): Int =
-        RECIPES.indices.firstOrNull { !RecipeTablets.requiresTablet(RECIPES[it].nameKey) } ?: 0
+        RECIPES.indices.firstOrNull { !RecipeTablets.requiresDiscovery(RECIPES[it].nameKey) } ?: 0
 }

@@ -180,7 +180,14 @@ public final class HexiconData {
         HexiconSavedData state = HexiconSavedData.open(serverLevel);
         UUID oldPayloadId = state.getSlotReference(libraryId, absolute);
 
-        UUID newPayloadId = payload == null ? null : state.storePayload(IotaType.serialize(payload));
+        UUID newPayloadId = null;
+        if (payload != null) {
+            CompoundTag payloadTag = IotaType.serialize(payload);
+            if (oldPayloadId != null) {
+                carryOverDisplay(state.loadPayload(oldPayloadId), payloadTag);
+            }
+            newPayloadId = state.storePayload(payloadTag);
+        }
         state.setSlotReference(libraryId, absolute, newPayloadId);
 
         if (oldPayloadId != null && !oldPayloadId.equals(newPayloadId) && !state.isPayloadReferenced(oldPayloadId)) {
@@ -189,8 +196,20 @@ public final class HexiconData {
 
         setCachedSelectedBound(stack, payload != null);
         refreshCachedWrittenCount(serverLevel, stack);
+        refreshCachedBarDisplay(serverLevel, stack, getSelectedBar(stack));
         bumpRevision(stack);
         return true;
+    }
+
+    private static void carryOverDisplay(@Nullable CompoundTag from, CompoundTag to) {
+        if (from == null) {
+            return;
+        }
+        for (String key : new String[]{TAG_PAYLOAD_DISPLAY_NAME, TAG_PAYLOAD_ICON}) {
+            if (from.contains(key, Tag.TAG_STRING)) {
+                to.putString(key, from.getString(key));
+            }
+        }
     }
 
     private static void bumpRevision(ItemStack stack) {
@@ -328,6 +347,12 @@ public final class HexiconData {
             return false;
         }
         return slotTag.getBoolean(TAG_SLOT_DISPLAY_BOUND);
+    }
+
+    public static void refreshCachedDisplays(ServerLevel world, ItemStack stack) {
+        for (int bar = 0; bar < getAvailableBars(stack); bar++) {
+            refreshCachedBarDisplay(world, stack, bar);
+        }
     }
 
     public static void refreshCachedBarDisplay(ServerLevel world, ItemStack stack, int barIndex) {

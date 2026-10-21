@@ -1,8 +1,5 @@
 #version 150
 
-// Wisp / Void Particles
-// Dark purple void with drifting lavender/cyan magical motes
-// and a soft smoky haze behind them.
 
 uniform vec2 iResolution;
 uniform float iTime;
@@ -59,7 +56,6 @@ void mainImage(out vec4 outColor, in vec2 fragCoord) {
     float t = iTime * 0.22;
     float d = length(p);
 
-    // Smoky void background
     vec2 st = uv * 3.0;
     vec2 q = vec2(fbm(st + vec2(0.0, t * 0.25)),
                   fbm(st + vec2(1.7, -t * 0.18)));
@@ -71,9 +67,8 @@ void mainImage(out vec4 outColor, in vec2 fragCoord) {
     vec3 color = mix(bg0, bg1, 0.45 + 0.20 * (1.0 - d));
     color = mix(color, hazeColor, smoothstep(0.22, 0.90, haze) * 0.55);
 
-    // Floating motes / wisps
-    vec3 moteColor1 = vec3(0.780, 0.540, 0.980); // lavender
-    vec3 moteColor2 = vec3(0.420, 0.860, 0.980); // faint cyan
+    vec3 moteColor1 = vec3(0.780, 0.540, 0.980);
+    vec3 moteColor2 = vec3(0.420, 0.860, 0.980);
 
     float sparkle = 0.0;
     vec3 particles = vec3(0.0);
@@ -85,7 +80,6 @@ void mainImage(out vec4 outColor, in vec2 fragCoord) {
         float px = hash1(seed + 1.0) * 1.8 - 0.9;
         float py = hash1(seed + 2.0) * 1.8 - 0.9;
 
-        // Slow drifting movement
         px += 0.10 * sin(t * (0.9 + hash1(seed + 3.0) * 0.8) + seed);
         py += 0.18 * sin(t * (0.7 + hash1(seed + 4.0) * 0.7) + seed * 1.7);
 
@@ -105,11 +99,9 @@ void mainImage(out vec4 outColor, in vec2 fragCoord) {
 
     color += particles;
 
-    // Subtle central magical presence
     float centerGlow = exp(-3.0 * d * d);
     color += vec3(0.20, 0.08, 0.28) * centerGlow * 0.35;
 
-    // Gentle vignette
     float vignette = 1.0 - smoothstep(0.35, 1.1, d);
     color *= 0.78 + 0.22 * vignette;
 

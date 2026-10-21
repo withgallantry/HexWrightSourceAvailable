@@ -8,10 +8,13 @@ import at.petrak.hexcasting.client.render.RenderLib;
 import at.petrak.hexcasting.common.lib.hex.HexActions;
 import com.bluup.hexwright.client.spellcasting.PatternDrawBatch;
 import com.bluup.hexwright.server.cloak.CloakField;
+import net.minecraft.client.renderer.culling.Frustum;
 import net.minecraft.util.FastColor;
 import net.minecraft.util.Mth;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec2;
 import net.minecraft.world.phys.Vec3;
+import org.jetbrains.annotations.Nullable;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
@@ -33,8 +36,24 @@ final class CloakFieldWard {
     private record GridDot(Vec2 point, float closeness, int vertex) {
     }
 
-    private record Placed(Glyph glyph, Vector3f point, Vector3f normal, float azimuth,
+    private record Placed(Glyph glyph, Vector3f point, Vector3f normal, Vector3f along,
                           float fit, long key, float life, float distanceSqr) {
+    }
+
+    record Face(int index, Vector3f middle, Vector3f normal, Vector3f across, Vector3f up, float width,
+                float height) {
+
+        Vector3f corner(float acrossShare, float upShare) {
+            return new Vector3f(middle)
+                .fma(acrossShare * width * 0.5f, across)
+                .fma(upShare * height * 0.5f, up);
+        }
+
+        AABB bounds() {
+            Vector3f min = corner(-1.0f, -1.0f).min(corner(1.0f, 1.0f));
+            Vector3f max = corner(-1.0f, -1.0f).max(corner(1.0f, 1.0f));
+            return new AABB(min.x, min.y, min.z, max.x, max.y, max.z);
+        }
     }
 
     private static final float HEX_SIZE = 32.0f;
@@ -51,7 +70,6 @@ final class CloakFieldWard {
         .toList();
 
     private static final float PATCH = 5.0f;
-    private static final float CROWN = 0.6f;
     private static final float STEP = 0.8f;
     private static final float SECONDS = 6.0f;
     private static final float BUSY = 0.75f;
@@ -79,53 +97,50 @@ final class CloakFieldWard {
     private CloakFieldWard() {
     }
 
-    static void draw(Matrix4f pose, CloakField field, Vec3 cameraPos, float strength, boolean inside,
-                     boolean fast, double seconds) {
+    static void draw(Matrix4f pose, CloakField field, List<Face> faces, @Nullable Frustum frustum, Vec3 cameraPos,
+                     float strength, boolean inside, boolean fast, double seconds) {
         if (strength <= 0.0f) {
             return;
         }
-        float radius = field.radius();
-        float height = field.height();
-        int columns = Math.max(3, Mth.floor(Mth.TWO_PI * radius / PATCH));
-        float wardArc = quarterArc(radius, height) * CROWN;
-        int rows = Math.max(1, Mth.floor(wardArc / PATCH));
         long salt = field.id().getLeastSignificantBits();
-        Vec3 c = field.center();
+        Vector3f eye = new Vector3f((float) cameraPos.x, (float) cameraPos.y, (float) cameraPos.z);
 
         PLACED.clear();
-        for (int row = 0; row < rows; row++) {
-            for (int column = 0; column < columns; column++) {
-                long patch = salt ^ row * 0x9E3779B97F4A7C15L ^ column * 0xC2B2AE3D27D4EB4FL;
-                float lifetime = SECONDS * Mth.lerp(random(patch, 1), 0.8f, 1.3f);
-                double cycle = seconds / lifetime + random(patch, 2);
-                long epoch = (long) Math.floor(cycle);
-                long key = patch + epoch * 0x632BE59BD9B4E019L;
-                if (random(key, 3) > BUSY) {
-                    continue;
-                }
+        for (Face face : faces) {
+            int f = face.index();
+            int columns = Math.max(1, Mth.floor(face.width() / PATCH));
+            int rows = Math.max(1, Mth.floor(face.height() / PATCH));
+            float cellWidth = face.width() / columns;
+            float cellHeight = face.height() / rows;
+            float fit = 0.4f * Math.min(cellWidth, cellHeight);
+            float reach = 1.5f * fit + (GRID_REACH + 1) * STEP;
+            for (int row = 0; row < rows; row++) {
+                for (int column = 0; column < columns; column++) {
+                    long patch = salt ^ f * 0xD6E8FEB86659FD93L ^ row * 0x9E3779B97F4A7C15L ^ column * 0xC2B2AE3D27D4EB4FL;
+                    float lifetime = SECONDS * Mth.lerp(random(patch, 1), 0.8f, 1.3f);
+                    double cycle = seconds / lifetime + random(patch, 2);
+                    long epoch = (long) Math.floor(cycle);
+                    long key = patch + epoch * 0x632BE59BD9B4E019L;
+                    if (random(key, 3) > BUSY) {
+                        continue;
+                    }
 
-                float azimuth = Mth.TWO_PI * (column + 0.35f + 0.3f * random(key, 4)) / columns;
-                float elevation = Mth.HALF_PI * CROWN * (row + 0.35f + 0.3f * random(key, 5)) / rows;
-                float across = Mth.cos(elevation);
-                Vector3f point = new Vector3f(
-                    (float) c.x + Mth.cos(azimuth) * across * radius,
-                    (float) c.y + Mth.sin(elevation) * height,
-                    (float) c.z + Mth.sin(azimuth) * across * radius);
-                Vector3f normal = new Vector3f(
-                    Mth.cos(azimuth) * across / radius,
-                    Mth.sin(elevation) / height,
-                    Mth.sin(azimuth) * across / radius).normalize();
-                Vector3f toEye = new Vector3f(
-                    (float) cameraPos.x - point.x, (float) cameraPos.y - point.y, (float) cameraPos.z - point.z);
-                if (!inside && toEye.dot(normal) <= 0.0f) {
-                    continue;
-                }
+                    float x = (column + 0.35f + 0.3f * random(key, 4)) * cellWidth - face.width() * 0.5f;
+                    float y = (row + 0.35f + 0.3f * random(key, 5)) * cellHeight - face.height() * 0.5f;
+                    Vector3f point = new Vector3f(face.middle())
+                        .fma(x, face.across())
+                        .fma(y, face.up());
+                    if (frustum != null && !frustum.isVisible(new AABB(
+                        point.x - reach, point.y - reach, point.z - reach,
+                        point.x + reach, point.y + reach, point.z + reach))) {
+                        continue;
+                    }
+                    Vector3f toEye = eye.sub(point, new Vector3f());
 
-                float patchWidth = Mth.TWO_PI * radius * across / columns;
-                float fit = 0.4f * Math.min(patchWidth, wardArc / rows);
-                Glyph glyph = GLYPHS.get((int) (random(key, 6) * GLYPHS.size()));
-                PLACED.add(new Placed(glyph, point, normal, azimuth, fit, key,
-                    (float) (cycle - epoch), toEye.lengthSquared()));
+                    Glyph glyph = GLYPHS.get((int) (random(key, 6) * GLYPHS.size()));
+                    PLACED.add(new Placed(glyph, point, face.normal(), face.across(), fit, key,
+                        (float) (cycle - epoch), toEye.lengthSquared()));
+                }
             }
         }
         PLACED.sort(Comparator.comparingDouble(Placed::distanceSqr));
@@ -139,6 +154,25 @@ final class CloakFieldWard {
         }
         PLACED.clear();
         PatternDrawBatch.flush();
+    }
+
+    static List<Face> facesOf(CloakField field) {
+        Vec3 c = field.center();
+        float half = field.halfWidth();
+        float height = field.height();
+        Vector3f base = new Vector3f((float) c.x, (float) c.y + height * 0.5f, (float) c.z);
+        Vector3f up = new Vector3f(0.0f, 1.0f, 0.0f);
+        List<Face> faces = new ArrayList<>(5);
+        for (int side = 0; side < 4; side++) {
+            float angle = side * Mth.HALF_PI;
+            Vector3f normal = new Vector3f(Mth.cos(angle), 0.0f, Mth.sin(angle));
+            Vector3f across = new Vector3f(-normal.z, 0.0f, normal.x);
+            faces.add(new Face(side, new Vector3f(normal).mul(half).add(base), normal, across, up,
+                field.width(), height));
+        }
+        faces.add(new Face(4, new Vector3f((float) c.x, (float) c.y + height, (float) c.z), up,
+            new Vector3f(1.0f, 0.0f, 0.0f), new Vector3f(0.0f, 0.0f, 1.0f), field.width(), field.width()));
+        return faces;
     }
 
     private static void writeGrid(Matrix4f pose, Placed placed, float strength, boolean inside) {
@@ -196,7 +230,7 @@ final class CloakFieldWard {
     private static Matrix4f frame(Matrix4f pose, Placed placed, boolean inside) {
         float side = inside ? -1.0f : 1.0f;
         Vector3f normal = placed.normal();
-        Vector3f round = new Vector3f(-Mth.sin(placed.azimuth()), 0.0f, Mth.cos(placed.azimuth()));
+        Vector3f round = placed.along();
         Vector3f up = round.cross(normal, new Vector3f());
         float blocksPerStep = Math.min(STEP, placed.fit() / placed.glyph().extent());
         return new Matrix4f(pose)
@@ -245,11 +279,6 @@ final class CloakFieldWard {
             Mth.floor(Mth.lerp(flash, FastColor.ARGB32.red(color), FastColor.ARGB32.red(FLASH_INK))),
             Mth.floor(Mth.lerp(flash, FastColor.ARGB32.green(color), FastColor.ARGB32.green(FLASH_INK))),
             Mth.floor(Mth.lerp(flash, FastColor.ARGB32.blue(color), FastColor.ARGB32.blue(FLASH_INK))));
-    }
-
-    private static float quarterArc(float radius, float height) {
-        return Mth.PI * (3.0f * (radius + height)
-            - Mth.sqrt((3.0f * radius + height) * (radius + 3.0f * height))) / 4.0f;
     }
 
     private static float smoothstep(float from, float to, float x) {

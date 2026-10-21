@@ -70,8 +70,7 @@ public final class VaultCommands {
                     context.getSource().sendSuccess(() -> Component.translatable(
                         "hexwright.vault.list_header", owned.size()), false);
                     for (VaultRecord record : owned) {
-                        VaultPortalSession session = VaultManager.sessionByVault(record.id());
-                        String state = session == null ? "closed" : session.state().toString();
+                        String state = doorStates(record);
                         context.getSource().sendSuccess(() -> Component.literal(
                             "  Vault " + record.id() + " - "
                                 + (record.artifact() ? "ARTIFACT" : record.grade()) + " "
@@ -290,7 +289,37 @@ public final class VaultCommands {
             context.getSource().sendFailure(Component.translatable("hexwright.vault.no_room"));
             return 0;
         }
-        return VaultManager.openVault(player, vaultId, window) ? Command.SINGLE_SUCCESS : 0;
+        return VaultManager.openVault(player, vaultId, heldDoor(player, vaultId), window)
+            ? Command.SINGLE_SUCCESS : 0;
+    }
+
+    private static int heldDoor(ServerPlayer player, int vaultId) {
+        for (InteractionHand hand : InteractionHand.values()) {
+            ItemStack held = player.getItemInHand(hand);
+            Integer bound = VaultKeyItem.boundVault(held);
+            if (bound != null && bound == vaultId) {
+                return VaultKeyItem.frameId(held);
+            }
+        }
+        return VaultRecord.MAIN_DOOR;
+    }
+
+    private static String doorStates(VaultRecord record) {
+        List<VaultPortalSession> doors = VaultManager.sessionsOf(record.id());
+        if (doors.isEmpty()) {
+            return "closed";
+        }
+        StringBuilder builder = new StringBuilder();
+        for (VaultPortalSession door : doors) {
+            if (builder.length() > 0) {
+                builder.append(", ");
+            }
+            if (door.frameId() != VaultRecord.MAIN_DOOR) {
+                builder.append("frame ").append(door.frameId()).append(' ');
+            }
+            builder.append(door.state());
+        }
+        return builder.toString();
     }
 
     private static @Nullable Integer impliedVault(ServerPlayer player) {

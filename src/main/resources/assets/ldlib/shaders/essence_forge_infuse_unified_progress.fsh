@@ -1,23 +1,10 @@
 #version 150
 
-// Essence Forge - Infuse Effect (Unified Quality Shader)
-// Manual-progress pixel-art infuse effect for UI use.
-//
-// Uniforms:
-//   uProgress : 0.0 -> 1.0, driven manually by the UI when Infuse is clicked
-//   uQuality  : 0 = Sound, 1 = Fine, 2 = Exquisite, 3 = Masterwork
-//
-// Visual arc:
-// - dense particles swirl inward
-// - rushes in quickly, slows toward the centre
-// - energy accumulates into a core
-// - circular fusion pulse
-// - fades out
 
 uniform vec2 iResolution;
-uniform float iTime;      // optional / unused, kept for compatibility
-uniform float uProgress;  // 0.0 -> 1.0
-uniform float uQuality;   // 0=Sound, 1=Fine, 2=Exquisite, 3=Masterwork
+uniform float iTime;
+uniform float uProgress;
+uniform float uQuality;
 
 in vec2 texCoord;
 out vec4 fragColor;
@@ -81,7 +68,6 @@ float circleRing(vec2 p, vec2 c, float r, float width) {
 }
 
 void mainImage(out vec4 outColor, in vec2 fragCoord) {
-    // Deliberate pixelation.
     float pixelSize = 3.0;
     vec2 virtualRes = max(vec2(1.0), floor(iResolution / pixelSize));
     vec2 grid = floor(fragCoord / pixelSize);
@@ -99,7 +85,6 @@ void mainImage(out vec4 outColor, in vec2 fragCoord) {
     float afterGlow = gaussian(prog, 0.86, 0.10);
     float fadeOut   = 1.0 - smoothstep(0.88, 1.0, prog);
 
-    // Defaults: Exquisite
     vec3 outerColor = vec3(0.20, 0.06, 0.46);
     vec3 midColor   = vec3(0.48, 0.18, 0.86);
     vec3 coreColor  = vec3(0.94, 0.84, 1.00);
@@ -112,7 +97,6 @@ void mainImage(out vec4 outColor, in vec2 fragCoord) {
     float coreGain = 0.86;
     float fusionGain = 1.38;
 
-    // 0 = Sound, 1 = Fine, 2 = Exquisite, 3 = Masterwork
     if (quality == 0) {
         outerColor = vec3(0.08, 0.18, 0.24);
         midColor   = vec3(0.20, 0.46, 0.58);
@@ -162,13 +146,11 @@ void mainImage(out vec4 outColor, in vec2 fragCoord) {
     vec3 color = vec3(0.0);
     float alpha = 0.0;
 
-    // Pixel haze around the centre.
     float hazeNoise = noise(p * 5.0 + vec2(prog * 1.1, -prog * 0.7));
     float haze = circleGlow(p, vec2(0.0), 0.10, 0.34) * (0.16 + 0.16 * hazeNoise) * (0.30 + 0.70 * coreBuild);
     color += outerColor * haze * 0.34 + midColor * haze * 0.30;
     alpha = max(alpha, haze * 0.12);
 
-    // Dense incoming pixel particles with strong swirl.
     const int MAX_COUNT = 128;
     vec2 snapScale = vec2(aspect / virtualRes.x, 1.0 / virtualRes.y);
 
@@ -184,15 +166,12 @@ void mainImage(out vec4 outColor, in vec2 fragCoord) {
 
         float startR = mix(0.76, 1.20, hash11(seed + 1.7));
 
-        // Stagger particles, but keep the rush dense and early.
         float spawn = hash11(seed + 2.3) * 0.17;
         float local = clamp((prog - spawn) / max(0.001, 0.72 - spawn), 0.0, 1.0);
 
-        // Quick rush, then strong easing as particles approach the centre.
         float travel = easeOutQuint(local);
         float radius = mix(startR, 0.0, travel);
 
-        // Strong swirl at the outside, calming near the centre.
         float spin = swirlDir * (1.95 * pow(1.0 - local, 0.55) + 0.16 * sin(local * 8.0 + seed));
         float ang = ang0 + spin;
 
@@ -203,7 +182,6 @@ void mainImage(out vec4 outColor, in vec2 fragCoord) {
         pos += perp * (hash11(seed + 3.1) - 0.5) * 0.030 * (1.0 - travel);
         pos += dir * (hash11(seed + 4.7) - 0.5) * 0.040 * (1.0 - travel) * sin(local * 7.0 + seed * 1.6);
 
-        // Snap particle centres to the virtual pixel grid.
         pos = floor(pos / snapScale + 0.5) * snapScale;
 
         float sz = mix(0.005, 0.015, hash11(seed + 5.6));
@@ -218,7 +196,6 @@ void mainImage(out vec4 outColor, in vec2 fragCoord) {
         alpha = max(alpha, (coreBox * 0.54 + glowBox * 0.13) * lifeFade);
     }
 
-    // Swirling feed bands to make the movement read more clearly.
     const int MAX_STREAKS = 26;
     for (int i = 0; i < MAX_STREAKS; ++i) {
         if (i >= streaks) continue;
@@ -246,7 +223,6 @@ void mainImage(out vec4 outColor, in vec2 fragCoord) {
         alpha = max(alpha, strip * 0.08);
     }
 
-    // Central accumulation core.
     float coreRadius = mix(0.018, 0.084, easeInCubic(coreBuild));
     float coreGlow = boxGlow(p, vec2(0.0), vec2(coreRadius * 0.82, coreRadius * 0.68), coreRadius * 1.45 + 0.010);
     float coreHalo = circleGlow(p, vec2(0.0), coreRadius * 0.85, coreRadius * 1.6 + 0.030);
@@ -256,7 +232,6 @@ void mainImage(out vec4 outColor, in vec2 fragCoord) {
     color += coreColor  * coreGlow * coreGain * coreBuild;
     alpha = max(alpha, coreHalo * 0.18 * coreBuild);
 
-    // Circular fusion event.
     float fusionCore = circleGlow(p, vec2(0.0), 0.012, 0.090) * fusion;
     float ringRadius = mix(0.026, 0.21, smoothstep(0.70, 0.82, prog));
     float ring = circleRing(p, vec2(0.0), ringRadius, 0.012) * fusion;
@@ -264,7 +239,6 @@ void mainImage(out vec4 outColor, in vec2 fragCoord) {
     float crossH = boxGlow(p, vec2(0.0), vec2(0.16, 0.007), 0.014) * fusion;
     float crossV = boxGlow(p, vec2(0.0), vec2(0.010, 0.12), 0.014) * fusion;
 
-    // Four small orbiting spark nodes around the fusion.
     float orbitNodes = 0.0;
     for (int i = 0; i < 4; ++i) {
         float a = float(i) * 1.5707963 + prog * 2.4;
@@ -278,7 +252,6 @@ void mainImage(out vec4 outColor, in vec2 fragCoord) {
     color += sparkColor * orbitNodes * 0.34;
     alpha = max(alpha, fusionCore * 0.98 + ring * 0.28 + orbitNodes * 0.16);
 
-    // Afterglow.
     float settle = circleGlow(p, vec2(0.0), 0.09, 0.22) * afterGlow * 0.32;
     color += midColor * settle * 0.62 + outerColor * settle * 0.24;
     alpha = max(alpha, settle * 0.16);

@@ -6,8 +6,8 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
-import net.minecraft.world.item.ArmorItem;
 import net.minecraft.world.item.DyeableLeatherItem;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.level.Level;
@@ -15,10 +15,10 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 
-public class HatOfAscensionItem extends ArmorItem implements ArtifactItem, DyeableLeatherItem {
+public class HatOfAscensionItem extends Item implements ArtifactItem, DyeableLeatherItem {
 
     public HatOfAscensionItem(Properties properties) {
-        super(MageAttireMaterial.INSTANCE, Type.HELMET, properties);
+        super(properties);
     }
 
     @Override

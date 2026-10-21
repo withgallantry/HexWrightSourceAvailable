@@ -11,10 +11,10 @@ public final class DomitorPowers {
 
     public static float wardFraction(ArmourTier tier) {
         return switch (tier) {
-            case IRON -> 0.25f;
-            case GOLDEN -> 0.5f;
-            case DIAMOND -> 0.75f;
-            case NETHERITE -> 1.0f;
+            case IRON -> 0.2f;
+            case GOLDEN -> 0.35f;
+            case DIAMOND -> 0.5f;
+            case NETHERITE -> 0.65f;
         };
     }
 
@@ -28,5 +28,9 @@ public final class DomitorPowers {
         }
         ArmourTier tier = ArmourPowerToggle.activeTier(wearer, ArmourSet.DOMITOR);
         return tier == null ? 0.0f : wardFraction(tier);
+    }
+
+    public static boolean walksOnLava(LivingEntity wearer) {
+        return ArmourPowerToggle.activeTier(wearer, ArmourSet.DOMITOR) != null;
     }
 }

@@ -1,6 +1,7 @@
 package com.bluup.hexwright.server.cloak;
 
 import com.bluup.hexwright.HexwrightDebug;
+import com.bluup.hexwright.server.progression.HexwrightCriteria;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
@@ -29,6 +30,8 @@ public final class CloakFieldWear {
     private static final float BLAST_REACH_PER_POWER = 2.0f;
 
     private static final float THROWN_WEAR = 1.0f;
+
+    private static final double BREACH_WITNESS_RANGE = 16.0;
 
     private record Wear(float amount, long lastHit) {
     }
@@ -100,6 +103,13 @@ public final class CloakFieldWear {
         level.playSound(null, point.x, point.y, point.z, SoundEvents.GLASS_BREAK, SoundSource.BLOCKS, 4.0f, 0.5f);
         if (attacker instanceof ServerPlayer player) {
             player.displayClientMessage(Component.translatable("message.hexwright.cloak.breached"), true);
+            HexwrightCriteria.SHIELD_BREACHED.trigger(player);
+        }
+        for (ServerPlayer witness : level.players()) {
+            Vec3 at = witness.position();
+            if (witness != attacker && at.distanceTo(field.surfacePoint(at)) <= BREACH_WITNESS_RANGE) {
+                HexwrightCriteria.SHIELD_BREACHED.trigger(witness);
+            }
         }
     }
 

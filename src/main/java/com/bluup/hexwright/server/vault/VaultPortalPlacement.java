@@ -98,6 +98,28 @@ public final class VaultPortalPlacement {
         return Direction.getNearest(-normal.x, 0.0, -normal.z);
     }
 
+    public static PortalWindow paneAt(BlockPos anchor, Direction facing) {
+        Vec3i d = facing.getNormal();
+        return PortalWindow.fromCorners(
+            Vec3.atCenterOf(anchor), Vec3.atCenterOf(anchor.offset(-d.getZ(), 2, d.getX())));
+    }
+
+    static List<BlockPos> paneBlocks(BlockPos anchor, Direction facing) {
+        Vec3i d = facing.getNormal();
+        List<BlockPos> blocks = new ArrayList<>(6);
+        for (int row = 0; row < 3; row++) {
+            for (int column = 0; column < 2; column++) {
+                blocks.add(anchor.offset(-d.getZ() * column, row, d.getX() * column));
+            }
+        }
+        return blocks;
+    }
+
+    static boolean paneClear(ServerLevel level, BlockPos anchor, Direction facing) {
+        Vec3i d = facing.getNormal();
+        return paneClear(level, anchor, -d.getZ(), d.getX());
+    }
+
     private static @Nullable PortalWindow window(ServerLevel level, BlockPos first, int ux, int uz,
                                                  boolean requireFree) {
         PortalWindow window = PortalWindow.fromCorners(

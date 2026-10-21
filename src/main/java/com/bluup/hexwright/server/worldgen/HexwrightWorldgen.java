@@ -11,6 +11,8 @@ import com.bluup.hexwright.server.worldgen.hexwrightbase.HexwrightBasePiece;
 import com.bluup.hexwright.server.worldgen.hexwrightbase.HexwrightBaseStructure;
 import com.bluup.hexwright.server.worldgen.ruinedportal.RuinedPortalPiece;
 import com.bluup.hexwright.server.worldgen.ruinedportal.RuinedPortalStructure;
+import com.bluup.hexwright.server.worldgen.travelstone.TravelStonePiece;
+import com.bluup.hexwright.server.worldgen.travelstone.TravelStoneStructure;
 import net.fabricmc.fabric.api.biome.v1.BiomeModifications;
 import net.fabricmc.fabric.api.biome.v1.BiomeSelectors;
 import net.minecraft.core.Registry;
@@ -48,11 +50,18 @@ public final class HexwrightWorldgen {
 
     public static StructurePieceType HEXWRIGHT_BASE_PIECE;
 
+    public static StructureType<TravelStoneStructure> TRAVEL_STONE;
+
+    public static StructurePieceType TRAVEL_STONE_PIECE;
+
     public static final ResourceKey<net.minecraft.world.level.levelgen.structure.Structure> DEEP_DUNGEON_KEY =
         ResourceKey.create(Registries.STRUCTURE, Hexwright.id("deep_dungeon"));
 
     public static final ResourceKey<net.minecraft.world.level.levelgen.structure.Structure> ANCIENT_ARENA_KEY =
         ResourceKey.create(Registries.STRUCTURE, Hexwright.id("ancient_arena"));
+
+    public static final ResourceKey<net.minecraft.world.level.levelgen.structure.Structure> RUINED_PORTAL_KEY =
+        ResourceKey.create(Registries.STRUCTURE, Hexwright.id("ruined_portal"));
 
     private static final ResourceKey<net.minecraft.world.level.levelgen.placement.PlacedFeature> KYANITE_CLUSTERS =
         ResourceKey.create(Registries.PLACED_FEATURE, Hexwright.id("kyanite_clusters"));
@@ -128,6 +137,17 @@ public final class HexwrightWorldgen {
             BuiltInRegistries.STRUCTURE_PIECE,
             Hexwright.id("hexwright_base"),
             (StructurePieceType.StructureTemplateType) HexwrightBasePiece::new
+        );
+
+        TRAVEL_STONE = Registry.register(
+            BuiltInRegistries.STRUCTURE_TYPE,
+            Hexwright.id("travel_stone"),
+            () -> TravelStoneStructure.CODEC
+        );
+        TRAVEL_STONE_PIECE = Registry.register(
+            BuiltInRegistries.STRUCTURE_PIECE,
+            Hexwright.id("travel_stone"),
+            (StructurePieceType.ContextlessType) TravelStonePiece::new
         );
 
         BiomeModifications.addFeature(

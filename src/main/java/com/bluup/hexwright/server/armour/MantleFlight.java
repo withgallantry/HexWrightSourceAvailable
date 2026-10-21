@@ -3,6 +3,7 @@ package com.bluup.hexwright.server.armour;
 import at.petrak.hexcasting.api.utils.MediaHelper;
 import at.petrak.hexcasting.api.addldata.ADMediaHolder;
 import at.petrak.hexcasting.common.lib.hex.HexEvalSounds;
+import at.petrak.hexcasting.xplat.IXplatAbstractions;
 import com.bluup.hexwright.common.remnant.RemnantType;
 import com.bluup.hexwright.server.remnant.RemnantBuffs;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
@@ -71,7 +72,7 @@ public final class MantleFlight {
         }
         state.setGranted(id, true);
 
-        if (!player.getAbilities().flying) {
+        if (!player.getAbilities().flying || flightGrantedElsewhere(player)) {
             OWED.remove(id);
             return;
         }
@@ -93,12 +94,17 @@ public final class MantleFlight {
     }
 
     private static void revoke(ServerPlayer player) {
-        if (RemnantBuffs.has(player, RemnantType.ASCENDANT, player.server.overworld().getGameTime())) {
+        if (flightGrantedElsewhere(player)) {
             return;
         }
         player.getAbilities().mayfly = false;
         player.getAbilities().flying = false;
         player.onUpdateAbilities();
+    }
+
+    private static boolean flightGrantedElsewhere(ServerPlayer player) {
+        return RemnantBuffs.has(player, RemnantType.ASCENDANT, player.server.overworld().getGameTime())
+            || IXplatAbstractions.INSTANCE.getFlight(player) != null;
     }
 
     private static void runDry(ServerPlayer player) {

@@ -107,8 +107,8 @@ public class SpiritGolemEntity extends OrbConstructEntity {
     }
 
     @Override
-    protected ConstructOrbPower orbPower() {
-        return ConstructOrbPower.GOLEM;
+    protected boolean isClaimed() {
+        return ConstructOrbPower.GOLEM.claims(this);
     }
 
     @Nullable

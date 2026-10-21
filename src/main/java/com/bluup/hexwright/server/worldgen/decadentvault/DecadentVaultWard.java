@@ -42,6 +42,10 @@ public final class DecadentVaultWard {
 
     private static boolean isAttunedAnchor(ServerLevel level, Vec3 pos) {
         BlockPos block = BlockPos.containing(pos);
+        return isAttunedAnchorAt(level, block) || isAttunedAnchorAt(level, block.below());
+    }
+
+    private static boolean isAttunedAnchorAt(ServerLevel level, BlockPos block) {
         return level.getBlockEntity(block) instanceof ResonantAnchorBlockEntity anchor
             && anchor.getAttunementKey() != null;
     }

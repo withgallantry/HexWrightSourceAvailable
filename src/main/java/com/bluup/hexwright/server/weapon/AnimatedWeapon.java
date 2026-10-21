@@ -2,14 +2,12 @@ package com.bluup.hexwright.server.weapon;
 
 import com.bluup.hexwright.HexwrightDebug;
 import com.bluup.hexwright.common.animation.PlayerAnimationLayer;
-import com.bluup.hexwright.common.weapon.MiningClickState;
 import com.bluup.hexwright.inits.HexwrightNetworking;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Mth;
-import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import org.jetbrains.annotations.Nullable;
@@ -93,52 +91,34 @@ public interface AnimatedWeapon {
         return false;
     }
 
-    static void onSwing(ServerPlayer player, InteractionHand hand, MeleeSwingState state) {
-        if (hand != InteractionHand.MAIN_HAND) {
-            return;
-        }
+    static void onAttackSwing(ServerPlayer player, boolean aimed, MeleeSwingState state) {
         Item item = player.getMainHandItem().getItem();
-        if (!(item instanceof AnimatedWeapon weapon)) {
+        if (!(item instanceof AnimatedWeapon weapon) || player.isSpectator()) {
             return;
         }
-        if (((MiningClickState) player.gameMode).hexwright$isMiningClick()) {
-            return;
-        }
-        if (weapon.isMidSwing(player)) {
-            return;
-        }
+        if (!weapon.isMidSwing(player)) {
+            int now = player.server.getTickCount();
+            HexwrightDebug.log(HexwrightDebug.WEAPON, "[weapon] attack swing from {} with {} on tick {}: aimed={}",
+                player.getScoreboardName(), item, now, aimed);
 
-        int now = player.server.getTickCount();
-        HexwrightDebug.log(HexwrightDebug.WEAPON,
-            "[weapon] swing packet from {} with {} on tick {}: interacted={} aimed={}",
-            player.getScoreboardName(), item, now, state.interactedThisTick(now), state.aimedAtSomething(now));
-        if (state.interactedThisTick(now)) {
-            return;
-        }
+            if (!aimed) {
+                SwingArc.strike(player, weapon);
+            }
 
-        if (!state.aimedAtSomething(now)) {
-            SwingArc.strike(player, weapon);
+            int attackInterval = attackInterval(player);
+            if (state.isFreshAttack(now, attackInterval)) {
+                state.dropHeldSwing();
+                animate(player, item, weapon, state, now);
+            } else {
+                state.holdSwing(now, attackInterval);
+            }
         }
-
-        int attackInterval = attackInterval(player);
-        if (state.isFreshAttack(now, attackInterval)) {
-            state.dropHeldSwing();
-            animate(player, item, weapon, state, now);
-        } else {
-            state.holdSwing(now, attackInterval);
-        }
+        player.resetAttackStrengthTicker();
     }
 
     static boolean ownsAttackSwing(Player player) {
         return player.getMainHandItem().getItem() instanceof AnimatedWeapon weapon
             && weapon.strikeClip(player, 0) != null;
-    }
-
-    static boolean ownsSwingPacket(ServerPlayer player, InteractionHand hand, MeleeSwingState state) {
-        return hand == InteractionHand.MAIN_HAND
-            && ownsAttackSwing(player)
-            && !((MiningClickState) player.gameMode).hexwright$isMiningClick()
-            && !state.interactedThisTick(player.server.getTickCount());
     }
 
     static void onConnectionTick(ServerPlayer player, MeleeSwingState state) {

@@ -13,9 +13,13 @@ public final class WorldCrystalSlot {
     private WorldCrystalSlot() {
     }
 
-    public static boolean isWorn(@Nullable LivingEntity entity) {
+    public static boolean isCarried(@Nullable LivingEntity entity) {
         if (entity == null) {
             return false;
+        }
+        if (entity.getMainHandItem().is(HexwrightItems.WORLD_CRYSTAL)
+            || entity.getOffhandItem().is(HexwrightItems.WORLD_CRYSTAL)) {
+            return true;
         }
         for (ItemStack stack : WornAccessories.slotContents(entity, SLOT)) {
             if (stack.is(HexwrightItems.WORLD_CRYSTAL)) {

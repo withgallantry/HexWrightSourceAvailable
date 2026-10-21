@@ -1,6 +1,4 @@
 #version 150
-// Author @patriciogv - 2015
-// http://patriciogonzalezvivo.com
 
 uniform vec2 iResolution;
 uniform float iTime;
@@ -16,13 +14,10 @@ float random (in vec2 _st) {
     43758.5453123);
 }
 
-// Based on Morgan McGuire @morgan3d
-// https://www.shadertoy.com/view/4dS3Wd
 float noise (in vec2 _st) {
     vec2 i = floor(_st);
     vec2 f = fract(_st);
 
-    // Four corners in 2D of a tile
     float a = random(i);
     float b = random(i + vec2(1.0, 0.0));
     float c = random(i + vec2(0.0, 1.0));
@@ -41,7 +36,6 @@ float fbm ( in vec2 _st) {
     float v = 0.0;
     float a = 0.5;
     vec2 shift = vec2(100.0);
-    // Rotate to reduce axial bias
     mat2 rot = mat2(cos(0.5), sin(0.5),
     -sin(0.5), cos(0.50));
     for (int i = 0; i < NUM_OCTAVES; ++i) {
@@ -54,7 +48,6 @@ float fbm ( in vec2 _st) {
 
 void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     vec2 st = fragCoord.xy/iResolution.xy*3.;
-    // st += st * abs(sin(iTime*0.1)*3.0);
     vec3 color = vec3(0.0);
 
     vec2 q = vec2(0.);
@@ -83,6 +76,5 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
 }
 
 void main() {
-//    gl_FragColor.rgba = vec4(1.,0.,0.,1.);
     mainImage(fragColor, vec2(texCoord.x * iResolution.x, texCoord.y * iResolution.y));
 }

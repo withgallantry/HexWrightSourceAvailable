@@ -52,6 +52,14 @@ public sealed interface Region {
         return new Cylinder(endpointA, endpointB, radius);
     }
 
+    static Region cone(Vec3 endpointA, Vec3 endpointB, double radiusA, double radiusB) {
+        return new Cone(endpointA, endpointB, radiusA, radiusB);
+    }
+
+    static Region torus(Vec3 center, Vec3 axis, double majorRadius, double minorRadius) {
+        return new Torus(center, axis, majorRadius, minorRadius);
+    }
+
 
     static Region union(Region a, Region b) {
         if (a.isEmpty()) {
@@ -300,6 +308,144 @@ public sealed interface Region {
         }
     }
 
+    record Cone(Vec3 endpointA, Vec3 endpointB, double radiusA, double radiusB) implements Region {
+        public Cone {
+            requireFinite(endpointA);
+            requireFinite(endpointB);
+            if (!Double.isFinite(radiusA) || radiusA < 0.0 || !Double.isFinite(radiusB) || radiusB < 0.0) {
+                throw new IllegalArgumentException("Cone radii must be finite and non-negative");
+            }
+            if (endpointB.subtract(endpointA).lengthSqr() < Cylinder.MIN_AXIS_LENGTH_SQR) {
+                throw new IllegalArgumentException("Cone axis is degenerate");
+            }
+        }
+
+        @Override
+        public boolean contains(Vec3 point) {
+            return contains(point.x, point.y, point.z);
+        }
+
+        @Override
+        public boolean contains(double x, double y, double z) {
+            double axisX = endpointB.x - endpointA.x;
+            double axisY = endpointB.y - endpointA.y;
+            double axisZ = endpointB.z - endpointA.z;
+            double offsetX = x - endpointA.x;
+            double offsetY = y - endpointA.y;
+            double offsetZ = z - endpointA.z;
+            double lengthSqr = axisX * axisX + axisY * axisY + axisZ * axisZ;
+            double along = (offsetX * axisX + offsetY * axisY + offsetZ * axisZ) / lengthSqr;
+            if (along < 0.0 || along > 1.0) {
+                return false;
+            }
+            double radius = radiusA + (radiusB - radiusA) * along;
+            double radialX = offsetX - axisX * along;
+            double radialY = offsetY - axisY * along;
+            double radialZ = offsetZ - axisZ * along;
+            return radialX * radialX + radialY * radialY + radialZ * radialZ <= radius * radius;
+        }
+
+        @Override
+        public AABB bounds() {
+            Vec3 axis = endpointB.subtract(endpointA);
+            double lengthSqr = axis.lengthSqr();
+            double offX = Math.sqrt(Math.max(0.0, 1.0 - axis.x * axis.x / lengthSqr));
+            double offY = Math.sqrt(Math.max(0.0, 1.0 - axis.y * axis.y / lengthSqr));
+            double offZ = Math.sqrt(Math.max(0.0, 1.0 - axis.z * axis.z / lengthSqr));
+            return new AABB(
+                Math.min(endpointA.x - radiusA * offX, endpointB.x - radiusB * offX),
+                Math.min(endpointA.y - radiusA * offY, endpointB.y - radiusB * offY),
+                Math.min(endpointA.z - radiusA * offZ, endpointB.z - radiusB * offZ),
+                Math.max(endpointA.x + radiusA * offX, endpointB.x + radiusB * offX),
+                Math.max(endpointA.y + radiusA * offY, endpointB.y + radiusB * offY),
+                Math.max(endpointA.z + radiusA * offZ, endpointB.z + radiusB * offZ));
+        }
+
+        @Override
+        public int nodeCount() {
+            return 1;
+        }
+
+        @Override
+        public String describe() {
+            return "cone r=" + trim(radiusA) + ".." + trim(radiusB) + " l=" + trim(endpointB.subtract(endpointA).length());
+        }
+
+        @Override
+        public CompoundTag save() {
+            CompoundTag tag = form("cone");
+            putVec(tag, "A", endpointA);
+            putVec(tag, "B", endpointB);
+            tag.putDouble("RadiusA", radiusA);
+            tag.putDouble("RadiusB", radiusB);
+            return tag;
+        }
+    }
+
+    record Torus(Vec3 center, Vec3 axis, double majorRadius, double minorRadius) implements Region {
+        public static final double MIN_AXIS_LENGTH_SQR = 1.0e-12;
+
+        public Torus {
+            requireFinite(center);
+            requireFinite(axis);
+            if (!Double.isFinite(majorRadius) || majorRadius < 0.0
+                || !Double.isFinite(minorRadius) || minorRadius < 0.0) {
+                throw new IllegalArgumentException("Torus radii must be finite and non-negative");
+            }
+            double lengthSqr = axis.lengthSqr();
+            if (lengthSqr < MIN_AXIS_LENGTH_SQR) {
+                throw new IllegalArgumentException("Torus axis is degenerate");
+            }
+            axis = axis.scale(1.0 / Math.sqrt(lengthSqr));
+        }
+
+        @Override
+        public boolean contains(Vec3 point) {
+            return contains(point.x, point.y, point.z);
+        }
+
+        @Override
+        public boolean contains(double x, double y, double z) {
+            double dx = x - center.x;
+            double dy = y - center.y;
+            double dz = z - center.z;
+            double height = dx * axis.x + dy * axis.y + dz * axis.z;
+            double radialSqr = Math.max(0.0, dx * dx + dy * dy + dz * dz - height * height);
+            double fromRing = Math.sqrt(radialSqr) - majorRadius;
+            return fromRing * fromRing + height * height <= minorRadius * minorRadius;
+        }
+
+        @Override
+        public AABB bounds() {
+            double spreadX = majorRadius * Math.sqrt(Math.max(0.0, 1.0 - axis.x * axis.x)) + minorRadius;
+            double spreadY = majorRadius * Math.sqrt(Math.max(0.0, 1.0 - axis.y * axis.y)) + minorRadius;
+            double spreadZ = majorRadius * Math.sqrt(Math.max(0.0, 1.0 - axis.z * axis.z)) + minorRadius;
+            return new AABB(
+                center.x - spreadX, center.y - spreadY, center.z - spreadZ,
+                center.x + spreadX, center.y + spreadY, center.z + spreadZ);
+        }
+
+        @Override
+        public int nodeCount() {
+            return 1;
+        }
+
+        @Override
+        public String describe() {
+            return "torus R=" + trim(majorRadius) + " r=" + trim(minorRadius);
+        }
+
+        @Override
+        public CompoundTag save() {
+            CompoundTag tag = form("torus");
+            putVec(tag, "Center", center);
+            putVec(tag, "Axis", axis);
+            tag.putDouble("Major", majorRadius);
+            tag.putDouble("Minor", minorRadius);
+            return tag;
+        }
+    }
+
     record Union(Region a, Region b) implements Region {
         @Override
         public boolean contains(Vec3 point) {
@@ -464,6 +610,10 @@ public sealed interface Region {
             case "sphere" -> new Sphere(getVec(tag, "Center"), tag.getDouble("Radius"));
             case "box" -> box(getVec(tag, "Min"), getVec(tag, "Max"));
             case "cylinder" -> new Cylinder(getVec(tag, "A"), getVec(tag, "B"), tag.getDouble("Radius"));
+            case "cone" -> new Cone(getVec(tag, "A"), getVec(tag, "B"),
+                tag.getDouble("RadiusA"), tag.getDouble("RadiusB"));
+            case "torus" -> new Torus(getVec(tag, "Center"), getVec(tag, "Axis"),
+                tag.getDouble("Major"), tag.getDouble("Minor"));
             case "union" -> union(load(tag.getCompound("A"), depth + 1), load(tag.getCompound("B"), depth + 1));
             case "intersection" ->
                 intersection(load(tag.getCompound("A"), depth + 1), load(tag.getCompound("B"), depth + 1));

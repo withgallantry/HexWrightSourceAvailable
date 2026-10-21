@@ -2,6 +2,8 @@ package com.bluup.hexwright.server.vault;
 
 import com.bluup.hexwright.Hexwright;
 import com.bluup.hexwright.HexwrightDebug;
+import com.bluup.hexwright.server.dungeon.DungeonDimension;
+import com.bluup.hexwright.server.dungeon.DungeonInstances;
 import com.bluup.hexwright.server.pocketcaster.PocketCasterData;
 import com.bluup.hexwright.server.portal.PortalManager;
 import com.bluup.hexwright.server.portal.PortalPair;
@@ -13,6 +15,7 @@ import net.fabricmc.fabric.api.event.player.UseBlockCallback;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -20,7 +23,9 @@ import net.minecraft.server.level.TicketType;
 import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.BedBlock;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
 
@@ -28,14 +33,14 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Consumer;
 
 public final class VaultManager {
-
-    public static final int MAX_ACTIVE_SESSIONS_PER_VAULT = 1;
 
     public static final int MAX_REMOTE_CHUNKS_PER_VAULT_VIEW = 64;
 
@@ -54,20 +59,23 @@ public final class VaultManager {
         return HexwrightDebug.on(HexwrightDebug.VAULT);
     }
 
-    private static final TicketType<ChunkPos> TICKET =
-        TicketType.create("hexwright_vault", Comparator.comparingLong(ChunkPos::toLong));
+    private static final TicketType<UUID> TICKET = TicketType.create("hexwright_vault", UUID::compareTo);
 
     private static final int VIEW_TICKET_RADIUS = 2;
 
-    private static final Map<Integer, VaultPortalSession> SESSIONS_BY_VAULT = new HashMap<>();
-    private static final Map<UUID, VaultPortalSession> SESSIONS_BY_OPENER = new HashMap<>();
+    private record DoorKey(int vaultId, int frameId) {
+    }
+
+    private static final Map<DoorKey, VaultPortalSession> SESSIONS = new LinkedHashMap<>();
+    private static final Map<UUID, String> OPENER_NAMES = new HashMap<>();
 
     private VaultManager() {
     }
 
     public static void register() {
         ServerTickEvents.END_SERVER_TICK.register(VaultManager::tick);
-        PortalManager.setCrossingGuard(VaultAccess::mayCross);
+        VaultChunkStreamer.addSource(SESSIONS::values);
+        PortalManager.addCrossingGuard(VaultAccess::mayCross);
         UseBlockCallback.EVENT.register((player, level, hand, hit) -> {
             if (!VaultDimension.isVaultLevel(level)
                 || !(level.getBlockState(hit.getBlockPos()).getBlock() instanceof BedBlock)) {
@@ -81,7 +89,7 @@ public final class VaultManager {
         ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> onDisconnect(handler.player));
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> onJoin(handler.player));
         ServerLifecycleEvents.SERVER_STOPPING.register(server -> {
-            for (VaultPortalSession session : List.copyOf(SESSIONS_BY_VAULT.values())) {
+            for (VaultPortalSession session : List.copyOf(SESSIONS.values())) {
                 reconcileOccupants(server, session);
                 for (UUID occupant : List.copyOf(session.occupants())) {
                     ServerPlayer player = server.getPlayerList().getPlayer(occupant);
@@ -91,9 +99,11 @@ public final class VaultManager {
                 }
                 finalizeClose(server, session, "server stopping");
             }
+            OPENER_NAMES.clear();
         });
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) ->
             VaultCommands.register(dispatcher));
+        VaultSkies.register();
     }
 
 
@@ -110,16 +120,58 @@ public final class VaultManager {
         return VaultRegistry.get(server).byCreator(creator);
     }
 
-    public static @Nullable VaultPortalSession sessionByOpener(UUID opener) {
-        return SESSIONS_BY_OPENER.get(opener);
+    public static @Nullable VaultPortalSession sessionFor(int vaultId, int frameId) {
+        return SESSIONS.get(new DoorKey(vaultId, frameId));
     }
 
-    public static @Nullable VaultPortalSession sessionByVault(int vaultId) {
-        return SESSIONS_BY_VAULT.get(vaultId);
+    public static List<VaultPortalSession> sessionsOf(int vaultId) {
+        List<VaultPortalSession> doors = new ArrayList<>(1);
+        for (VaultPortalSession session : SESSIONS.values()) {
+            if (session.vaultId() == vaultId) {
+                doors.add(session);
+            }
+        }
+        doors.sort(Comparator.comparingInt(VaultPortalSession::frameId));
+        return doors;
+    }
+
+    public static boolean hasOpenDoor(int vaultId) {
+        for (VaultPortalSession session : SESSIONS.values()) {
+            if (session.vaultId() == vaultId) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public static List<VaultPortalSession> sessionsOpenedBy(UUID opener) {
+        List<VaultPortalSession> doors = new ArrayList<>(1);
+        for (VaultPortalSession session : SESSIONS.values()) {
+            if (session.opener().equals(opener)) {
+                doors.add(session);
+            }
+        }
+        return doors;
+    }
+
+    static @Nullable VaultPortalSession nearestDoor(int vaultId, Vec3 position) {
+        VaultPortalSession nearest = null;
+        double nearestDistSq = Double.MAX_VALUE;
+        for (VaultPortalSession session : SESSIONS.values()) {
+            if (session.vaultId() != vaultId) {
+                continue;
+            }
+            double distSq = session.vaultWindow().center().distanceToSqr(position);
+            if (distSq < nearestDistSq) {
+                nearest = session;
+                nearestDistSq = distSq;
+            }
+        }
+        return nearest;
     }
 
     public static @Nullable VaultPortalSession sessionByPair(UUID pairId) {
-        for (VaultPortalSession session : SESSIONS_BY_VAULT.values()) {
+        for (VaultPortalSession session : SESSIONS.values()) {
             if (session.pairId().equals(pairId)) {
                 return session;
             }
@@ -128,79 +180,146 @@ public final class VaultManager {
     }
 
     public static Collection<VaultPortalSession> activeSessions() {
-        return SESSIONS_BY_VAULT.values();
+        return SESSIONS.values();
     }
 
-    public static boolean openVault(ServerPlayer player, int vaultId, PortalWindow outsideWindow) {
-        MinecraftServer server = player.server;
-        VaultRegistry registry = VaultRegistry.get(server);
-        VaultRecord record = registry.byId(vaultId);
+    public static boolean openVault(ServerPlayer player, int vaultId, int frameId, PortalWindow outsideWindow) {
+        return openVault(player.server, player.serverLevel(), Opener.of(player), vaultId, frameId, outsideWindow);
+    }
+
+    public record Opener(UUID id, String name, Consumer<Component> tell) {
+        public static Opener of(ServerPlayer player) {
+            return new Opener(player.getUUID(), player.getGameProfile().getName(),
+                message -> player.displayClientMessage(message, true));
+        }
+    }
+
+    public static boolean openVault(MinecraftServer server, ServerLevel outsideLevel, Opener opener, int vaultId,
+                                    int frameId, PortalWindow outsideWindow) {
+        VaultRecord record = VaultRegistry.get(server).byId(vaultId);
         if (record == null) {
-            player.displayClientMessage(Component.translatable("hexwright.vault.unknown", vaultId), true);
+            opener.tell().accept(Component.translatable("hexwright.vault.unknown", vaultId));
             return false;
         }
         ServerLevel vaultLevel = VaultDimension.level(server);
         if (vaultLevel == null) {
-            player.displayClientMessage(Component.translatable("hexwright.vault.no_dimension"), true);
+            opener.tell().accept(Component.translatable("hexwright.vault.no_dimension"));
             return false;
         }
-        if (VaultDimension.isVaultLevel(player.serverLevel())) {
-            player.displayClientMessage(Component.translatable("hexwright.vault.inside_vault"), true);
+        if (VaultDimension.isVaultLevel(outsideLevel)) {
+            opener.tell().accept(Component.translatable("hexwright.vault.inside_vault"));
+            return false;
+        }
+        if (DungeonDimension.isDungeonLevel(outsideLevel)
+            && !DungeonInstances.allowsVaultDoor(outsideLevel, outsideWindow.center())) {
+            opener.tell().accept(Component.translatable("hexwright.vault.dungeon_safe_room_only"));
             return false;
         }
 
-        VaultPortalSession mine = SESSIONS_BY_OPENER.get(player.getUUID());
-        if (mine != null && mine.vaultId() == vaultId) {
-            requestClose(server, mine, player);
+        VaultPortalSession standing = sessionFor(vaultId, frameId);
+        if (standing != null && standing.opener().equals(opener.id())) {
+            requestClose(server, standing, opener.tell());
             return true;
         }
-        VaultPortalSession standing = SESSIONS_BY_VAULT.get(vaultId);
-        if (standing != null) {
-            reconcileOccupants(server, standing);
-            if (!standing.occupants().isEmpty()) {
-                player.displayClientMessage(
-                    Component.translatable("hexwright.vault.occupied", vaultId), true);
-                return false;
+        if (standing != null && frameId != VaultRecord.MAIN_DOOR) {
+            opener.tell().accept(Component.translatable("hexwright.vault.frame_held", openerName(server, standing)));
+            return false;
+        }
+        PortalWindow vaultWindow = interiorWindow(server, vaultLevel, record, frameId, opener.tell());
+        if (vaultWindow == null) {
+            return false;
+        }
+
+        List<VaultPortalSession> elsewhere = new ArrayList<>();
+        for (VaultPortalSession mine : sessionsOpenedBy(opener.id())) {
+            if (mine.vaultId() != vaultId) {
+                elsewhere.add(mine);
             }
         }
-        if (mine != null) {
-            reconcileOccupants(server, mine);
-            if (!mine.occupants().isEmpty()) {
-                player.displayClientMessage(Component.translatable("hexwright.vault.occupied_replace"), true);
-                return false;
-            }
+        if (standing != null && wouldStrand(server, List.of(standing))) {
+            opener.tell().accept(Component.translatable("hexwright.vault.occupied", vaultId));
+            return false;
+        }
+        if (!elsewhere.isEmpty() && wouldStrand(server, elsewhere)) {
+            opener.tell().accept(Component.translatable("hexwright.vault.occupied_replace"));
+            return false;
         }
         if (standing != null) {
             ServerPlayer previous = server.getPlayerList().getPlayer(standing.opener());
-            if (previous != null && previous != player) {
+            if (previous != null && !previous.getUUID().equals(opener.id())) {
                 previous.displayClientMessage(
                     Component.translatable("hexwright.vault.door_moved", vaultId), false);
             }
-            finalizeClose(server, standing, "door moved by " + player.getGameProfile().getName());
+            finalizeClose(server, standing, "door moved by " + opener.name());
         }
-        if (mine != null && mine != standing) {
+        for (VaultPortalSession mine : elsewhere) {
             finalizeClose(server, mine, "replaced by vault " + vaultId);
         }
 
         ensureRoomIntact(vaultLevel, record);
-        openSession(server, vaultLevel, record, player.getUUID(), player.serverLevel(), outsideWindow);
-        player.displayClientMessage(Component.translatable("hexwright.vault.opened", vaultId), true);
+        OPENER_NAMES.put(opener.id(), opener.name());
+        openSession(server, vaultLevel, record, frameId, vaultWindow, opener.id(), outsideLevel, outsideWindow);
+        opener.tell().accept(Component.translatable("hexwright.vault.opened", vaultId));
         return true;
     }
 
+    private static @Nullable PortalWindow interiorWindow(MinecraftServer server, ServerLevel vaultLevel,
+                                                        VaultRecord record, int frameId,
+                                                        Consumer<Component> tell) {
+        if (frameId == VaultRecord.MAIN_DOOR) {
+            return mainDoorWindow(record);
+        }
+        VaultRecord.Frame frame = record.frame(frameId);
+        if (frame != null && !VaultFrames.ringIntact(vaultLevel, frame)) {
+            breakFrame(server, record, frameId);
+            frame = null;
+        }
+        if (frame == null) {
+            tell.accept(Component.translatable("hexwright.vault.frame_gone", record.id()));
+            return null;
+        }
+        if (!VaultFrames.openingClear(vaultLevel, frame)) {
+            tell.accept(Component.translatable("hexwright.vault.frame_blocked", record.id()));
+            return null;
+        }
+        return frame.window();
+    }
+
+    private static PortalWindow mainDoorWindow(VaultRecord record) {
+        VaultRecord.Frame ring = record.mainDoorFrame();
+        return ring != null ? ring.window() : VaultRooms.vaultWindow(record);
+    }
+
+    static void hangMainDoor(MinecraftServer server, VaultRecord record, VaultRecord.Frame ring) {
+        record.setMainDoorFrame(ring);
+        VaultRegistry.get(server).setDirty();
+        HexwrightDebug.log(HexwrightDebug.VAULT, "[vault] vault {} main door hung in a ring at {}", record.id(),
+            ring.anchor().toShortString());
+        VaultPortalSession session = sessionFor(record.id(), VaultRecord.MAIN_DOOR);
+        ServerLevel vaultLevel = VaultDimension.level(server);
+        ServerLevel outsideLevel = session == null ? null : server.getLevel(session.outsideDimension());
+        if (session == null || vaultLevel == null || outsideLevel == null) {
+            return;
+        }
+        VaultPortalSession moved = replacePair(server, vaultLevel, record, session,
+            outsideLevel, session.outsideWindow(), ring.window());
+        moved.setCloseRequested(session.closeRequested());
+    }
+
     private static VaultPortalSession openSession(MinecraftServer server, ServerLevel vaultLevel,
-                                                  VaultRecord record, UUID opener,
+                                                  VaultRecord record, int frameId, PortalWindow vaultWindow,
+                                                  UUID opener,
                                                   ServerLevel outsideLevel, PortalWindow outsideWindow) {
-        PortalWindow vaultWindow = VaultRooms.vaultWindow(record);
+        UUID sessionId = UUID.randomUUID();
         List<ChunkPos> outsideChunks = outsideChunksFor(outsideWindow, OUTSIDE_WATCH_RADIUS_CHUNKS);
         List<ChunkPos> outsideTicketChunks = outsideChunksFor(outsideWindow, OUTSIDE_TICKET_RADIUS_CHUNKS);
         ChunkPos vaultChunk = VaultRooms.roomChunk(record);
         int vaultTicketRadius = VaultRooms.roomTicketRadius(record);
         List<ChunkPos> vaultChunks = VaultRooms.viewChunks(record);
 
-        vaultLevel.getChunkSource().addRegionTicket(TICKET, vaultChunk, vaultTicketRadius, vaultChunk);
+        vaultLevel.getChunkSource().addRegionTicket(TICKET, vaultChunk, vaultTicketRadius, sessionId);
         for (ChunkPos chunk : outsideTicketChunks) {
-            outsideLevel.getChunkSource().addRegionTicket(TICKET, chunk, VIEW_TICKET_RADIUS, chunk);
+            outsideLevel.getChunkSource().addRegionTicket(TICKET, chunk, VIEW_TICKET_RADIUS, sessionId);
         }
 
         PortalPair pair = new PortalPair(UUID.randomUUID(), opener,
@@ -209,22 +328,26 @@ public final class VaultManager {
         PortalManager.get(outsideLevel).addPair(outsideLevel, pair);
         PortalManager.get(vaultLevel).addPair(vaultLevel, pair);
 
-        VaultPortalSession session = new VaultPortalSession(record.id(), opener, pair.id(),
+        VaultPortalSession session = new VaultPortalSession(sessionId, record.id(), frameId, opener, pair.id(),
             outsideLevel.dimension(), outsideWindow, vaultWindow,
             outsideChunks, outsideTicketChunks, vaultChunk, vaultTicketRadius, vaultChunks,
             VaultRooms.roomBounds(record));
-        SESSIONS_BY_VAULT.put(record.id(), session);
-        SESSIONS_BY_OPENER.put(opener, session);
-        rememberDoor(server, record, outsideLevel, outsideWindow);
+        SESSIONS.put(new DoorKey(record.id(), frameId), session);
+        if (frameId == VaultRecord.MAIN_DOOR) {
+            rememberDoor(server, record, outsideLevel, outsideWindow);
+        }
         if (debug()) {
-            Hexwright.LOGGER.info("[vault] session {} opened vault {} for {}",
-                session.sessionId(), record.id(), opener);
+            Hexwright.LOGGER.info("[vault] session {} opened vault {} door {} for {}",
+                session.sessionId(), record.id(), frameId, opener);
         }
         return session;
     }
 
     private static void rememberDoor(MinecraftServer server, VaultRecord record,
                                      ServerLevel outsideLevel, PortalWindow outsideWindow) {
+        if (DungeonDimension.isDungeonLevel(outsideLevel)) {
+            return;
+        }
         record.setLastDoor(new VaultRecord.Door(outsideLevel.dimension(),
             VaultPortalPlacement.anchorOf(outsideWindow),
             VaultPortalPlacement.facingOf(outsideWindow)));
@@ -245,92 +368,192 @@ public final class VaultManager {
         return true;
     }
 
-    public static boolean relocateDoor(MinecraftServer server, VaultRecord record, PortalWindow newWindow) {
-        VaultPortalSession session = SESSIONS_BY_VAULT.get(record.id());
+    public static boolean relocateDoor(MinecraftServer server, VaultRecord record, int frameId,
+                                       PortalWindow newWindow, Opener opener) {
         ServerLevel vaultLevel = VaultDimension.level(server);
-        if (session == null || vaultLevel == null) {
+        if (vaultLevel == null) {
             return false;
         }
         ServerLevel newOutsideLevel = server.overworld();
+        VaultPortalSession session = sessionFor(record.id(), frameId);
+        if (session == null) {
+            PortalWindow vaultWindow = interiorWindow(server, vaultLevel, record, frameId, opener.tell());
+            if (vaultWindow == null) {
+                return false;
+            }
+            ensureRoomIntact(vaultLevel, record);
+            OPENER_NAMES.put(opener.id(), opener.name());
+            openSession(server, vaultLevel, record, frameId, vaultWindow,
+                opener.id(), newOutsideLevel, newWindow);
+            return true;
+        }
+        if (frameId != VaultRecord.MAIN_DOOR && !session.opener().equals(opener.id())) {
+            opener.tell().accept(Component.translatable("hexwright.vault.frame_held", openerName(server, session)));
+            return false;
+        }
+
+        VaultPortalSession relocated = replacePair(server, vaultLevel, record, session,
+            newOutsideLevel, newWindow, session.vaultWindow());
+        if (frameId == VaultRecord.MAIN_DOOR) {
+            rememberDoor(server, record, newOutsideLevel, newWindow);
+        }
+        if (debug()) {
+            Hexwright.LOGGER.info("[vault] session {} (vault {} door {}) relocated by pattern",
+                relocated.sessionId(), record.id(), frameId);
+        }
+        return true;
+    }
+
+    private static VaultPortalSession replacePair(MinecraftServer server, ServerLevel vaultLevel, VaultRecord record,
+                                                  VaultPortalSession session, ServerLevel newOutsideLevel,
+                                                  PortalWindow newWindow, PortalWindow newVaultWindow) {
+        UUID sessionId = UUID.randomUUID();
+        List<ChunkPos> outsideChunks = outsideChunksFor(newWindow, OUTSIDE_WATCH_RADIUS_CHUNKS);
+        List<ChunkPos> outsideTicketChunks = outsideChunksFor(newWindow, OUTSIDE_TICKET_RADIUS_CHUNKS);
+        for (ChunkPos chunk : outsideTicketChunks) {
+            newOutsideLevel.getChunkSource().addRegionTicket(TICKET, chunk, VIEW_TICKET_RADIUS, sessionId);
+        }
+        vaultLevel.getChunkSource().addRegionTicket(
+            TICKET, session.vaultChunk(), session.vaultTicketRadius(), sessionId);
 
         ServerLevel oldOutsideLevel = server.getLevel(session.outsideDimension());
         if (oldOutsideLevel != null) {
             PortalManager.get(oldOutsideLevel).removePair(oldOutsideLevel, session.pairId());
             for (ChunkPos chunk : session.outsideTicketChunks()) {
-                oldOutsideLevel.getChunkSource().removeRegionTicket(TICKET, chunk, VIEW_TICKET_RADIUS, chunk);
+                oldOutsideLevel.getChunkSource().removeRegionTicket(
+                    TICKET, chunk, VIEW_TICKET_RADIUS, session.sessionId());
             }
         }
         PortalManager.get(vaultLevel).removePair(vaultLevel, session.pairId());
-
-        List<ChunkPos> outsideChunks = outsideChunksFor(newWindow, OUTSIDE_WATCH_RADIUS_CHUNKS);
-        List<ChunkPos> outsideTicketChunks = outsideChunksFor(newWindow, OUTSIDE_TICKET_RADIUS_CHUNKS);
-        for (ChunkPos chunk : outsideTicketChunks) {
-            newOutsideLevel.getChunkSource().addRegionTicket(TICKET, chunk, VIEW_TICKET_RADIUS, chunk);
-        }
+        vaultLevel.getChunkSource().removeRegionTicket(
+            TICKET, session.vaultChunk(), session.vaultTicketRadius(), session.sessionId());
 
         VaultChunkStreamer.onDoorRelocated(server, session, oldOutsideLevel);
 
         PortalPair newPair = new PortalPair(UUID.randomUUID(), session.opener(),
-            newWindow, session.vaultWindow(), newOutsideLevel.getGameTime(),
+            newWindow, newVaultWindow, newOutsideLevel.getGameTime(),
             newOutsideLevel.dimension(), VaultDimension.KEY, true);
         PortalManager.get(newOutsideLevel).addPair(newOutsideLevel, newPair);
         PortalManager.get(vaultLevel).addPair(vaultLevel, newPair);
 
-        VaultPortalSession relocated = new VaultPortalSession(record.id(), session.opener(), newPair.id(),
-            newOutsideLevel.dimension(), newWindow, session.vaultWindow(),
+        VaultPortalSession relocated = new VaultPortalSession(sessionId, record.id(), session.frameId(),
+            session.opener(), newPair.id(),
+            newOutsideLevel.dimension(), newWindow, newVaultWindow,
             outsideChunks, outsideTicketChunks,
             session.vaultChunk(), session.vaultTicketRadius(), session.vaultChunks(),
             session.roomBounds());
-        SESSIONS_BY_VAULT.put(record.id(), relocated);
-        SESSIONS_BY_OPENER.put(session.opener(), relocated);
-        rememberDoor(server, record, newOutsideLevel, newWindow);
-        if (debug()) {
-            Hexwright.LOGGER.info("[vault] session {} (vault {}) door relocated by pattern",
-                relocated.sessionId(), record.id());
-        }
-        return true;
+        SESSIONS.put(new DoorKey(record.id(), session.frameId()), relocated);
+        return relocated;
     }
 
     public static void requestCloseVault(ServerPlayer player) {
-        VaultPortalSession session = SESSIONS_BY_OPENER.get(player.getUUID());
-        if (session == null) {
+        List<VaultPortalSession> mine = sessionsOpenedBy(player.getUUID());
+        if (mine.isEmpty()) {
             player.displayClientMessage(Component.translatable("hexwright.vault.none_open"), true);
             return;
         }
-        requestClose(player.server, session, player);
+        for (VaultPortalSession session : mine) {
+            requestClose(player.server, session, Opener.of(player).tell());
+        }
     }
 
-    private static void requestClose(MinecraftServer server, VaultPortalSession session,
-                                     @Nullable ServerPlayer requester) {
-        reconcileOccupants(server, session);
-        if (session.occupants().isEmpty()) {
+    public static void requestCloseDoor(ServerPlayer player, VaultPortalSession session) {
+        requestClose(player.server, session, Opener.of(player).tell());
+    }
+
+    private static void requestClose(MinecraftServer server, VaultPortalSession session, Consumer<Component> tell) {
+        if (!wouldStrand(server, List.of(session))) {
             finalizeClose(server, session, "close requested");
-            if (requester != null) {
-                requester.displayClientMessage(
-                    Component.translatable("hexwright.vault.closed", session.vaultId()), true);
-            }
+            tell.accept(Component.translatable("hexwright.vault.closed", session.vaultId()));
             return;
         }
         session.setCloseRequested(true);
         session.setState(VaultPortalSession.State.CLOSE_PENDING_OCCUPANTS);
-        if (requester != null) {
-            requester.displayClientMessage(
-                Component.translatable("hexwright.vault.close_pending", session.vaultId()), true);
+        tell.accept(Component.translatable("hexwright.vault.close_pending", session.vaultId()));
+    }
+
+    private static boolean wouldStrand(MinecraftServer server, Collection<VaultPortalSession> closing) {
+        for (VaultPortalSession session : closing) {
+            reconcileOccupants(server, session);
+            if (strands(session, closing)) {
+                return true;
+            }
         }
+        return false;
+    }
+
+    private static boolean strands(VaultPortalSession session, Collection<VaultPortalSession> closing) {
+        if (session.occupants().isEmpty()) {
+            return false;
+        }
+        for (VaultPortalSession other : sessionsOf(session.vaultId())) {
+            if (!closing.contains(other) && !other.closeRequested()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public static void closeDoorsWithin(MinecraftServer server, ResourceKey<Level> dimension, AABB area,
+                                        String reason) {
+        for (VaultPortalSession session : List.copyOf(SESSIONS.values())) {
+            if (!session.outsideDimension().equals(dimension) || !area.contains(session.outsideWindow().center())) {
+                continue;
+            }
+            if (wouldStrand(server, List.of(session))) {
+                session.setCloseRequested(true);
+                session.setState(VaultPortalSession.State.CLOSE_PENDING_OCCUPANTS);
+            } else {
+                finalizeClose(server, session, reason);
+            }
+        }
+    }
+
+    static void breakFrame(MinecraftServer server, VaultRecord record, int frameId) {
+        if (!record.removeFrame(frameId)) {
+            return;
+        }
+        VaultRegistry.get(server).setDirty();
+        HexwrightDebug.log(HexwrightDebug.VAULT, "[vault] vault {} lost frame {}", record.id(), frameId);
+        VaultPortalSession session = sessionFor(record.id(), frameId);
+        if (session == null) {
+            return;
+        }
+        reconcileOccupants(server, session);
+        boolean onlyDoor = sessionsOf(record.id()).size() == 1;
+        boolean openerTold = false;
+        for (UUID occupant : List.copyOf(session.occupants())) {
+            ServerPlayer player = server.getPlayerList().getPlayer(occupant);
+            if (player == null
+                || !(onlyDoor || VaultContainment.cameThrough(occupant, record.id(), frameId))) {
+                continue;
+            }
+            expel(player, record, session);
+            player.displayClientMessage(Component.translatable("hexwright.vault.frame_collapsed"), false);
+            openerTold |= occupant.equals(session.opener());
+        }
+        ServerPlayer opener = server.getPlayerList().getPlayer(session.opener());
+        if (opener != null && !openerTold) {
+            opener.displayClientMessage(
+                Component.translatable("hexwright.vault.frame_collapsed_opener", record.id()), false);
+        }
+        finalizeClose(server, session, "frame broken");
     }
 
 
     private static void tick(MinecraftServer server) {
-        if (!SESSIONS_BY_VAULT.isEmpty()) {
-            for (VaultPortalSession session : List.copyOf(SESSIONS_BY_VAULT.values())) {
-                tickSession(server, session);
-            }
-            VaultChunkStreamer.tick(server);
+        VaultFrames.tick(server);
+        for (VaultPortalSession session : List.copyOf(SESSIONS.values())) {
+            tickSession(server, session);
         }
+        VaultChunkStreamer.tick(server);
         VaultContainment.tick(server);
     }
 
     private static void tickSession(MinecraftServer server, VaultPortalSession session) {
+        if (session.state() == VaultPortalSession.State.CLOSED) {
+            return;
+        }
         ServerLevel outsideLevel = server.getLevel(session.outsideDimension());
         ServerLevel vaultLevel = VaultDimension.level(server);
         if (outsideLevel == null || vaultLevel == null) {
@@ -351,7 +574,7 @@ public final class VaultManager {
         }
 
         if (session.closeRequested()) {
-            if (occupied) {
+            if (strands(session, List.of(session))) {
                 session.setState(VaultPortalSession.State.CLOSE_PENDING_OCCUPANTS);
             } else {
                 finalizeClose(server, session, "deferred close completed");
@@ -410,48 +633,48 @@ public final class VaultManager {
             return;
         }
         session.setState(VaultPortalSession.State.CLOSED);
-        SESSIONS_BY_VAULT.remove(session.vaultId(), session);
-        SESSIONS_BY_OPENER.remove(session.opener(), session);
+        SESSIONS.remove(new DoorKey(session.vaultId(), session.frameId()), session);
 
         ServerLevel outsideLevel = server.getLevel(session.outsideDimension());
         ServerLevel vaultLevel = VaultDimension.level(server);
         if (outsideLevel != null) {
             PortalManager.get(outsideLevel).removePair(outsideLevel, session.pairId());
             for (ChunkPos chunk : session.outsideTicketChunks()) {
-                outsideLevel.getChunkSource().removeRegionTicket(TICKET, chunk, VIEW_TICKET_RADIUS, chunk);
+                outsideLevel.getChunkSource().removeRegionTicket(
+                    TICKET, chunk, VIEW_TICKET_RADIUS, session.sessionId());
             }
         }
         if (vaultLevel != null) {
             PortalManager.get(vaultLevel).removePair(vaultLevel, session.pairId());
             vaultLevel.getChunkSource().removeRegionTicket(
-                TICKET, session.vaultChunk(), session.vaultTicketRadius(), session.vaultChunk());
+                TICKET, session.vaultChunk(), session.vaultTicketRadius(), session.sessionId());
         }
         VaultChunkStreamer.release(server, session);
         if (debug()) {
-            Hexwright.LOGGER.info("[vault] session {} (vault {}) closed: {}",
-                session.sessionId(), session.vaultId(), reason);
+            Hexwright.LOGGER.info("[vault] session {} (vault {} door {}) closed: {}",
+                session.sessionId(), session.vaultId(), session.frameId(), reason);
         }
     }
 
     private static void onDisconnect(ServerPlayer player) {
         depositAtEntrance(player);
-        for (VaultPortalSession any : SESSIONS_BY_VAULT.values()) {
-            any.vaultViewers().remove(player.getUUID());
-            any.outsideViewers().remove(player.getUUID());
-        }
         VaultChunkStreamer.forget(player.getUUID());
         VaultContainment.forget(player.getUUID());
-        VaultPortalSession session = SESSIONS_BY_OPENER.get(player.getUUID());
-        if (session == null) {
+        List<VaultPortalSession> mine = sessionsOpenedBy(player.getUUID());
+        if (mine.isEmpty()) {
             return;
         }
-        reconcileOccupants(player.server, session);
-        session.occupants().remove(player.getUUID());
-        if (session.occupants().isEmpty()) {
-            finalizeClose(player.server, session, "opener disconnected");
-        } else {
-            session.setCloseRequested(true);
-            session.setState(VaultPortalSession.State.CLOSE_PENDING_OCCUPANTS);
+        for (VaultPortalSession session : mine) {
+            reconcileOccupants(player.server, session);
+            session.occupants().remove(player.getUUID());
+        }
+        for (VaultPortalSession session : mine) {
+            if (strands(session, List.of(session))) {
+                session.setCloseRequested(true);
+                session.setState(VaultPortalSession.State.CLOSE_PENDING_OCCUPANTS);
+            } else {
+                finalizeClose(player.server, session, "opener disconnected");
+            }
         }
     }
 
@@ -461,7 +684,7 @@ public final class VaultManager {
         }
         MinecraftServer server = player.server;
         VaultRecord record = VaultRegistry.get(server).byPosition(player.position());
-        if (record != null && SESSIONS_BY_VAULT.containsKey(record.id())) {
+        if (record != null && hasOpenDoor(record.id())) {
             return;
         }
         if (record != null && record.owner().equals(player.getUUID())) {
@@ -481,7 +704,8 @@ public final class VaultManager {
             return false;
         }
         ServerLevel outsideLevel = server.getLevel(door.dimension());
-        if (outsideLevel == null || VaultDimension.isVaultLevel(outsideLevel)) {
+        if (outsideLevel == null || VaultDimension.isVaultLevel(outsideLevel)
+            || DungeonDimension.isDungeonLevel(outsideLevel)) {
             return false;
         }
         outsideLevel.getChunk(door.anchor().getX() >> 4, door.anchor().getZ() >> 4);
@@ -491,7 +715,8 @@ public final class VaultManager {
             return false;
         }
         ensureRoomIntact(vaultLevel, record);
-        openSession(server, vaultLevel, record, owner.getUUID(), outsideLevel, window);
+        openSession(server, vaultLevel, record, VaultRecord.MAIN_DOOR, mainDoorWindow(record),
+            owner.getUUID(), outsideLevel, window);
         owner.displayClientMessage(
             Component.translatable("hexwright.vault.reopened", record.id()), true);
         return true;
@@ -502,22 +727,21 @@ public final class VaultManager {
     }
 
     private static Exit exitFor(ServerPlayer player) {
-        return exitFor(player, null);
+        return exitFor(player, null, null);
     }
 
-    private static Exit exitFor(ServerPlayer player, @Nullable VaultRecord hint) {
+    private static Exit exitFor(ServerPlayer player, @Nullable VaultRecord hint,
+                                @Nullable VaultPortalSession through) {
         MinecraftServer server = player.server;
         VaultRecord record = hint != null
             ? hint
             : VaultRegistry.get(server).byPosition(player.position());
-        VaultPortalSession session = record == null ? null : SESSIONS_BY_VAULT.get(record.id());
-        if (session != null) {
-            ServerLevel outsideLevel = server.getLevel(session.outsideDimension());
-            if (outsideLevel != null && !VaultDimension.isVaultLevel(outsideLevel)) {
-                PortalWindow window = session.outsideWindow();
-                Vec3 exit = window.pointAt(window.width() * 0.5, 0.0).add(window.normal());
-                return new Exit(outsideLevel, exit);
-            }
+        VaultPortalSession session = through != null
+            ? through
+            : record == null ? null : exitDoor(player, record);
+        Exit exit = session == null ? null : exitThrough(server, session);
+        if (exit != null) {
+            return exit;
         }
         Exit remembered = rememberedExit(server, record);
         if (remembered != null) {
@@ -528,13 +752,36 @@ public final class VaultManager {
         return new Exit(overworld, new Vec3(spawn.getX() + 0.5, spawn.getY() + 1.0, spawn.getZ() + 0.5));
     }
 
+    private static @Nullable VaultPortalSession exitDoor(ServerPlayer player, VaultRecord record) {
+        Integer cameThrough = VaultContainment.claimedDoor(player.getUUID(), record.id());
+        VaultPortalSession door = cameThrough == null ? null : sessionFor(record.id(), cameThrough);
+        if (door == null) {
+            door = sessionFor(record.id(), VaultRecord.MAIN_DOOR);
+        }
+        if (door == null) {
+            List<VaultPortalSession> open = sessionsOf(record.id());
+            door = open.isEmpty() ? null : open.get(0);
+        }
+        return door;
+    }
+
+    private static @Nullable Exit exitThrough(MinecraftServer server, VaultPortalSession session) {
+        ServerLevel outsideLevel = server.getLevel(session.outsideDimension());
+        if (outsideLevel == null || VaultDimension.isVaultLevel(outsideLevel)) {
+            return null;
+        }
+        PortalWindow window = session.outsideWindow();
+        Vec3 exit = window.pointAt(window.width() * 0.5, 0.0).add(window.normal());
+        return new Exit(outsideLevel, exit);
+    }
+
     private static @Nullable Exit rememberedExit(MinecraftServer server, @Nullable VaultRecord record) {
         VaultRecord.Door door = record == null ? null : record.lastDoor();
         if (door == null) {
             return null;
         }
         ServerLevel level = server.getLevel(door.dimension());
-        if (level == null || VaultDimension.isVaultLevel(level)) {
+        if (level == null || VaultDimension.isVaultLevel(level) || DungeonDimension.isDungeonLevel(level)) {
             return null;
         }
         level.getChunk(door.anchor().getX() >> 4, door.anchor().getZ() >> 4);
@@ -547,7 +794,12 @@ public final class VaultManager {
     }
 
     static void expel(ServerPlayer player, @Nullable VaultRecord hint) {
-        Exit exit = exitFor(player, hint);
+        expel(player, hint, null);
+    }
+
+    private static void expel(ServerPlayer player, @Nullable VaultRecord hint,
+                              @Nullable VaultPortalSession through) {
+        Exit exit = exitFor(player, hint, through);
         player.setDeltaMovement(Vec3.ZERO);
         player.teleportTo(exit.level(), exit.pos().x, exit.pos().y, exit.pos().z,
             player.getYRot(), player.getXRot());
@@ -585,14 +837,16 @@ public final class VaultManager {
     private static void ensureRoomIntact(ServerLevel vaultLevel, VaultRecord record) {
         BlockPos probe = VaultRooms.intactProbe(record);
         vaultLevel.getChunk(probe.getX() >> 4, probe.getZ() >> 4);
-        if (!vaultLevel.getBlockState(probe).isAir()) {
-            return;
+        if (vaultLevel.getBlockState(probe).isAir()) {
+            Hexwright.LOGGER.warn("Vault {} room missing its floor; regenerating template", record.id());
+            for (ChunkPos chunk : VaultRooms.roomChunks(record)) {
+                vaultLevel.getChunk(chunk.x, chunk.z);
+            }
+            VaultRooms.generate(vaultLevel, record);
         }
-        Hexwright.LOGGER.warn("Vault {} room missing its floor; regenerating template", record.id());
-        for (ChunkPos chunk : VaultRooms.roomChunks(record)) {
-            vaultLevel.getChunk(chunk.x, chunk.z);
+        if (VaultRooms.upgrade(vaultLevel, record)) {
+            VaultRegistry.get(vaultLevel.getServer()).setDirty();
         }
-        VaultRooms.generate(vaultLevel, record);
     }
 
     private static List<ChunkPos> outsideChunksFor(PortalWindow window, int radius) {
@@ -610,6 +864,12 @@ public final class VaultManager {
         return chunks;
     }
 
+    private static Component openerName(MinecraftServer server, VaultPortalSession session) {
+        ServerPlayer opener = server.getPlayerList().getPlayer(session.opener());
+        return opener != null ? opener.getDisplayName()
+            : Component.literal(OPENER_NAMES.getOrDefault(session.opener(), session.opener().toString()));
+    }
+
     private static List<String> clearedFor(MinecraftServer server, int vaultId) {
         List<String> names = new ArrayList<>();
         for (ServerPlayer player : server.getPlayerList().getPlayers()) {
@@ -622,14 +882,15 @@ public final class VaultManager {
 
     public static List<String> debugSummary(MinecraftServer server) {
         List<String> lines = new ArrayList<>();
-        lines.add("Active vault sessions: " + SESSIONS_BY_VAULT.size());
-        for (VaultPortalSession session : SESSIONS_BY_VAULT.values()) {
+        lines.add("Active vault sessions: " + SESSIONS.size());
+        for (VaultPortalSession session : SESSIONS.values()) {
             String openerName = Optional.ofNullable(
                     server.getPlayerList().getPlayer(session.opener()))
                 .map(p -> p.getGameProfile().getName())
                 .orElse(session.opener().toString());
             VaultRecord record = getVault(server, session.vaultId());
             lines.add("Vault " + session.vaultId()
+                + (session.frameId() == VaultRecord.MAIN_DOOR ? "" : ", frame " + session.frameId())
                 + (record == null ? "" : " ("
                     + (record.artifact() ? "ARTIFACT" : record.grade()) + " / "
                     + VaultRooms.layoutOf(record)
@@ -639,10 +900,13 @@ public final class VaultManager {
             if (record != null) {
                 lines.add("  Access: " + record.access()
                     + (record.allowed().isEmpty() ? "" : " " + record.allowed().values()));
+                lines.add("  Frames: " + record.frames().size() + "/" + VaultFrames.MAX_FRAMES
+                    + (record.mainDoorFrame() == null ? ""
+                        : ", main door in ring at " + record.mainDoorFrame().anchor().toShortString()));
             }
             lines.add("  Occupants: " + session.occupants().size()
                 + " (cleared by containment: " + clearedFor(server, session.vaultId()) + ")");
-            lines.add("  Outside viewers: " + session.vaultViewers().size());
+            lines.add("  Outside viewers: " + session.insideViewers().size());
             lines.add("  Inside viewers: " + session.outsideViewers().size());
             lines.add("  Remote chunks: vault=" + session.vaultChunks().size()
                 + " (room + Sodium padding ring, cap " + MAX_REMOTE_CHUNKS_PER_VAULT_VIEW

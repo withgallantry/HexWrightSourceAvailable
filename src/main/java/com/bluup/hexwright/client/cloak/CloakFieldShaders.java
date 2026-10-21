@@ -43,7 +43,7 @@ public final class CloakFieldShaders implements SimpleSynchronousResourceReloadL
             shader = null;
         }
         try {
-            shader = new ShaderInstance(resourceManager, SHADER_NAME, DefaultVertexFormat.POSITION_TEX);
+            shader = new ShaderInstance(resourceManager, SHADER_NAME, DefaultVertexFormat.POSITION);
             HexwrightDebug.log(HexwrightDebug.RENDER, "Loaded cloak field shader");
         } catch (IOException | RuntimeException e) {
             Hexwright.LOGGER.error("Failed to load cloak field shader; cloak fields will not render", e);

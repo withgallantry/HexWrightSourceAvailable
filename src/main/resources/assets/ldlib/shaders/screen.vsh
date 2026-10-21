@@ -2,11 +2,11 @@
 
 #define SUPPORT_POSE_STACK
 
-in vec3 Position;// base on normalized screen postion
+in vec3 Position;
 
-out vec2 screenPos;// before modified by gui scale
-out vec2 guiPos;// modified by gui scale
-out vec2 uv;// normalized into [-1,1]
+out vec2 screenPos;
+out vec2 guiPos;
+out vec2 uv;
 
 uniform float GuiScale;
 uniform vec2 ScreenSize;

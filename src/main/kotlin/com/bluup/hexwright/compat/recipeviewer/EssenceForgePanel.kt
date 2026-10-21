@@ -18,13 +18,15 @@ object EssenceForgePanel {
 
     const val SLOT_Y = 16
     const val POUCH_X = 2
-    const val OUTPUT_X = 58
-    const val SLOT_BACKGROUND_INSET = 1
     private const val SLOT_SIZE = 18
 
-    const val ARROW_X = 26
+    const val GOLEM_CORES_X = POUCH_X + SLOT_SIZE
+    const val SLOT_BACKGROUND_INSET = 1
+
     const val ARROW_Y = SLOT_Y
 
+    private const val ARROW_X = 26
+    private const val OUTPUT_X = 58
     private const val HINT_X = 84
 
     private const val COST_LINE = 11
@@ -44,31 +46,41 @@ object EssenceForgePanel {
     private val font: Font get() = Minecraft.getInstance().font
 
     val height: Int
-        get() = costY() + WorktableRecipes.RECIPES.maxOf { it.steps.size } * COST_LINE + BOTTOM_PADDING
+        get() = WorktableRecipes.RECIPES.maxOf { costY(shift(it.golemCores > 0)) + it.steps.size * COST_LINE } +
+            BOTTOM_PADDING
 
-    private fun costLabelY(): Int = maxOf(
+    fun arrowX(display: EssenceForgeDisplay): Int = ARROW_X + shift(display)
+
+    fun outputX(display: EssenceForgeDisplay): Int = OUTPUT_X + shift(display)
+
+    private fun shift(display: EssenceForgeDisplay): Int = shift(!display.golemCores.isEmpty)
+
+    private fun shift(hasGolemCores: Boolean): Int = if (hasGolemCores) SLOT_SIZE else 0
+
+    private fun costLabelY(shift: Int): Int = maxOf(
         SLOT_Y - SLOT_BACKGROUND_INSET + SLOT_SIZE,
-        SLOT_Y + font.split(GRADE_HINT, WIDTH - HINT_X).size * font.lineHeight
+        SLOT_Y + font.split(GRADE_HINT, WIDTH - HINT_X - shift).size * font.lineHeight
     ) + SECTION_GAP
 
-    private fun costY(): Int = costLabelY() + font.lineHeight + LABEL_GAP
+    private fun costY(shift: Int): Int = costLabelY(shift) + font.lineHeight + LABEL_GAP
 
     fun draw(graphics: GuiGraphics, display: EssenceForgeDisplay) {
         val font = this.font
+        val shift = shift(display)
 
         graphics.drawString(font, display.name.copy().withStyle(ChatFormatting.BOLD), 0, NAME_Y, TITLE_COLOR, false)
 
         if (display.graded) {
             var hintY = SLOT_Y
-            for (line in font.split(GRADE_HINT, WIDTH - HINT_X)) {
-                graphics.drawString(font, line, HINT_X, hintY, LABEL_COLOR, false)
+            for (line in font.split(GRADE_HINT, WIDTH - HINT_X - shift)) {
+                graphics.drawString(font, line, HINT_X + shift, hintY, LABEL_COLOR, false)
                 hintY += font.lineHeight
             }
         }
 
-        graphics.drawString(font, COST_LABEL, 0, costLabelY(), LABEL_COLOR, false)
+        graphics.drawString(font, COST_LABEL, 0, costLabelY(shift), LABEL_COLOR, false)
 
-        var y = costY()
+        var y = costY(shift)
         for (step in display.steps) {
             drawAspectIcon(graphics, step.aspect, 1, y)
             val line = Component.translatable(

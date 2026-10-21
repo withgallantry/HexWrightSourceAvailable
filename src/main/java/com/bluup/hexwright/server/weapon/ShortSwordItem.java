@@ -1,11 +1,15 @@
 package com.bluup.hexwright.server.weapon;
 
+import com.bluup.hexwright.server.armour.ArmourTier;
+import com.bluup.hexwright.server.armour.Restylable;
+import com.bluup.hexwright.server.item.HexwrightItems;
 import com.bluup.hexwright.server.pocketcaster.PocketCasterData;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.SwordItem;
 import net.minecraft.world.item.TooltipFlag;
@@ -18,7 +22,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public class ShortSwordItem extends SwordItem implements AnimatedWeapon {
+public class ShortSwordItem extends SwordItem implements AnimatedWeapon, Restylable {
 
     static final String[] COMBO_CLIPS = {
         "sword_diagonal_slash_1",
@@ -50,6 +54,17 @@ public class ShortSwordItem extends SwordItem implements AnimatedWeapon {
 
     public PocketCasterData.Quality quality() {
         return this.quality;
+    }
+
+
+    @Override
+    public @Nullable ArmourTier ownLook() {
+        return Restylable.gradedLook(HexwrightItems.DUELIST_SHORT_SWORDS, this, this.quality);
+    }
+
+    @Override
+    public Item lookItem(ArmourTier look) {
+        return HexwrightItems.DUELIST_SHORT_SWORDS.get(look.displayQuality());
     }
 
     @Override
@@ -106,6 +121,7 @@ public class ShortSwordItem extends SwordItem implements AnimatedWeapon {
         tooltip.add(Component.translatable("tooltip.hexwright.duelist_short_sword.quality",
                 Component.translatable(this.quality.translationKey()).withStyle(this.quality.color()))
             .withStyle(ChatFormatting.GRAY));
+        appendLookTooltip(stack, tooltip);
         WeaponTooltips.add(tooltip, Component.translatable("tooltip.hexwright.duelist_short_sword.combo",
             COMBO_CLIPS.length), ChatFormatting.GRAY);
     }

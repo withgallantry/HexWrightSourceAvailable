@@ -11,7 +11,13 @@ import java.util.Map;
 public final class EssencePouchData {
     private static final String TAG_ESSENCE = "Essence";
 
+    public static final double TOLERANCE = 1.0E-6;
+
     private EssencePouchData() {
+    }
+
+    public static boolean covers(double have, double need) {
+        return have + TOLERANCE >= need;
     }
 
     public static double get(ItemStack pouch, IngredientCategory aspect) {
@@ -36,7 +42,7 @@ public final class EssencePouchData {
         double stored = essence.getDouble(key(aspect));
         double taken = Math.min(stored, amount);
         double remaining = stored - taken;
-        if (remaining <= 0) {
+        if (remaining <= TOLERANCE) {
             essence.remove(key(aspect));
         } else {
             essence.putDouble(key(aspect), remaining);

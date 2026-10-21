@@ -138,7 +138,7 @@ public final class HarmonicDelivery {
     private static void fireEmitter(MinecraftServer server, HarmonicEmitterRegistry.Address address,
                                     CompoundTag payloadTag) {
         ServerLevel level = server.getLevel(address.dimension());
-        if (level == null || !level.isLoaded(address.pos())) {
+        if (!HarmonicNetwork.isChunkReady(level, address.pos())) {
             return;
         }
         if (!(level.getBlockEntity(address.pos()) instanceof HarmonicEmitterBlockEntity emitter)) {

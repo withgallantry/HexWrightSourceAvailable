@@ -42,10 +42,6 @@ repositories {
         url = "https://maven.terraformersmc.com/"
     }
     maven {
-        name = "Pool"
-        url = "https://maven.pool.net.eu.org"
-    }
-    maven {
         name = "FirstDarkDev"
         url = "https://maven.firstdarkdev.xyz/snapshots"
     }
@@ -86,6 +82,7 @@ configurations.configureEach { config ->
 loom {
     runs {
         client {
+            programArgs "--username", (project.findProperty("username") ?: "Dev").toString()
             if (project.hasProperty("quickplay")) {
                 programArgs "--quickPlaySingleplayer", project.property("quickplay").toString()
             }
@@ -104,7 +101,8 @@ loom {
                 "hexwright.shield.face",
                 "hexwright.shield.faces",
                 "hexwright.shield.glow",
-                "hexwright.mixin.disable"
+                "hexwright.mixin.disable",
+                "hexwright.dev"
             ].each { key ->
                 def value = System.getProperty(key)
                 if (value != null) {
@@ -125,6 +123,9 @@ dependencies {
     modCompileOnly "dev.emi:emi-fabric:${project.emi_version}:api"
 
     modCompileOnly("maven.modrinth:jade:11.13.3+fabric") { transitive = false }
+
+    modCompileOnly("maven.modrinth:chunkyborder:74w5ono0") { transitive = false }
+    modCompileOnly("maven.modrinth:chunky:NHWYq9at") { transitive = false }
 
     if (devJei) {
         modLocalRuntime("mezz.jei:jei-${project.minecraft_version}-fabric:${project.jei_version}") {

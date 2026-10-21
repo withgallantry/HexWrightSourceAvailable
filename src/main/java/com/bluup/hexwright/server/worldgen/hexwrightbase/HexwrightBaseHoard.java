@@ -2,7 +2,6 @@ package com.bluup.hexwright.server.worldgen.hexwrightbase;
 
 import at.petrak.hexcasting.common.lib.HexItems;
 import at.petrak.hexcasting.common.loot.AddHexToAncientCypherFunc;
-import com.bluup.hexwright.server.item.StoneTabletItem;
 import com.bluup.hexwright.server.worldgen.decadentvault.DecadentVaultHoard;
 import com.bluup.hexwright.server.worldgen.decadentvault.MasterworkRewards;
 import net.minecraft.core.BlockPos;
@@ -77,9 +76,7 @@ final class HexwrightBaseHoard {
     private static List<ItemStack> finds(RandomSource random) {
         List<ItemStack> finds = new ArrayList<>();
         int tablets = TABLETS_MIN + random.nextInt(TABLETS_MAX - TABLETS_MIN + 1);
-        for (String recipe : DecadentVaultHoard.recipes(random, tablets)) {
-            finds.add(StoneTabletItem.of(recipe));
-        }
+        finds.addAll(DecadentVaultHoard.ruinedTablets(tablets));
         for (int i = 0; i < ARMOUR_PIECES; i++) {
             finds.add(MasterworkRewards.armourPiece(random));
         }

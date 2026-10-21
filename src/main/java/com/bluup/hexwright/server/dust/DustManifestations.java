@@ -196,7 +196,7 @@ public final class DustManifestations {
         }
     }
 
-    private static void release(LivingEntity caster) {
+    public static void release(LivingEntity caster) {
         if (body(caster) == null) {
             return;
         }

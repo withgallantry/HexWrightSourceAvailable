@@ -29,7 +29,9 @@ import com.lowdragmc.lowdraglib.gui.widget.SlotWidget
 import com.lowdragmc.lowdraglib.gui.widget.TextTextureWidget
 import com.lowdragmc.lowdraglib.gui.widget.WidgetGroup
 import com.lowdragmc.lowdraglib.gui.widget.Widget
+import com.mojang.blaze3d.systems.RenderSystem
 import net.minecraft.client.Minecraft
+import org.lwjgl.opengl.GL11
 import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.core.BlockPos
 import net.minecraft.core.NonNullList
@@ -493,6 +495,7 @@ class StaffAssemblyBlockEntity(
 
         val dialog = DialogWidget(ui.mainGroup, true)
         dialog.setClickClose(true)
+        dialog.addWidget(DepthClearWidget())
         dialog.addWidget(ImageWidget(0, 0, ui.width, ui.height, ColorRectTexture(0x4F000000)))
 
         root.setSelfPosition((ui.width - root.sizeWidth) / 2, (ui.height - root.sizeHeight) / 2)
@@ -625,6 +628,13 @@ class StaffAssemblyBlockEntity(
             val pos = position
             val size = this.size
             graphics.fill(pos.x, pos.y, pos.x + size.width, pos.y + size.height, COLOR_DIM_OVERLAY)
+        }
+    }
+
+    private class DepthClearWidget : Widget(0, 0, 0, 0) {
+        override fun drawInBackground(graphics: GuiGraphics, mouseX: Int, mouseY: Int, partialTicks: Float) {
+            graphics.flush()
+            RenderSystem.clear(GL11.GL_DEPTH_BUFFER_BIT, Minecraft.ON_OSX)
         }
     }
 

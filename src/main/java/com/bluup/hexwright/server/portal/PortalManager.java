@@ -16,6 +16,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.game.ClientboundMoveVehiclePacket;
 import net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
@@ -29,6 +30,8 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.RelativeMovement;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.projectile.Projectile;
+import net.minecraft.world.entity.vehicle.AbstractMinecart;
+import net.minecraft.world.entity.vehicle.Boat;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.saveddata.SavedData;
 import net.minecraft.world.phys.AABB;
@@ -36,6 +39,7 @@ import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -84,10 +88,25 @@ public final class PortalManager extends SavedData {
         REFUSED
     }
 
-    private static CrossingGuard crossingGuard = (pair, side, entity) -> true;
+    private static final List<CrossingGuard> CROSSING_GUARDS = new ArrayList<>();
 
-    public static void setCrossingGuard(CrossingGuard guard) {
-        crossingGuard = guard;
+    private static final Set<RelativeMovement> RIDER_POSITION_UNCHANGED =
+        EnumSet.of(RelativeMovement.X, RelativeMovement.Y, RelativeMovement.Z);
+
+    public static void addCrossingGuard(CrossingGuard guard) {
+        CROSSING_GUARDS.add(guard);
+    }
+
+    private static boolean mayCross(PortalPair pair, int side, Entity entity) {
+        if (pair.isCrossDimensional() && !everyRiderFoldsThrough(entity)) {
+            return false;
+        }
+        for (CrossingGuard guard : CROSSING_GUARDS) {
+            if (!guard.mayCross(pair, side, entity)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private final List<PortalPair> pairs = new ArrayList<>();
@@ -401,9 +420,20 @@ public final class PortalManager extends SavedData {
 
     public static boolean foldsThrough(Entity entity) {
         return entity instanceof LivingEntity
+            || entity instanceof AbstractMinecart
+            || entity instanceof Boat
             || entity instanceof ItemEntity
             || entity instanceof Projectile
             || entity instanceof ExperienceOrb;
+    }
+
+    private static boolean everyRiderFoldsThrough(Entity vehicle) {
+        for (Entity rider : vehicle.getIndirectPassengers()) {
+            if (!foldsThrough(rider)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private CrossResult tryCross(PortalPair pair, int side, Entity entity, Vec3 prev, Vec3 now) {
@@ -413,7 +443,7 @@ public final class PortalManager extends SavedData {
         }
         double sPrev = window.signedDistance(prev);
 
-        if (!crossingGuard.mayCross(pair, side, entity)) {
+        if (!mayCross(pair, side, entity)) {
             rebound(window, entity, sPrev);
             return CrossResult.REFUSED;
         }
@@ -451,7 +481,7 @@ public final class PortalManager extends SavedData {
                     || !window.containsProjected(center, CROSSING_MARGIN)) {
                     continue;
                 }
-                if (crossingGuard.mayCross(pair, side, entity)) {
+                if (mayCross(pair, side, entity)) {
                     continue;
                 }
                 rebound(window, entity, signed);
@@ -480,6 +510,7 @@ public final class PortalManager extends SavedData {
             entity.teleportTo(newPos.x, newPos.y, newPos.z);
             entity.setDeltaMovement(newVel);
             entity.hasImpulse = true;
+            resyncDriver(entity);
         }
     }
 
@@ -518,7 +549,7 @@ public final class PortalManager extends SavedData {
         }
 
         if (destLevel != level) {
-            applyCrossDimensionalTeleport(destLevel, entity, newPos, newVel, newYaw, yawDelta);
+            applyCrossDimensionalTeleport(destLevel, entity, newPos, newVel, newYaw, yawDelta, false);
             return;
         }
 
@@ -540,6 +571,25 @@ public final class PortalManager extends SavedData {
             foldRotation(entity, newYaw, yawDelta);
             entity.setDeltaMovement(newVel);
             entity.hasImpulse = true;
+            foldRiders(entity, yawDelta);
+        }
+    }
+
+    private static void foldRiders(Entity vehicle, float yawDelta) {
+        resyncDriver(vehicle);
+        for (Entity rider : vehicle.getIndirectPassengers()) {
+            float riderYaw = Mth.wrapDegrees(rider.getYRot() + yawDelta);
+            foldRotation(rider, riderYaw, yawDelta);
+            if (rider instanceof ServerPlayer player) {
+                player.connection.teleport(player.getX(), player.getY(), player.getZ(),
+                    riderYaw, player.getXRot(), RIDER_POSITION_UNCHANGED);
+            }
+        }
+    }
+
+    private static void resyncDriver(Entity vehicle) {
+        if (vehicle.getControllingPassenger() instanceof ServerPlayer driver) {
+            driver.connection.send(new ClientboundMoveVehiclePacket(vehicle));
         }
     }
 
@@ -554,32 +604,53 @@ public final class PortalManager extends SavedData {
         }
     }
 
-    private static void applyCrossDimensionalTeleport(ServerLevel destLevel, Entity entity,
-                                                      Vec3 newPos, Vec3 newVel, float newYaw, float headDelta) {
+    private static @Nullable Entity applyCrossDimensionalTeleport(ServerLevel destLevel, Entity entity,
+                                                                  Vec3 newPos, Vec3 newVel, float newYaw,
+                                                                  float headDelta, boolean riding) {
+        if (entity.isRemoved()) {
+            return null;
+        }
+        List<Entity> riders = List.copyOf(entity.getPassengers());
         if (entity instanceof ServerPlayer player) {
             double sourceY = player.getY();
             player.teleportTo(destLevel, newPos.x, newPos.y, newPos.z, newYaw, player.getXRot());
             player.setDeltaMovement(newVel);
             player.connection.send(new ClientboundSetEntityMotionPacket(player.getId(), newVel));
-            get(destLevel).beginLandingFreeze(player.getUUID(), newPos);
+            if (!riding) {
+                get(destLevel).beginLandingFreeze(player.getUUID(), newPos);
+            }
             get(destLevel).beginArrivalTrace(player.getUUID());
             if (HexwrightDebug.on(HexwrightDebug.PORTAL)) {
                 Hexwright.LOGGER.info("[arrival server] {} exits to {} at y={} (feet), from y={}",
                     player.getGameProfile().getName(), destLevel.dimension().location(),
-                    String.format("%.4f", newPos.y), String.format("%.4f", entity.getY()));
+                    String.format("%.4f", newPos.y), String.format("%.4f", sourceY));
             }
-            return;
+            carryRiders(destLevel, riders, player, newPos, headDelta);
+            return player;
         }
         UUID uuid = entity.getUUID();
         if (!entity.teleportTo(destLevel, newPos.x, newPos.y, newPos.z,
             Set.of(), newYaw, entity.getXRot())) {
-            return;
+            return null;
         }
         Entity moved = destLevel.getEntity(uuid);
         if (moved != null) {
             foldRotation(moved, newYaw, headDelta);
             moved.setDeltaMovement(newVel);
             moved.hasImpulse = true;
+            carryRiders(destLevel, riders, moved, newPos, headDelta);
+        }
+        return moved;
+    }
+
+    private static void carryRiders(ServerLevel destLevel, List<Entity> riders, Entity vehicle,
+                                    Vec3 seat, float yawDelta) {
+        for (Entity rider : riders) {
+            Entity carried = applyCrossDimensionalTeleport(destLevel, rider, seat, vehicle.getDeltaMovement(),
+                Mth.wrapDegrees(rider.getYRot() + yawDelta), yawDelta, true);
+            if (carried != null) {
+                carried.startRiding(vehicle, true);
+            }
         }
     }
 
@@ -624,7 +695,7 @@ public final class PortalManager extends SavedData {
             return;
         }
         double entrySign = clientEntrySign(window, prev, now);
-        if (!crossingGuard.mayCross(pair, side, player)) {
+        if (!mayCross(pair, side, player)) {
             rebound(window, player, entrySign);
             return;
         }

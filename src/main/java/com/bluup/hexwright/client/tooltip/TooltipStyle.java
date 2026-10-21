@@ -4,6 +4,7 @@ import com.bluup.hexwright.Hexwright;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.resources.ResourceLocation;
+import org.jetbrains.annotations.Nullable;
 
 public enum TooltipStyle {
     COMMON("common", 1, 1),
@@ -11,7 +12,9 @@ public enum TooltipStyle {
     RARE("rare", 1, 1),
     EPIC("epic", 1, 1),
     LEGENDARY("legendary", 15, 3),
-    ARTIFACT("artifact", 8, 4);
+    ARTIFACT("artifact", 8, 4),
+    POWER_ORB("power_orb", 8, 4, Overlay.of(TooltipWisps::render)),
+    SOULFORGED("soulforged", 8, 3, new Overlay(TooltipSoulfire::behind, TooltipSoulfire::front));
 
     private static final int SPRITE = 100;
     private static final int BORDER = 30;
@@ -25,12 +28,19 @@ public enum TooltipStyle {
     private final ResourceLocation frame;
     private final int frameCount;
     private final int frameTicks;
+    @Nullable
+    private final Overlay overlay;
 
     TooltipStyle(String name, int frameCount, int frameTicks) {
+        this(name, frameCount, frameTicks, null);
+    }
+
+    TooltipStyle(String name, int frameCount, int frameTicks, @Nullable Overlay overlay) {
         this.background = Hexwright.id("textures/gui/tooltip/" + name + "_background.png");
         this.frame = Hexwright.id("textures/gui/tooltip/" + name + "_frame.png");
         this.frameCount = frameCount;
         this.frameTicks = frameTicks;
+        this.overlay = overlay;
     }
 
     public void render(GuiGraphics graphics, int x, int y, int width, int height, int z) {
@@ -41,11 +51,18 @@ public enum TooltipStyle {
 
         graphics.pose().pushPose();
         graphics.pose().translate(0.0F, 0.0F, z);
+        if (this.overlay != null && this.overlay.behind() != null) {
+            this.overlay.behind().draw(graphics, left, top, w, h);
+            graphics.flush();
+        }
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
 
         nineSlice(graphics, background, left, top, w, h, 0, SPRITE);
         renderFrame(graphics, left, top, w, h);
+        if (this.overlay != null) {
+            this.overlay.front().draw(graphics, left, top, w, h);
+        }
 
         RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
         graphics.pose().popPose();
@@ -114,6 +131,17 @@ public enum TooltipStyle {
             blit(graphics, texture, x + edgeX, y + edgeTop, innerW, innerH,
                 BORDER, frameV + BORDER, srcInnerW, srcInnerH, textureHeight);
         }
+    }
+
+    record Overlay(@Nullable Layer behind, Layer front) {
+        static Overlay of(Layer front) {
+            return new Overlay(null, front);
+        }
+    }
+
+    @FunctionalInterface
+    interface Layer {
+        void draw(GuiGraphics graphics, int left, int top, int width, int height);
     }
 
     private static void blit(

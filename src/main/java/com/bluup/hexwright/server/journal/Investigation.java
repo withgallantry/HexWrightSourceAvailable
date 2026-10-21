@@ -16,7 +16,8 @@ public record Investigation(
     Detail detail,
     List<String> requires,
     CompletionCondition completion,
-    List<String> unlocks
+    List<String> unlocks,
+    boolean hidden
 ) {
 
     public record Detail(String title, String image, List<String> lines) {
@@ -58,7 +59,8 @@ public record Investigation(
             ),
             strings(GsonHelper.getAsJsonArray(json, "requires", new JsonArray())),
             CompletionCondition.parse(GsonHelper.getAsJsonObject(json, "completion")),
-            strings(GsonHelper.getAsJsonArray(json, "unlocks", new JsonArray()))
+            strings(GsonHelper.getAsJsonArray(json, "unlocks", new JsonArray())),
+            GsonHelper.getAsBoolean(json, "hidden", false)
         );
     }
 

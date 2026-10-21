@@ -1,6 +1,7 @@
 package com.bluup.hexwright.server.vault;
 
 import com.bluup.hexwright.server.item.HexwrightItems;
+import com.bluup.hexwright.server.pentabox.PentaboxData;
 import com.bluup.hexwright.server.talisman.HexwrightRecipes;
 import net.minecraft.core.NonNullList;
 import net.minecraft.core.RegistryAccess;
@@ -31,6 +32,7 @@ public class VaultKeyCopyRecipe extends CustomRecipe {
         }
         ItemStack copy = source.copy();
         copy.setCount(1);
+        PentaboxData.clearLinkTag(copy);
         return copy;
     }
 

@@ -85,6 +85,7 @@ public abstract class VehicleEntity extends Entity {
     private boolean converting = false;
     private int flightProgramCooldown = 0;
     private boolean hadControllingRider = false;
+    private @Nullable UUID pilotId;
     private @Nullable UUID dismountedRider;
     private boolean dismountedToGround = false;
     private boolean dismountedWithNoRoom = false;
@@ -324,6 +325,15 @@ public abstract class VehicleEntity extends Entity {
             return true;
         }
         return false;
+    }
+
+    @Override
+    protected void addPassenger(Entity passenger) {
+        boolean wasEmpty = this.getPassengers().isEmpty();
+        super.addPassenger(passenger);
+        if (wasEmpty) {
+            pilotId = passenger.getUUID();
+        }
     }
 
     @Override
@@ -590,10 +600,11 @@ public abstract class VehicleEntity extends Entity {
         if (!dismountedWithNoRoom && (!dismountedToGround || !packsAwayOnDismount())) {
             return false;
         }
-        if (!dismountedWithNoRoom && !this.getPassengers().isEmpty()) {
+        boolean isPilot = riderId.equals(pilotId);
+        if (!dismountedWithNoRoom && (!isPilot || !this.getPassengers().isEmpty())) {
             return false;
         }
-        ServerPlayer rider = this.level().getServer() == null
+        ServerPlayer rider = !isPilot || this.level().getServer() == null
             ? null
             : this.level().getServer().getPlayerList().getPlayer(riderId);
         return convertToItemAndDiscard(ConversionReason.PACKED_AWAY, rider);

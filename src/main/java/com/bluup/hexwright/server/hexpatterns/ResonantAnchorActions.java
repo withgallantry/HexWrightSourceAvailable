@@ -30,7 +30,7 @@ public final class ResonantAnchorActions {
         Registry<ActionRegistryEntry> registry = IXplatAbstractions.INSTANCE.getActionRegistry();
 
         Registry.register(registry, Hexwright.id("resonant_anchors_purification"),
-            new ActionRegistryEntry(HexPattern.fromAngles("qaqwwdwdw", HexDir.SOUTH_WEST), RESONANT_ANCHORS_PURIFICATION));
+            new ActionRegistryEntry(HexPattern.fromAngles("qaqwwdwdwedeed", HexDir.NORTH_EAST), RESONANT_ANCHORS_PURIFICATION));
     }
 
     private static final ConstMediaAction RESONANT_ANCHORS_PURIFICATION = new HexwrightConstMediaAction() {

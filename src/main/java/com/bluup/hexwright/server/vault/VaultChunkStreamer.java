@@ -18,12 +18,14 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Supplier;
 
 public final class VaultChunkStreamer {
 
@@ -41,10 +43,10 @@ public final class VaultChunkStreamer {
 
     private static long tickCounter;
 
-    private record PendingSend(VaultPortalSession session, ResourceKey<Level> dimension,
+    private record PendingSend(StreamedPortal session, ResourceKey<Level> dimension,
                                ArrayDeque<ChunkPos> queue, long retryDeadline) {
 
-        static PendingSend of(VaultPortalSession session, ServerLevel level, List<ChunkPos> chunks) {
+        static PendingSend of(StreamedPortal session, ServerLevel level, List<ChunkPos> chunks) {
             return new PendingSend(session, level.dimension(), new ArrayDeque<>(chunks),
                 tickCounter + PENDING_RETRY_TICKS);
         }
@@ -58,7 +60,7 @@ public final class VaultChunkStreamer {
         owed.add(send);
     }
 
-    private static void cancel(UUID playerId, VaultPortalSession session, ResourceKey<Level> dimension) {
+    private static void cancel(UUID playerId, StreamedPortal session, ResourceKey<Level> dimension) {
         List<PendingSend> owed = PENDING.get(playerId);
         if (owed != null && owed.removeIf(p -> p.session() == session && p.dimension().equals(dimension))
             && owed.isEmpty()) {
@@ -66,25 +68,61 @@ public final class VaultChunkStreamer {
         }
     }
 
-    private static final Map<UUID, Set<ResourceLocation>> RETAINED = new HashMap<>();
+    private record Retained(ChunkPos center, int radius) {
+    }
 
-    public static void setRetained(UUID playerId, ResourceLocation dimension, boolean retained) {
-        if (retained) {
-            RETAINED.computeIfAbsent(playerId, id -> new HashSet<>()).add(dimension);
-        } else {
-            Set<ResourceLocation> held = RETAINED.get(playerId);
-            if (held != null && held.remove(dimension) && held.isEmpty()) {
-                RETAINED.remove(playerId);
-            }
+    private static final Map<UUID, Map<ResourceLocation, Retained>> RETAINED = new HashMap<>();
+
+    public static void setRetained(UUID playerId, ResourceLocation dimension, ChunkPos center, int radius) {
+        RETAINED.computeIfAbsent(playerId, id -> new HashMap<>()).put(dimension, new Retained(center, radius));
+    }
+
+    public static void dropRetained(UUID playerId, ResourceLocation dimension) {
+        Map<ResourceLocation, Retained> held = RETAINED.get(playerId);
+        if (held != null && held.remove(dimension) != null && held.isEmpty()) {
+            RETAINED.remove(playerId);
         }
     }
 
-    private static boolean hasRetained(UUID playerId, ServerLevel level) {
-        Set<ResourceLocation> held = RETAINED.get(playerId);
-        return held != null && held.contains(level.dimension().location());
+    private static @Nullable Retained retained(UUID playerId, ResourceKey<Level> dimension) {
+        Map<ResourceLocation, Retained> held = RETAINED.get(playerId);
+        return held == null ? null : held.get(dimension.location());
     }
 
+    private static boolean retainedCovers(UUID playerId, StreamedPortal session) {
+        Retained kept = retained(playerId, session.outsideDimension());
+        if (kept == null) {
+            return false;
+        }
+        ChunkPos mouth = chunkOf(session.outsideWindow().center());
+        int distance = Math.max(Math.abs(mouth.x - kept.center().x), Math.abs(mouth.z - kept.center().z));
+        return distance + VaultManager.OUTSIDE_WATCH_RADIUS_CHUNKS <= kept.radius();
+    }
+
+    private static final List<Supplier<? extends Collection<? extends StreamedPortal>>> SOURCES = new ArrayList<>();
+
     private VaultChunkStreamer() {
+    }
+
+    public static void addSource(Supplier<? extends Collection<? extends StreamedPortal>> source) {
+        SOURCES.add(source);
+    }
+
+    private static List<StreamedPortal> doors() {
+        List<StreamedPortal> doors = new ArrayList<>();
+        for (Supplier<? extends Collection<? extends StreamedPortal>> source : SOURCES) {
+            doors.addAll(source.get());
+        }
+        return doors;
+    }
+
+    private static boolean noDoors() {
+        for (Supplier<? extends Collection<? extends StreamedPortal>> source : SOURCES) {
+            if (!source.get().isEmpty()) {
+                return false;
+            }
+        }
+        return true;
     }
 
     static void tick(MinecraftServer server) {
@@ -95,8 +133,8 @@ public final class VaultChunkStreamer {
         if (!refreshSubscriptions && !snapshotEntities) {
             return;
         }
-        for (VaultPortalSession session : List.copyOf(VaultManager.activeSessions())) {
-            ServerLevel vaultLevel = VaultDimension.level(server);
+        for (StreamedPortal session : doors()) {
+            ServerLevel vaultLevel = server.getLevel(session.insideDimension());
             ServerLevel outsideLevel = server.getLevel(session.outsideDimension());
             if (vaultLevel == null || outsideLevel == null) {
                 continue;
@@ -111,7 +149,7 @@ public final class VaultChunkStreamer {
     }
 
 
-    private static void updateSubscriptions(MinecraftServer server, VaultPortalSession session,
+    private static void updateSubscriptions(MinecraftServer server, StreamedPortal session,
                                             ServerLevel vaultLevel, ServerLevel outsideLevel) {
         Set<UUID> desiredVaultViewers = new HashSet<>();
         double rangeSq = SUBSCRIBE_RANGE * SUBSCRIBE_RANGE;
@@ -123,20 +161,19 @@ public final class VaultChunkStreamer {
         }
         Set<UUID> desiredOutsideViewers = new HashSet<>(session.occupants());
 
-        diffSubscribers(server, session.vaultViewers(), desiredVaultViewers,
+        diffSubscribers(server, session.insideViewers(), desiredVaultViewers,
             added -> {
                 HexwrightNetworking.sendVaultLevelInit(added, vaultLevel);
-                queue(added, PendingSend.of(session, vaultLevel, vaultViewChunks(session)));
+                queue(added, PendingSend.of(session, vaultLevel, session.insideChunks()));
             },
             removed -> {
                 cancel(removed.getUUID(), session, vaultLevel.dimension());
-                HexwrightNetworking.sendVaultChunkForget(removed, vaultLevel.dimension(),
-                    vaultViewChunks(session));
+                forgetUnshared(removed, session, vaultLevel.dimension(), session.insideChunks());
             });
 
         diffSubscribers(server, session.outsideViewers(), desiredOutsideViewers,
             added -> {
-                if (hasRetained(added.getUUID(), outsideLevel)) {
+                if (retainedCovers(added.getUUID(), session)) {
                     return;
                 }
                 HexwrightNetworking.sendVaultLevelInit(added, outsideLevel);
@@ -144,9 +181,38 @@ public final class VaultChunkStreamer {
             },
             removed -> {
                 cancel(removed.getUUID(), session, outsideLevel.dimension());
-                HexwrightNetworking.sendVaultChunkForget(removed, outsideLevel.dimension(),
-                    session.outsideChunks());
+                forgetUnshared(removed, session, outsideLevel.dimension(), session.outsideChunks());
             });
+    }
+
+    private static void forgetUnshared(ServerPlayer player, StreamedPortal leaving,
+                                       ResourceKey<Level> dimension, List<ChunkPos> chunks) {
+        UUID id = player.getUUID();
+        Set<Long> stillShown = new HashSet<>();
+        for (StreamedPortal other : doors()) {
+            if (other == leaving) {
+                continue;
+            }
+            if (dimension.equals(other.insideDimension()) && other.insideViewers().contains(id)) {
+                for (ChunkPos chunk : other.insideChunks()) {
+                    stillShown.add(chunk.toLong());
+                }
+            }
+            if (dimension.equals(other.outsideDimension()) && other.outsideViewers().contains(id)) {
+                for (ChunkPos chunk : other.outsideChunks()) {
+                    stillShown.add(chunk.toLong());
+                }
+            }
+        }
+        List<ChunkPos> forgotten = new ArrayList<>(chunks.size());
+        for (ChunkPos chunk : chunks) {
+            if (!stillShown.contains(chunk.toLong())) {
+                forgotten.add(chunk);
+            }
+        }
+        if (!forgotten.isEmpty()) {
+            HexwrightNetworking.sendVaultChunkForget(player, dimension, forgotten);
+        }
     }
 
     private static void drainPending(MinecraftServer server) {
@@ -221,10 +287,6 @@ public final class VaultChunkStreamer {
         }
     }
 
-    static List<ChunkPos> vaultViewChunks(VaultPortalSession session) {
-        return session.vaultChunks();
-    }
-
     private static boolean sendChunk(ServerPlayer player, ServerLevel level, ChunkPos pos) {
         LevelChunk chunk = level.getChunkSource().getChunkNow(pos.x, pos.z);
         if (chunk == null) {
@@ -236,16 +298,16 @@ public final class VaultChunkStreamer {
 
 
     public static void onBlockChanged(ServerLevel level, BlockPos pos) {
-        if (VaultManager.activeSessions().isEmpty()) {
+        if (noDoors()) {
             return;
         }
         int chunkX = pos.getX() >> 4;
         int chunkZ = pos.getZ() >> 4;
-        for (VaultPortalSession session : VaultManager.activeSessions()) {
-            if (VaultDimension.isVaultLevel(level)) {
-                if (session.watchesVaultChunk(chunkX, chunkZ)) {
+        for (StreamedPortal session : doors()) {
+            if (level.dimension().equals(session.insideDimension())) {
+                if (session.watchesInsideChunk(chunkX, chunkZ)) {
                     HexwrightNetworking.sendVaultBlockUpdate(
-                        level, session.vaultViewers(), pos);
+                        level, session.insideViewers(), pos);
                 }
             } else if (level.dimension().equals(session.outsideDimension())) {
                 for (ChunkPos chunk : session.outsideChunks()) {
@@ -259,12 +321,12 @@ public final class VaultChunkStreamer {
         }
     }
 
-    private static void snapshotEntities(MinecraftServer server, VaultPortalSession session,
+    private static void snapshotEntities(MinecraftServer server, StreamedPortal session,
                                          ServerLevel vaultLevel, ServerLevel outsideLevel) {
-        if (!session.vaultViewers().isEmpty()) {
-            AABB room = session.roomBounds();
+        if (!session.insideViewers().isEmpty()) {
+            AABB room = session.insideBounds();
             HexwrightNetworking.sendVaultEntities(server, vaultLevel, chunkOf(room.getCenter()),
-                session.vaultViewers(), gatherEntities(vaultLevel, room));
+                session.insideViewers(), gatherEntities(vaultLevel, room));
         }
         if (!session.outsideViewers().isEmpty()) {
             Vec3 c = session.outsideWindow().center();
@@ -292,50 +354,50 @@ public final class VaultChunkStreamer {
 
     static void onDoorRelocated(MinecraftServer server, VaultPortalSession session,
                                 @Nullable ServerLevel oldOutsideLevel) {
-        for (UUID id : session.vaultViewers()) {
-            cancel(id, session, VaultDimension.KEY);
+        for (UUID id : session.insideViewers()) {
+            cancel(id, session, session.insideDimension());
             ServerPlayer player = server.getPlayerList().getPlayer(id);
             if (player != null) {
-                HexwrightNetworking.sendVaultChunkForget(player, VaultDimension.KEY,
-                    vaultViewChunks(session));
+                forgetUnshared(player, session, session.insideDimension(), session.insideChunks());
             }
         }
         for (UUID id : session.outsideViewers()) {
             if (oldOutsideLevel != null) {
                 cancel(id, session, oldOutsideLevel.dimension());
-                setRetained(id, oldOutsideLevel.dimension().location(), false);
             }
         }
-        session.vaultViewers().clear();
+        session.insideViewers().clear();
         session.outsideViewers().clear();
     }
 
-    static void release(MinecraftServer server, VaultPortalSession session) {
+    public static void release(MinecraftServer server, StreamedPortal session) {
         for (UUID id : session.outsideViewers()) {
             cancel(id, session, session.outsideDimension());
         }
-        for (UUID id : session.vaultViewers()) {
-            cancel(id, session, VaultDimension.KEY);
+        for (UUID id : session.insideViewers()) {
+            cancel(id, session, session.insideDimension());
         }
-        for (UUID id : session.vaultViewers()) {
+        for (UUID id : session.insideViewers()) {
             ServerPlayer player = server.getPlayerList().getPlayer(id);
             if (player != null) {
-                HexwrightNetworking.sendVaultChunkForget(player, VaultDimension.KEY,
-                    vaultViewChunks(session));
+                forgetUnshared(player, session, session.insideDimension(), session.insideChunks());
             }
         }
         for (UUID id : session.outsideViewers()) {
             ServerPlayer player = server.getPlayerList().getPlayer(id);
-            if (player != null) {
-                HexwrightNetworking.sendVaultChunkForget(player, session.outsideDimension(),
-                    session.outsideChunks());
+            if (player != null && retained(id, session.outsideDimension()) == null) {
+                forgetUnshared(player, session, session.outsideDimension(), session.outsideChunks());
             }
         }
-        session.vaultViewers().clear();
+        session.insideViewers().clear();
         session.outsideViewers().clear();
     }
 
-    static void forget(UUID playerId) {
+    public static void forget(UUID playerId) {
+        for (StreamedPortal door : doors()) {
+            door.insideViewers().remove(playerId);
+            door.outsideViewers().remove(playerId);
+        }
         PENDING.remove(playerId);
         RETAINED.remove(playerId);
     }

@@ -14,6 +14,7 @@ public final class PortalWindow {
     private final Vec3 origin;
     private final Vec3 u;
     private final Vec3 v;
+    private final boolean round;
 
     private final Vec3 uHat;
     private final Vec3 vHat;
@@ -22,9 +23,14 @@ public final class PortalWindow {
     private final double height;
 
     public PortalWindow(Vec3 origin, Vec3 u, Vec3 v) {
+        this(origin, u, v, false);
+    }
+
+    public PortalWindow(Vec3 origin, Vec3 u, Vec3 v, boolean round) {
         this.origin = origin;
         this.u = u;
         this.v = v;
+        this.round = round;
         this.width = u.length();
         this.height = v.length();
         this.uHat = u.scale(1.0 / this.width);
@@ -61,6 +67,10 @@ public final class PortalWindow {
 
     public Vec3 origin() {
         return origin;
+    }
+
+    public boolean round() {
+        return round;
     }
 
     public Vec3 u() {
@@ -110,6 +120,11 @@ public final class PortalWindow {
     public boolean containsProjected(Vec3 point, double margin) {
         double a = localU(point);
         double b = localV(point);
+        if (round) {
+            double across = (a - width * 0.5) / (width * 0.5 + margin);
+            double up = (b - height * 0.5) / (height * 0.5 + margin);
+            return across * across + up * up <= 1.0;
+        }
         return a >= -margin && a <= width + margin && b >= -margin && b <= height + margin;
     }
 
@@ -158,21 +173,25 @@ public final class PortalWindow {
         putVec(tag, "Origin", origin);
         putVec(tag, "U", u);
         putVec(tag, "V", v);
+        if (round) {
+            tag.putBoolean("Round", true);
+        }
         return tag;
     }
 
     public static PortalWindow load(CompoundTag tag) {
-        return new PortalWindow(getVec(tag, "Origin"), getVec(tag, "U"), getVec(tag, "V"));
+        return new PortalWindow(getVec(tag, "Origin"), getVec(tag, "U"), getVec(tag, "V"), tag.getBoolean("Round"));
     }
 
     public void write(FriendlyByteBuf buf) {
         writeVec(buf, origin);
         writeVec(buf, u);
         writeVec(buf, v);
+        buf.writeBoolean(round);
     }
 
     public static PortalWindow read(FriendlyByteBuf buf) {
-        return new PortalWindow(readVec(buf), readVec(buf), readVec(buf));
+        return new PortalWindow(readVec(buf), readVec(buf), readVec(buf), buf.readBoolean());
     }
 
     private static void putVec(CompoundTag tag, String key, Vec3 vec) {

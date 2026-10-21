@@ -11,6 +11,7 @@ import com.bluup.hexwright.server.staff_assembly.StaffPowerCastEnv;
 import com.bluup.hexwright.server.talisman.TalismanCastEnv;
 import com.bluup.hexwright.server.talisman.TalismanCasting;
 import com.bluup.hexwright.server.talisman.TalismanData;
+import com.bluup.hexwright.server.weapon.WebBallRangeComponent;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import org.spongepowered.asm.mixin.Mixin;
@@ -27,6 +28,14 @@ public abstract class StaffCastEnvMixin {
     )
     private void hexwright$attachResonantField(ServerPlayer caster, InteractionHand hand, CallbackInfo ci) {
         ((StaffCastEnv) (Object) this).addExtension(new ResonantFieldRangeComponent(caster));
+    }
+
+    @Inject(
+        method = "<init>",
+        at = @At("TAIL")
+    )
+    private void hexwright$attachWebBalls(ServerPlayer caster, InteractionHand hand, CallbackInfo ci) {
+        ((StaffCastEnv) (Object) this).addExtension(new WebBallRangeComponent(caster));
     }
 
     @Inject(

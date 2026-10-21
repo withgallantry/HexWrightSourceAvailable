@@ -4,9 +4,12 @@ import at.petrak.hexcasting.api.casting.iota.Iota;
 import at.petrak.hexcasting.api.casting.iota.IotaType;
 import at.petrak.hexcasting.api.item.IotaHolderItem;
 import at.petrak.hexcasting.api.utils.NBTHelper;
+import com.bluup.hexwright.server.armour.ArmourTier;
+import com.bluup.hexwright.server.armour.Restylable;
 import com.bluup.hexwright.server.armour.VenatorPowers;
 import com.bluup.hexwright.server.item.ArtifactItem;
 import com.bluup.hexwright.server.item.EngravableItem;
+import com.bluup.hexwright.server.item.HexwrightItems;
 import com.bluup.hexwright.server.item.RechargingItem;
 import com.bluup.hexwright.server.pocketcaster.PocketCasterData;
 import net.minecraft.ChatFormatting;
@@ -23,6 +26,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.projectile.AbstractArrow;
 import net.minecraft.world.item.ArrowItem;
 import net.minecraft.world.item.BowItem;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.TooltipFlag;
@@ -33,7 +37,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 
-public class GreatBowItem extends BowItem implements EngravableItem, RechargingItem {
+public class GreatBowItem extends BowItem implements EngravableItem, RechargingItem, Restylable {
 
     private static final String TAG_HEX_DATA = "data";
 
@@ -52,6 +56,17 @@ public class GreatBowItem extends BowItem implements EngravableItem, RechargingI
         return this.quality;
     }
 
+
+    @Override
+    public @Nullable ArmourTier ownLook() {
+        return Restylable.gradedLook(HexwrightItems.ARCHER_GREAT_BOWS, this, this.quality);
+    }
+
+    @Override
+    public Item lookItem(ArmourTier look) {
+        return HexwrightItems.ARCHER_GREAT_BOWS.get(look.displayQuality());
+    }
+
     protected double arrowBaseDamage() {
         return GreatBowGrade.arrowBaseDamage(this.quality);
     }
@@ -62,6 +77,9 @@ public class GreatBowItem extends BowItem implements EngravableItem, RechargingI
 
     protected boolean hasInfiniteAmmo() {
         return false;
+    }
+
+    protected void prepareArrow(AbstractArrow arrow) {
     }
 
     protected boolean armsShots() {
@@ -140,6 +158,18 @@ public class GreatBowItem extends BowItem implements EngravableItem, RechargingI
         return null;
     }
 
+    protected static long abilityRemaining(ItemStack stack, Level level, String rootTag, String key,
+                                           int cooldownTicks) {
+        CompoundTag root = stack.getTagElement(rootTag);
+        long remaining = (root == null ? 0L : root.getLong(key)) - level.getGameTime();
+        return Math.max(0L, Math.min(remaining, cooldownTicks));
+    }
+
+    protected static void startAbilityRecharge(ItemStack stack, Level level, String rootTag, String key,
+                                               int cooldownTicks) {
+        stack.getOrCreateTagElement(rootTag).putLong(key, level.getGameTime() + cooldownTicks);
+    }
+
 
     @Override
     public void releaseUsing(ItemStack bow, Level level, LivingEntity shooter, int timeLeft) {
@@ -166,6 +196,7 @@ public class GreatBowItem extends BowItem implements EngravableItem, RechargingI
         if (!level.isClientSide) {
             AbstractArrow arrow = createArrow(level, ammo, player);
             arrow.setBaseDamage(arrowBaseDamage());
+            prepareArrow(arrow);
 
             if (arm(bow, level, arrow)) {
                 int cooldown = VenatorPowers.hexCooldownFor(player, hexCooldownTicks());
@@ -252,6 +283,10 @@ public class GreatBowItem extends BowItem implements EngravableItem, RechargingI
     protected void appendExtraTooltip(ItemStack stack, List<Component> tooltip) {
     }
 
+    protected Component uninscribedTooltip() {
+        return Component.translatable("tooltip.hexwright.archer_great_bow.uninscribed");
+    }
+
     @Override
     public void appendHoverText(ItemStack stack, @Nullable Level level, List<Component> tooltip,
                                 TooltipFlag flag) {
@@ -262,6 +297,7 @@ public class GreatBowItem extends BowItem implements EngravableItem, RechargingI
                     Component.translatable(this.quality.translationKey()).withStyle(this.quality.color()))
                 .withStyle(ChatFormatting.GRAY));
         }
+        appendLookTooltip(stack, tooltip);
         if (armsShots()) {
             int cooldown = hexCooldownTicks();
             WeaponTooltips.add(tooltip, Component.translatable("tooltip.hexwright.archer_great_bow.cast"),
@@ -272,8 +308,7 @@ public class GreatBowItem extends BowItem implements EngravableItem, RechargingI
 
         CompoundTag hex = readIotaTag(stack);
         if (hex == null || hex.isEmpty()) {
-            WeaponTooltips.add(tooltip, Component.translatable("tooltip.hexwright.archer_great_bow.uninscribed"),
-                ChatFormatting.DARK_GRAY);
+            WeaponTooltips.add(tooltip, uninscribedTooltip(), ChatFormatting.DARK_GRAY);
         }
 
         appendExtraTooltip(stack, tooltip);

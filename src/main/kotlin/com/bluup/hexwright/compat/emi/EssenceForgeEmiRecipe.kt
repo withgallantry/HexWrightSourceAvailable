@@ -16,6 +16,7 @@ class EssenceForgeEmiRecipe(
 ) : EmiRecipe {
 
     private val input: EmiIngredient = EmiStack.of(display.pouch)
+    private val golemCores: EmiIngredient? = if (display.golemCores.isEmpty) null else EmiStack.of(display.golemCores)
     private val results: List<EmiStack> = display.outputs.map { EmiStack.of(it) }
     private val cycledResults: EmiIngredient = EmiIngredient.of(results)
 
@@ -23,7 +24,7 @@ class EssenceForgeEmiRecipe(
 
     override fun getId(): ResourceLocation = display.id
 
-    override fun getInputs(): List<EmiIngredient> = listOf(input)
+    override fun getInputs(): List<EmiIngredient> = listOfNotNull(input, golemCores)
 
     override fun getOutputs(): List<EmiStack> = results
 
@@ -34,7 +35,7 @@ class EssenceForgeEmiRecipe(
     override fun supportsRecipeTree(): Boolean = false
 
     override fun addWidgets(widgets: WidgetHolder) {
-        widgets.addTexture(EmiTexture.EMPTY_ARROW, EssenceForgePanel.ARROW_X, EssenceForgePanel.ARROW_Y)
+        widgets.addTexture(EmiTexture.EMPTY_ARROW, EssenceForgePanel.arrowX(display), EssenceForgePanel.ARROW_Y)
 
         widgets.addSlot(
             input,
@@ -42,9 +43,17 @@ class EssenceForgeEmiRecipe(
             EssenceForgePanel.SLOT_Y - EssenceForgePanel.SLOT_BACKGROUND_INSET
         )
 
+        if (golemCores != null) {
+            widgets.addSlot(
+                golemCores,
+                EssenceForgePanel.GOLEM_CORES_X - EssenceForgePanel.SLOT_BACKGROUND_INSET,
+                EssenceForgePanel.SLOT_Y - EssenceForgePanel.SLOT_BACKGROUND_INSET
+            )
+        }
+
         widgets.addSlot(
             cycledResults,
-            EssenceForgePanel.OUTPUT_X - EssenceForgePanel.SLOT_BACKGROUND_INSET,
+            EssenceForgePanel.outputX(display) - EssenceForgePanel.SLOT_BACKGROUND_INSET,
             EssenceForgePanel.SLOT_Y - EssenceForgePanel.SLOT_BACKGROUND_INSET
         )
             .recipeContext(this)

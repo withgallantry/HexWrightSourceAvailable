@@ -1,18 +1,20 @@
 package com.bluup.hexwright.server.worldgen.arena;
 
 import com.bluup.hexwright.Hexwright;
+import com.bluup.hexwright.mixin.StructureTemplateAccessor;
 import com.bluup.hexwright.server.boss.HexwrightBossEntities;
 import com.bluup.hexwright.server.boss.ancient.AncientBallistaEntity;
 import com.bluup.hexwright.server.boss.ancient.AncientGolemEntity;
 import com.bluup.hexwright.server.boss.ancient.AncientMercenaryEntity;
 import com.bluup.hexwright.server.worldgen.HexwrightWorldgen;
+import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
+import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.MobSpawnType;
-import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.ServerLevelAccessor;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
@@ -25,6 +27,8 @@ import net.minecraft.world.level.levelgen.structure.templatesystem.StructurePlac
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplateManager;
 import org.jetbrains.annotations.Nullable;
+
+import java.util.List;
 
 public class ArenaPiece extends TemplateStructurePiece {
 
@@ -41,20 +45,14 @@ public class ArenaPiece extends TemplateStructurePiece {
 
     private static final double BALLISTA_CENTRE = 1.12D;
 
-    @Nullable
-    private final ChunkPos startChunk;
-
-    public ArenaPiece(StructureTemplateManager templates, BlockPos origin, Rotation rotation,
-                       ChunkPos startChunk) {
+    public ArenaPiece(StructureTemplateManager templates, BlockPos origin, Rotation rotation) {
         super(HexwrightWorldgen.ARENA_PIECE, 0, templates, TEMPLATE, TEMPLATE.toString(),
             settings(rotation), align(templates, rotation, origin));
-        this.startChunk = startChunk;
     }
 
     public ArenaPiece(StructureTemplateManager templates, CompoundTag tag) {
         super(HexwrightWorldgen.ARENA_PIECE, tag, templates,
             template -> settings(savedRotation(tag)));
-        this.startChunk = null;
     }
 
     private static StructurePlaceSettings settings(Rotation rotation) {
@@ -104,6 +102,20 @@ public class ArenaPiece extends TemplateStructurePiece {
         return null;
     }
 
+    Long2ObjectMap<Block> templateBlocks() {
+        StructurePlaceSettings turned = settings(this.placeSettings.getRotation());
+        List<StructureTemplate.Palette> palettes =
+            ((StructureTemplateAccessor) this.template).hexwright$palettes();
+        Long2ObjectMap<Block> blocks = new Long2ObjectOpenHashMap<>();
+        for (StructureTemplate.StructureBlockInfo info :
+            turned.getRandomPalette(palettes, this.templatePosition).blocks()) {
+            BlockPos pos = StructureTemplate.calculateRelativePosition(turned, info.pos())
+                .offset(this.templatePosition);
+            blocks.put(pos.asLong(), info.state().getBlock());
+        }
+        return blocks;
+    }
+
     @Nullable
     public BlockPos entryPoint() {
         BlockPos golem = markerPos(GOLEM_MARKER);
@@ -133,9 +145,6 @@ public class ArenaPiece extends TemplateStructurePiece {
             null, null);
         golem.setPersistenceRequired();
         golem.setArena(this.boundingBox);
-        if (this.startChunk != null) {
-            golem.setArenaStartChunk(this.startChunk);
-        }
         level.addFreshEntity(golem);
     }
 

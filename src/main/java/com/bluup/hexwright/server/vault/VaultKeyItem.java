@@ -1,5 +1,6 @@
 package com.bluup.hexwright.server.vault;
 
+import com.bluup.hexwright.server.block.HexwrightBlocks;
 import com.bluup.hexwright.server.item.ArtifactItem;
 import com.bluup.hexwright.server.item.HexwrightItems;
 import com.bluup.hexwright.server.pocketcaster.PocketCasterData;
@@ -12,13 +13,16 @@ import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
 import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.state.BlockState;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
@@ -28,6 +32,8 @@ public final class VaultKeyItem extends Item implements ArtifactItem {
     public static final String TAG_VAULT_ID = "VaultId";
     public static final String TAG_GRADE = "Grade";
     public static final String TAG_ARTIFACT = "Artifact";
+
+    public static final String TAG_FRAME_ID = "FrameId";
 
     private static final PocketCasterData.Quality LEGACY_GRADE = PocketCasterData.Quality.FINE;
 
@@ -62,6 +68,19 @@ public final class VaultKeyItem extends Item implements ArtifactItem {
         return tag.getInt(TAG_VAULT_ID);
     }
 
+    public static int frameId(ItemStack stack) {
+        var tag = stack.getTag();
+        return tag == null ? VaultRecord.MAIN_DOOR : tag.getInt(TAG_FRAME_ID);
+    }
+
+    static void cutToFrame(ItemStack blank, VaultRecord record, int frameId) {
+        var tag = blank.getOrCreateTag();
+        tag.putInt(TAG_VAULT_ID, record.id());
+        tag.putString(TAG_GRADE, record.grade().name());
+        tag.putBoolean(TAG_ARTIFACT, record.artifact());
+        tag.putInt(TAG_FRAME_ID, frameId);
+    }
+
     public static PocketCasterData.Quality grade(ItemStack stack) {
         var tag = stack.getTag();
         if (tag == null || !tag.contains(TAG_GRADE)) {
@@ -91,17 +110,43 @@ public final class VaultKeyItem extends Item implements ArtifactItem {
     }
 
     @Override
+    public InteractionResult useOn(UseOnContext context) {
+        ItemStack stack = context.getItemInHand();
+        Level level = context.getLevel();
+        if (!VaultDimension.isVaultLevel(level)) {
+            return InteractionResult.PASS;
+        }
+        BlockState clicked = level.getBlockState(context.getClickedPos());
+        Integer vaultId = boundVault(stack);
+        boolean handled = vaultId == null
+            ? clicked.is(HexwrightBlocks.BINDSTONE_BLOCK)
+            : frameId(stack) == VaultRecord.MAIN_DOOR
+                && (clicked.is(HexwrightBlocks.BINDSTONE_BLOCK) || clicked.is(HexwrightBlocks.VAULT_FRAME_BLOCK));
+        if (!handled) {
+            return InteractionResult.PASS;
+        }
+        if (level.isClientSide || !(context.getPlayer() instanceof ServerPlayer player)) {
+            return InteractionResult.sidedSuccess(level.isClientSide);
+        }
+        boolean done = vaultId == null
+            ? VaultFrames.bind(player, stack, context.getClickedPos())
+            : VaultFrames.hangMainDoor(player, vaultId, context.getClickedPos());
+        return done ? InteractionResult.CONSUME : InteractionResult.FAIL;
+    }
+
+    @Override
     public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
         ItemStack stack = player.getItemInHand(hand);
         if (level.isClientSide || !(player instanceof ServerPlayer serverPlayer)) {
             return InteractionResultHolder.sidedSuccess(stack, level.isClientSide);
         }
         Integer vaultId = boundVault(stack);
+        int frameId = frameId(stack);
 
         if (vaultId != null) {
-            VaultPortalSession session = VaultManager.sessionByOpener(serverPlayer.getUUID());
-            if (session != null && session.vaultId() == vaultId) {
-                VaultManager.requestCloseVault(serverPlayer);
+            VaultPortalSession session = VaultManager.sessionFor(vaultId, frameId);
+            if (session != null && session.opener().equals(serverPlayer.getUUID())) {
+                VaultManager.requestCloseDoor(serverPlayer, session);
                 return InteractionResultHolder.consume(stack);
             }
         }
@@ -130,7 +175,7 @@ public final class VaultKeyItem extends Item implements ArtifactItem {
             serverPlayer.sendSystemMessage(Component.translatable("hexwright.vault.created", vaultId,
                 tierLabel(stack)));
         }
-        VaultManager.openVault(serverPlayer, vaultId, window);
+        VaultManager.openVault(serverPlayer, vaultId, frameId, window);
         return InteractionResultHolder.consume(stack);
     }
 
@@ -162,6 +207,10 @@ public final class VaultKeyItem extends Item implements ArtifactItem {
         } else {
             tooltip.add(Component.translatable("hexwright.vault.key_tooltip_bound", vaultId)
                 .withStyle(ChatFormatting.LIGHT_PURPLE));
+            if (frameId(stack) != VaultRecord.MAIN_DOOR) {
+                tooltip.add(Component.translatable("hexwright.vault.key_tooltip_frame")
+                    .withStyle(ChatFormatting.AQUA));
+            }
             appendAccess(stack, tooltip);
         }
         tooltip.add(sizeLine(layout)
@@ -192,7 +241,7 @@ public final class VaultKeyItem extends Item implements ArtifactItem {
 
         var names = tag.getList(VaultAccess.TAG_ALLOWED, Tag.TAG_STRING);
         for (int i = 0; i < names.size(); i++) {
-            tooltip.add(Component.translatable("hexwright.vault.access_guest", names.getString(i))
+            tooltip.add(Component.translatable("hexwright.vault.access_guest", i, names.getString(i))
                 .withStyle(ChatFormatting.DARK_GRAY));
         }
     }

@@ -64,7 +64,7 @@ public final class CloakFieldRipples {
     }
 
     public static @Nullable Swell swell(CloakField field, long now) {
-        double reach = 2.0 * Math.max(field.radius(), field.height());
+        double reach = 2.0 * Math.max(field.halfWidth(), field.height());
         double life = Mth.clamp(reach / SWELL_BLOCKS_PER_SECOND, SWELL_MIN_SECONDS, SWELL_MAX_SECONDS);
         double seconds = now / 1.0e9;
         long window = (long) Math.floor(seconds / SWELL_PERIOD_SECONDS);
@@ -75,14 +75,15 @@ public final class CloakFieldRipples {
             return null;
         }
 
-        float azimuth = Mth.TWO_PI * random(key, 2);
-        float elevation = Mth.HALF_PI * 0.6f * random(key, 3);
-        float across = Mth.cos(elevation) * field.radius();
+        double half = field.halfWidth();
+        double along = (random(key, 2) * 2.0 - 1.0) * half;
+        double out = random(key, 4) < 0.5f ? -half : half;
+        boolean eastWest = random(key, 5) < 0.5f;
         Vec3 c = field.center();
         Vec3 point = new Vec3(
-            c.x + Mth.cos(azimuth) * across,
-            c.y + Mth.sin(elevation) * field.height(),
-            c.z + Mth.sin(azimuth) * across);
+            c.x + (eastWest ? out : along),
+            c.y + 0.6 * random(key, 3) * field.height(),
+            c.z + (eastWest ? along : out));
         return new Swell(point, age);
     }
 

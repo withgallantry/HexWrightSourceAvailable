@@ -20,7 +20,7 @@ vec4 run() {
 
     float vectorPointLength = length(vectorPoint);
 
-    float axialDis = dot(vectorUV, vectorPoint) / dot(vectorPoint, vectorPoint);//normalized
+    float axialDis = dot(vectorUV, vectorPoint) / dot(vectorPoint, vectorPoint);
 
     float radialDis = length(vectorPoint * axialDis - vectorUV);
 

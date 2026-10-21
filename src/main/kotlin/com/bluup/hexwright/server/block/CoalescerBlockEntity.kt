@@ -1,6 +1,7 @@
 package com.bluup.hexwright.server.block
 
 import com.bluup.hexwright.Hexwright
+import com.bluup.hexwright.HexwrightDev
 import com.bluup.hexwright.client.block.CoalescerFormVisualClient
 import com.bluup.hexwright.server.menu.MenuWidgets
 import com.bluup.hexwright.server.menu.UiTemplates
@@ -9,6 +10,7 @@ import com.bluup.hexwright.server.coalescence.CoalescenceDenials
 import com.bluup.hexwright.server.coalescence.CoalescenceRecipes
 import com.bluup.hexwright.server.crucible.EssencePouchData
 import com.bluup.hexwright.server.item.EndlessPouchItem
+import com.bluup.hexwright.server.item.HexwrightItems
 import com.bluup.hexwright.server.network.EssenceNetwork
 import com.lowdragmc.lowdraglib.gui.modular.IUIHolder
 import com.lowdragmc.lowdraglib.gui.modular.ModularUI
@@ -55,10 +57,13 @@ import net.minecraft.world.inventory.Slot
 import net.minecraft.world.item.Item
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
+import net.minecraft.world.level.Level
 import net.minecraft.world.level.block.entity.BlockEntity
 import net.minecraft.world.level.block.state.BlockState
 import java.util.EnumMap
+import java.util.Locale
 import java.util.function.DoubleSupplier
+import kotlin.math.roundToInt
 
 class CoalescerBlockEntity(
     pos: BlockPos,
@@ -70,7 +75,11 @@ class CoalescerBlockEntity(
         const val OUTPUT_SLOT = 1
 
         const val SEED_SLOT = 2
-        const val CONTAINER_SIZE = 3
+
+        const val KYANITE_SLOT = 3
+        const val CONTAINER_SIZE = 4
+
+        const val ESSENCE_PER_KYANITE = 128.0
 
         private const val TAG_FAKE_SEED = "HexwrightFakeSeed"
 
@@ -87,6 +96,9 @@ class CoalescerBlockEntity(
         const val IMAGE_HEIGHT = 216
 
         const val KEY_SLOT_X = 16
+        const val KYANITE_SLOT_X = 44
+        const val FUEL_GAUGE_X = 38
+        const val FUEL_GAUGE_WIDTH = 4
         const val SEED_SLOT_X = 80
         const val RESULT_SLOT_X = 164
         const val TOP_SLOT_Y = 26
@@ -120,7 +132,13 @@ class CoalescerBlockEntity(
         private val PANEL_BACKGROUND = GuiTextureGroup(ColorRectTexture(PANEL_COLOR), ColorRectTexture(PANEL_BORDER_COLOR))
 
         private val POUCH_SLOT_GUIDE_TEXTURE: IGuiTexture = ResourceTexture("ldlib:textures/menu/secondary_item_input.png")
-        private val POUCH_SLOT_FILLED_TEXTURE: IGuiTexture = ResourceTexture("ldlib:textures/menu/secondary_input.png")
+        private val KYANITE_SLOT_GUIDE_TEXTURE: IGuiTexture = ResourceTexture("ldlib:textures/menu/secondary-kyanite-input.png")
+        private val SLOT_FILLED_TEXTURE: IGuiTexture = ResourceTexture("ldlib:textures/menu/secondary_input.png")
+
+        private const val FUEL_GAUGE_INSET = 1
+        private const val FUEL_GAUGE_COLOR = 0xFF4F8FE8.toInt()
+
+        private const val FUEL_EMPTY = 1.0E-6
 
         private const val GOOD_COLOR = 0xFF9BD87A.toInt()
         private const val MISS_COLOR = 0xFFE07A6B.toInt()
@@ -139,6 +157,8 @@ class CoalescerBlockEntity(
         private const val BUTTON_DISABLED_TINT = 0x80000000.toInt()
 
         private const val NOTICE_INSUFFICIENT = "gui.hexwright.coalescer.notice.insufficient"
+
+        private const val NOTICE_NO_FUEL = "gui.hexwright.coalescer.notice.no_fuel"
     }
 
     private val items: NonNullList<ItemStack> = NonNullList.withSize(CONTAINER_SIZE, ItemStack.EMPTY)
@@ -154,6 +174,8 @@ class CoalescerBlockEntity(
     private var craftTicks = 0
 
     private var craftResult: ItemStack = ItemStack.EMPTY
+
+    private var fuel = 0.0
 
     private var fxCooldown = 0
 
@@ -171,6 +193,12 @@ class CoalescerBlockEntity(
     override fun removeItemNoUpdate(slot: Int): ItemStack = ContainerHelper.takeItem(items, slot)
 
     override fun setItem(slot: Int, stack: ItemStack) {
+        if (slot == SEED_SLOT && CoalescenceDenials.isVoided(stack.item)) {
+            items[slot] = ItemStack.EMPTY
+            shatterSeed(stack)
+            setChanged()
+            return
+        }
         items[slot] = stack
         val limit = if (slot == POUCH_SLOT) 1 else maxStackSize
         if (stack.count > limit) stack.count = limit
@@ -182,8 +210,11 @@ class CoalescerBlockEntity(
     override fun canPlaceItem(slot: Int, stack: ItemStack): Boolean = when (slot) {
         POUCH_SLOT -> EssenceNetwork.isEssenceSource(stack)
         SEED_SLOT -> true
+        KYANITE_SLOT -> isKyanite(stack)
         else -> false
     }
+
+    private fun isKyanite(stack: ItemStack): Boolean = stack.`is`(HexwrightItems.KYANITE)
 
     override fun clearContent() {
         for (i in items.indices) items[i] = ItemStack.EMPTY
@@ -191,11 +222,13 @@ class CoalescerBlockEntity(
 
 
     private val outputSlots = intArrayOf(OUTPUT_SLOT)
+    private val fuelSlots = intArrayOf(KYANITE_SLOT)
 
     override fun getSlotsForFace(side: Direction): IntArray =
-        if (side == Direction.DOWN) outputSlots else IntArray(0)
+        if (side == Direction.DOWN) outputSlots else fuelSlots
 
-    override fun canPlaceItemThroughFace(slot: Int, stack: ItemStack, side: Direction?): Boolean = false
+    override fun canPlaceItemThroughFace(slot: Int, stack: ItemStack, side: Direction?): Boolean =
+        slot == KYANITE_SLOT && side != Direction.DOWN && isKyanite(stack)
 
     override fun canTakeItemThroughFace(slot: Int, stack: ItemStack, side: Direction): Boolean =
         slot == OUTPUT_SLOT && side == Direction.DOWN
@@ -203,6 +236,10 @@ class CoalescerBlockEntity(
 
     fun serverTick() {
         val level = this.level as? ServerLevel ?: return
+
+        if (refuel()) {
+            setChanged()
+        }
 
         if (craftTicks > 0) {
             craftTicks--
@@ -237,11 +274,16 @@ class CoalescerBlockEntity(
     override fun load(tag: CompoundTag) {
         super.load(tag)
         ContainerHelper.loadAllItems(tag, items)
+        val seed = items[SEED_SLOT]
+        if (CoalescenceDenials.isVoided(seed.item) || (!HexwrightDev.ARTISANS_SELECTION && isFakeSeed(seed))) {
+            items[SEED_SLOT] = ItemStack.EMPTY
+        }
         requestedAmount = if (tag.contains("Amount")) tag.getInt("Amount") else 1
         seedPrice = readPrice(tag.getCompound("SeedPrice"))
         noticeKey = tag.getString("Notice")
         craftTicks = tag.getInt("CraftTicks")
         craftResult = if (tag.contains("CraftResult")) ItemStack.of(tag.getCompound("CraftResult")) else ItemStack.EMPTY
+        fuel = tag.getDouble("Fuel")
     }
 
     override fun saveAdditional(tag: CompoundTag) {
@@ -251,6 +293,7 @@ class CoalescerBlockEntity(
         tag.put("SeedPrice", writePrice(seedPrice))
         tag.putString("Notice", noticeKey)
         tag.putInt("CraftTicks", craftTicks)
+        tag.putDouble("Fuel", fuel)
         if (!craftResult.isEmpty) {
             tag.put("CraftResult", craftResult.save(CompoundTag()))
         }
@@ -309,13 +352,13 @@ class CoalescerBlockEntity(
         if (seedPrice.isEmpty()) return emptyMap()
         val total = EnumMap<IngredientCategory, Double>(IngredientCategory::class.java)
         for ((aspect, per) in seedPrice) {
-            total[aspect] = per * batch
+            total[aspect] = EndlessPouchItem.roundPriceUp(per * batch)
         }
         return total
     }
 
     data class CostEntry(val aspect: IngredientCategory, val need: Double, val have: Double) {
-        val enough: Boolean get() = have >= need
+        val enough: Boolean get() = EssencePouchData.covers(have, need)
     }
 
     fun displayedCostEntries(): List<CostEntry> {
@@ -337,6 +380,35 @@ class CoalescerBlockEntity(
     fun insufficientEssence(): Boolean {
         val entries = costEntries()
         return entries.isNotEmpty() && entries.any { !it.enough }
+    }
+
+
+    fun batchFuel(batch: Int = amount()): Double = batchPrice(batch).values.sum() / ESSENCE_PER_KYANITE
+
+    fun fuelLevel(): Double = fuel.coerceIn(0.0, 1.0)
+
+    private fun availableFuel(): Double = fuel + items[KYANITE_SLOT].count
+
+    fun insufficientFuel(): Boolean {
+        val need = batchFuel()
+        return need > 0.0 && !EssencePouchData.covers(availableFuel(), need)
+    }
+
+    private fun refuel(): Boolean {
+        if (fuel > FUEL_EMPTY || items[KYANITE_SLOT].isEmpty) return false
+        items[KYANITE_SLOT].shrink(1)
+        fuel = 1.0
+        return true
+    }
+
+    private fun burnFuel(need: Double) {
+        fuel -= need
+        while (fuel < -FUEL_EMPTY && !items[KYANITE_SLOT].isEmpty) {
+            items[KYANITE_SLOT].shrink(1)
+            fuel += 1.0
+        }
+        fuel = fuel.coerceAtLeast(0.0)
+        refuel()
     }
 
 
@@ -368,13 +440,16 @@ class CoalescerBlockEntity(
 
         val result = ItemStack(seed.item, batch)
         if (!canFitOutput(result)) return "gui.hexwright.coalescer.notice.output_full"
-        if (cost.any { (aspect, need) -> EssencePouchData.get(pouch, aspect) < need }) {
+        if (cost.any { (aspect, need) -> !EssencePouchData.covers(EssencePouchData.get(pouch, aspect), need) }) {
             return NOTICE_INSUFFICIENT
         }
+        val fuelNeed = batchFuel(batch)
+        if (!EssencePouchData.covers(availableFuel(), fuelNeed)) return NOTICE_NO_FUEL
 
         for ((aspect, need) in cost) {
             EssencePouchData.consume(pouch, aspect, need)
         }
+        burnFuel(fuelNeed)
         level?.let { EssenceNetwork.pulseFlow(it, worldPosition, items[POUCH_SLOT], false) }
         beginCraft(result)
         return null
@@ -404,11 +479,17 @@ class CoalescerBlockEntity(
         setChanged()
     }
 
-    fun takePendingCraft(): ItemStack {
+    fun dropContentsOnBreak(level: Level, pos: BlockPos) {
+        if (isFakeSeed(items[SEED_SLOT])) {
+            items[SEED_SLOT] = ItemStack.EMPTY
+        }
+        Containers.dropContents(level, pos, this)
         val pending = craftResult
         craftResult = ItemStack.EMPTY
         craftTicks = 0
-        return pending
+        if (!pending.isEmpty) {
+            Containers.dropItemStack(level, pos.x + 0.5, pos.y + 0.5, pos.z + 0.5, pending)
+        }
     }
 
     fun isCrafting(): Boolean = craftTicks > 0
@@ -448,13 +529,14 @@ class CoalescerBlockEntity(
     fun isFakeSeed(stack: ItemStack): Boolean = !stack.isEmpty && stack.tag?.getBoolean(TAG_FAKE_SEED) == true
 
     fun seedFromType(item: Item): Boolean {
+        if (!HexwrightDev.ARTISANS_SELECTION) return false
         val level = this.level as? ServerLevel ?: return false
         if (item == Items.AIR) return false
         if (CoalescenceDenials.isDenied(item)) return false
         val current = items[SEED_SLOT]
         if (!current.isEmpty && current.item == item) return true
 
-        if (!current.isEmpty) {
+        if (!current.isEmpty && !isFakeSeed(current)) {
             Containers.dropItemStack(
                 level,
                 worldPosition.x + 0.5, worldPosition.y + 1.0, worldPosition.z + 0.5,
@@ -470,10 +552,16 @@ class CoalescerBlockEntity(
     }
 
     private fun breakFakeSeed() {
-        val level = this.level as? ServerLevel ?: return
+        if (level !is ServerLevel) return
         val stack = items[SEED_SLOT]
         if (!isFakeSeed(stack)) return
         items[SEED_SLOT] = ItemStack.EMPTY
+        shatterSeed(stack)
+        setChanged()
+    }
+
+    private fun shatterSeed(stack: ItemStack) {
+        val level = this.level as? ServerLevel ?: return
         level.playSound(null, worldPosition, SoundEvents.ITEM_BREAK, SoundSource.BLOCKS, 0.5f, 1.0f)
         level.sendParticles(
             ItemParticleOption(ParticleTypes.ITEM, stack),
@@ -481,7 +569,6 @@ class CoalescerBlockEntity(
             12, 0.15, 0.15, 0.15, 0.08
         )
         noticeKey = ""
-        setChanged()
     }
 
     private fun canFitOutput(result: ItemStack): Boolean {
@@ -528,7 +615,8 @@ class CoalescerBlockEntity(
                 lines.add(line(noPouchNoticeKey()))
             }
         }
-        val staleInsufficient = noticeKey == NOTICE_INSUFFICIENT && !insufficientEssence()
+        val staleInsufficient = (noticeKey == NOTICE_INSUFFICIENT && !insufficientEssence()) ||
+            (noticeKey == NOTICE_NO_FUEL && !insufficientFuel())
         if (noticeKey.isNotEmpty() && !staleInsufficient && noticeKey != redundantNotice) {
             lines.add(line(noticeKey))
         }
@@ -559,6 +647,8 @@ class CoalescerBlockEntity(
 
         replaceWithSourceSlot(widgetsById)
         replaceWithSeedSlot(widgetsById)
+        replaceWithKyaniteSlot(widgetsById)
+        bindFuelGauge(widgetsById)
         val resultSlot = bindSlotInPlace(widgetsById, "result", OUTPUT_SLOT, canPut = false)
         MenuWidgets.bindPlayerInventory(widgetsById, entityPlayer)
 
@@ -644,6 +734,32 @@ class CoalescerBlockEntity(
         }
     }
 
+    private fun replaceWithKyaniteSlot(widgetsById: Map<String, List<Widget>>) {
+        val template = MenuWidgets.firstById(widgetsById, "kyanite_slot") as? SlotWidget
+        if (template == null) {
+            Hexwright.LOGGER.warn("coalescer.ui is missing slot widget 'kyanite_slot'")
+            return
+        }
+        val tooltips = ArrayList(template.tooltipTexts)
+        val replacement = MenuWidgets.replaceInPlace(template) { x, y ->
+            KyaniteSlotWidget(x, y, swapGuideBackground = true)
+        } ?: return
+        if (tooltips.isEmpty()) {
+            replacement.setHoverTooltips(Component.translatable("gui.hexwright.coalescer.kyanite.tooltip"))
+        } else {
+            replacement.setHoverTooltips(tooltips)
+        }
+    }
+
+    private fun bindFuelGauge(widgetsById: Map<String, List<Widget>>) {
+        val gauge = MenuWidgets.firstById(widgetsById, "kyanite_gauge") as? WidgetGroup
+        if (gauge == null) {
+            Hexwright.LOGGER.warn("coalescer.ui is missing the fuel gauge 'kyanite_gauge'")
+            return
+        }
+        gauge.addWidget(FuelGaugeWidget(0, 0, gauge.sizeWidth, gauge.sizeHeight))
+    }
+
     private fun bindAmountField(widgetsById: Map<String, List<Widget>>) {
         val field = MenuWidgets.firstById(widgetsById, "amount") as? TextFieldWidget
         if (field == null) {
@@ -680,28 +796,78 @@ class CoalescerBlockEntity(
         return click
     }
 
-    private inner class SourceSlotWidget(
+    private open inner class GuidedSlotWidget(
+        container: Container,
+        slot: Int,
         x: Int,
         y: Int,
-        private val swapGuideBackground: Boolean = false
-    ) :
-        SlotWidget(this@CoalescerBlockEntity.pouchSlotView, POUCH_SLOT, x, y, true, true) {
+        private val guide: IGuiTexture?
+    ) : SlotWidget(container, slot, x, y, true, true) {
 
-        private var pouchGuideShown = true
+        private var guideShown = true
 
         override fun updateScreen() {
             super.updateScreen()
-            if (!swapGuideBackground) return
+            val guideTexture = guide ?: return
             val host = parent ?: return
             val empty = item.isEmpty
-            if (empty != pouchGuideShown) {
-                pouchGuideShown = empty
-                host.setBackground(if (pouchGuideShown) POUCH_SLOT_GUIDE_TEXTURE else POUCH_SLOT_FILLED_TEXTURE)
+            if (empty != guideShown) {
+                guideShown = empty
+                host.setBackground(if (guideShown) guideTexture else SLOT_FILLED_TEXTURE)
             }
         }
+    }
+
+    private inner class SourceSlotWidget(x: Int, y: Int, swapGuideBackground: Boolean = false) :
+        GuidedSlotWidget(pouchSlotView, POUCH_SLOT, x, y, if (swapGuideBackground) POUCH_SLOT_GUIDE_TEXTURE else null) {
 
         override fun canPutStack(stack: ItemStack): Boolean =
             super.canPutStack(stack) && EssenceNetwork.isEssenceSource(stack)
+    }
+
+    private inner class KyaniteSlotWidget(x: Int, y: Int, swapGuideBackground: Boolean = false) :
+        GuidedSlotWidget(this@CoalescerBlockEntity, KYANITE_SLOT, x, y, if (swapGuideBackground) KYANITE_SLOT_GUIDE_TEXTURE else null) {
+
+        override fun canPutStack(stack: ItemStack): Boolean = super.canPutStack(stack) && isKyanite(stack)
+    }
+
+    private inner class FuelGaugeWidget(x: Int, y: Int, width: Int, height: Int) : Widget(x, y, width, height) {
+        private var lastTooltip = ""
+
+        override fun updateScreen() {
+            super.updateScreen()
+            val lines = fuelTooltip()
+            val fingerprint = lines.joinToString("\n") { it.string }
+            if (fingerprint == lastTooltip) return
+            lastTooltip = fingerprint
+            setHoverTooltips(lines)
+        }
+
+        override fun drawInBackground(graphics: GuiGraphics, mouseX: Int, mouseY: Int, partialTicks: Float) {
+            super.drawInBackground(graphics, mouseX, mouseY, partialTicks)
+            val pos = position
+            val size = this.size
+            val well = size.height - 2 * FUEL_GAUGE_INSET
+            val filled = (fuelLevel() * well).roundToInt()
+            if (filled <= 0) return
+            val bottom = pos.y + size.height - FUEL_GAUGE_INSET
+            graphics.fill(
+                pos.x + FUEL_GAUGE_INSET, bottom - filled,
+                pos.x + size.width - FUEL_GAUGE_INSET, bottom,
+                FUEL_GAUGE_COLOR
+            )
+        }
+    }
+
+    private fun fuelTooltip(): List<Component> {
+        val lines = ArrayList<Component>()
+        lines.add(Component.translatable("gui.hexwright.coalescer.fuel.level", (fuelLevel() * 100).roundToInt()))
+        val need = batchFuel()
+        if (need > 0.0) {
+            val line = Component.translatable("gui.hexwright.coalescer.fuel.need", String.format(Locale.ROOT, "%.2f", need))
+            lines.add(if (insufficientFuel()) line.withStyle(ChatFormatting.RED) else line.withStyle(ChatFormatting.GRAY))
+        }
+        return lines
     }
 
     private inner class SeedSlotWidget(x: Int, y: Int) :
@@ -744,7 +910,7 @@ class CoalescerBlockEntity(
     ) : Widget(0, 0, 0, 0) {
         private var lastLines: List<String> = emptyList()
         private var lastCostFingerprint = ""
-        private var lastEnabled: Boolean? = null
+        private var lastReason: String? = null
         private val costRows = mutableListOf<Widget>()
 
         private var actionBaseBackground: IGuiTexture? = null
@@ -794,9 +960,7 @@ class CoalescerBlockEntity(
                 panel.addWidget(icon)
                 costRows.add(icon)
 
-                val text = "${EndlessPouchItem.aspectName(entry.aspect).string}: " +
-                    "${EndlessPouchItem.formatAmount(entry.have)} / ${EndlessPouchItem.formatAmount(entry.need)}"
-                val label = LabelWidget(COST_LABEL_X, y, text)
+                val label = LabelWidget(COST_LABEL_X, y, EndlessPouchItem.costLine(entry.aspect, entry.have, entry.need))
                 label.setColor(if (entry.enough) GOOD_COLOR else MISS_COLOR)
                 panel.addWidget(label)
                 costRows.add(label)
@@ -808,18 +972,21 @@ class CoalescerBlockEntity(
         private fun updateActionButton() {
             val button = actionButton ?: return
             val busy = isCrafting()
-            val enabled = !busy && !insufficientEssence()
-            if (enabled == lastEnabled) return
-            lastEnabled = enabled
+            val lacksEssence = insufficientEssence()
+            val lacksFuel = insufficientFuel()
+            val enabled = !busy && !lacksEssence && !lacksFuel
+            val reason = when {
+                busy -> "gui.hexwright.coalescer.make.tooltip.busy"
+                lacksEssence -> "gui.hexwright.coalescer.make.tooltip.insufficient"
+                lacksFuel -> "gui.hexwright.coalescer.make.tooltip.no_fuel"
+                else -> ""
+            }
+            if (reason == lastReason) return
+            lastReason = reason
             button.setActive(enabled)
             if (enabled) {
                 button.setHoverTooltips(listOf<Component>())
             } else {
-                val reason = if (busy) {
-                    "gui.hexwright.coalescer.make.tooltip.busy"
-                } else {
-                    "gui.hexwright.coalescer.make.tooltip.insufficient"
-                }
                 button.setHoverTooltips(listOf(Component.translatable(reason).withStyle(ChatFormatting.RED)))
             }
 
@@ -864,6 +1031,15 @@ class CoalescerBlockEntity(
             SeedSlotWidget(SEED_SLOT_X - 1, TOP_SLOT_Y - 1)
                 .setBackground(ColorRectTexture(TRANSPARENT_COLOR))
                 .setHoverTooltips(Component.translatable("gui.hexwright.coalescer.seed.tooltip"))
+        )
+        ui.widget(
+            KyaniteSlotWidget(KYANITE_SLOT_X - 1, TOP_SLOT_Y - 1)
+                .setBackground(ColorRectTexture(TRANSPARENT_COLOR))
+                .setHoverTooltips(Component.translatable("gui.hexwright.coalescer.kyanite.tooltip"))
+        )
+        ui.widget(
+            FuelGaugeWidget(FUEL_GAUGE_X, TOP_SLOT_Y - 1, FUEL_GAUGE_WIDTH, 18)
+                .setBackground(ColorRectTexture(BAR_BG_COLOR))
         )
         ui.widget(
             SlotWidget(this, OUTPUT_SLOT, RESULT_SLOT_X - 1, TOP_SLOT_Y - 1, true, false)
@@ -946,8 +1122,7 @@ class CoalescerBlockEntity(
                 lineY += font.lineHeight + 1
             }
             for (entry in displayedCostEntries()) {
-                val text = "${EndlessPouchItem.aspectName(entry.aspect).string}: " +
-                    "${EndlessPouchItem.formatAmount(entry.have)} / ${EndlessPouchItem.formatAmount(entry.need)}"
+                val text = EndlessPouchItem.costLine(entry.aspect, entry.have, entry.need)
                 graphics.drawString(font, text, pos.x + 4, lineY, if (entry.enough) GOOD_COLOR else MISS_COLOR, false)
                 lineY += font.lineHeight + 1
             }

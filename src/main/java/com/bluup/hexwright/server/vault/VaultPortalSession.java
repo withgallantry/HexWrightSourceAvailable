@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
-public final class VaultPortalSession {
+public final class VaultPortalSession implements StreamedPortal {
 
     public enum State {
         OPENING,
@@ -20,8 +20,9 @@ public final class VaultPortalSession {
         CLOSED
     }
 
-    private final UUID sessionId = UUID.randomUUID();
+    private final UUID sessionId;
     private final int vaultId;
+    private final int frameId;
     private final UUID opener;
     private final UUID pairId;
     private final ResourceKey<Level> outsideDimension;
@@ -47,16 +48,18 @@ public final class VaultPortalSession {
 
     private final Set<UUID> occupants = new HashSet<>();
 
-    private final Set<UUID> vaultViewers = new HashSet<>();
+    private final Set<UUID> insideViewers = new HashSet<>();
     private final Set<UUID> outsideViewers = new HashSet<>();
 
-    public VaultPortalSession(int vaultId, UUID opener, UUID pairId,
+    public VaultPortalSession(UUID sessionId, int vaultId, int frameId, UUID opener, UUID pairId,
                               ResourceKey<Level> outsideDimension,
                               PortalWindow outsideWindow, PortalWindow vaultWindow,
                               List<ChunkPos> outsideChunks, List<ChunkPos> outsideTicketChunks,
                               ChunkPos vaultChunk, int vaultTicketRadius, List<ChunkPos> vaultChunks,
                               AABB roomBounds) {
+        this.sessionId = sessionId;
         this.vaultId = vaultId;
+        this.frameId = frameId;
         this.opener = opener;
         this.pairId = pairId;
         this.outsideDimension = outsideDimension;
@@ -81,6 +84,10 @@ public final class VaultPortalSession {
         return vaultId;
     }
 
+    public int frameId() {
+        return frameId;
+    }
+
     public UUID opener() {
         return opener;
     }
@@ -89,10 +96,17 @@ public final class VaultPortalSession {
         return pairId;
     }
 
+    @Override
+    public ResourceKey<Level> insideDimension() {
+        return VaultDimension.KEY;
+    }
+
+    @Override
     public ResourceKey<Level> outsideDimension() {
         return outsideDimension;
     }
 
+    @Override
     public PortalWindow outsideWindow() {
         return outsideWindow;
     }
@@ -101,6 +115,7 @@ public final class VaultPortalSession {
         return vaultWindow;
     }
 
+    @Override
     public List<ChunkPos> outsideChunks() {
         return outsideChunks;
     }
@@ -121,11 +136,22 @@ public final class VaultPortalSession {
         return vaultChunks;
     }
 
-    public boolean watchesVaultChunk(int chunkX, int chunkZ) {
+    @Override
+    public List<ChunkPos> insideChunks() {
+        return vaultChunks;
+    }
+
+    @Override
+    public boolean watchesInsideChunk(int chunkX, int chunkZ) {
         return vaultChunkKeys.contains(ChunkPos.asLong(chunkX, chunkZ));
     }
 
     public AABB roomBounds() {
+        return roomBounds;
+    }
+
+    @Override
+    public AABB insideBounds() {
         return roomBounds;
     }
 
@@ -153,15 +179,18 @@ public final class VaultPortalSession {
         this.graceTicks = graceTicks;
     }
 
+    @Override
     public Set<UUID> occupants() {
         return occupants;
     }
 
-    Set<UUID> vaultViewers() {
-        return vaultViewers;
+    @Override
+    public Set<UUID> insideViewers() {
+        return insideViewers;
     }
 
-    Set<UUID> outsideViewers() {
+    @Override
+    public Set<UUID> outsideViewers() {
         return outsideViewers;
     }
 }

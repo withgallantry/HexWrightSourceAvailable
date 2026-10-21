@@ -14,6 +14,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.BiConsumer;
 
 public class DungeonClears extends SavedData {
 
@@ -40,6 +41,17 @@ public class DungeonClears extends SavedData {
         }
         setDirty();
         return true;
+    }
+
+    public void reseal(ResourceKey<Level> dimension, long startChunk) {
+        Set<Long> starts = this.byDimension.get(dimension);
+        if (starts != null && starts.remove(startChunk)) {
+            setDirty();
+        }
+    }
+
+    public void forEachCleared(BiConsumer<ResourceKey<Level>, Long> action) {
+        this.byDimension.forEach((dimension, starts) -> starts.forEach(start -> action.accept(dimension, start)));
     }
 
     private static DungeonClears load(CompoundTag tag) {

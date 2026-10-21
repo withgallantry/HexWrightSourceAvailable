@@ -5,14 +5,14 @@ import at.petrak.hexcasting.api.casting.iota.PatternIota;
 import at.petrak.hexcasting.api.item.IotaHolderItem;
 import at.petrak.hexcasting.api.misc.MediaConstants;
 import com.bluup.hexwright.client.armour.ClientArmourWearer;
+import com.bluup.hexwright.server.accessory.WornAccessories;
 import com.bluup.hexwright.server.item.ArtifactItem;
 import com.bluup.hexwright.server.weapon.WeaponTooltips;
 import net.minecraft.ChatFormatting;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
-import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.item.ArmorItem;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.level.Level;
@@ -20,12 +20,12 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 
-public class CapeOfPassageItem extends ArmorItem implements ArtifactItem, IotaHolderItem {
+public class CapeOfPassageItem extends Item implements ArtifactItem, IotaHolderItem {
 
     public static final long MEDIA_PER_STEP = MediaConstants.DUST_UNIT / 2;
 
     public CapeOfPassageItem(Properties properties) {
-        super(MageAttireMaterial.INSTANCE, Type.CHESTPLATE, properties);
+        super(properties);
     }
 
     @Nullable
@@ -33,26 +33,33 @@ public class CapeOfPassageItem extends ArmorItem implements ArtifactItem, IotaHo
         if (wearer == null) {
             return null;
         }
-        ItemStack chest = wearer.getItemBySlot(EquipmentSlot.CHEST);
-        if (!(chest.getItem() instanceof CapeOfPassageItem)
-            || !(wearer.getItemBySlot(EquipmentSlot.HEAD).getItem() instanceof HatOfPassageItem)) {
-            return null;
-        }
-        return chest;
+        return wornHat(wearer) ? wornCape(wearer) : null;
     }
 
     public static int wornPieces(@Nullable LivingEntity wearer) {
         if (wearer == null) {
             return 0;
         }
-        int count = 0;
-        if (wearer.getItemBySlot(EquipmentSlot.CHEST).getItem() instanceof CapeOfPassageItem) {
-            count++;
+        return (wornCape(wearer) != null ? 1 : 0) + (wornHat(wearer) ? 1 : 0);
+    }
+
+    @Nullable
+    private static ItemStack wornCape(LivingEntity wearer) {
+        for (ItemStack stack : WornAccessories.slotContents(wearer, "cape")) {
+            if (stack.getItem() instanceof CapeOfPassageItem) {
+                return stack;
+            }
         }
-        if (wearer.getItemBySlot(EquipmentSlot.HEAD).getItem() instanceof HatOfPassageItem) {
-            count++;
+        return null;
+    }
+
+    private static boolean wornHat(LivingEntity wearer) {
+        for (ItemStack stack : WornAccessories.slotContents(wearer, "hat")) {
+            if (stack.getItem() instanceof HatOfPassageItem) {
+                return true;
+            }
         }
-        return count;
+        return false;
     }
 
     @Override

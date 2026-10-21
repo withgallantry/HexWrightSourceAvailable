@@ -154,8 +154,6 @@ public final class PortalPlaneRenderer {
             sceneTextureId = SceneSnapshot.colorTextureId();
         }
 
-        poseStack.pushPose();
-        poseStack.translate(-cameraPos.x, -cameraPos.y, -cameraPos.z);
         Matrix4f pose = poseStack.last().pose();
 
         RenderSystem.enableBlend();
@@ -175,6 +173,7 @@ public final class PortalPlaneRenderer {
             int textureId = pane.textureId();
 
             shader.safeGetUniform("WindowSize").set((float) window.width(), (float) window.height());
+            shader.safeGetUniform("Round").set(window.round() ? 1.0f : 0.0f);
             shader.safeGetUniform("Progress").set(progress);
             shader.safeGetUniform("ViewReady").set(textureId >= 0 ? 1.0f : 0.0f);
             shader.safeGetUniform("SceneReady").set(sceneTextureId >= 0 ? 1.0f : 0.0f);
@@ -197,7 +196,7 @@ public final class PortalPlaneRenderer {
             if (distance < NEAR_PLANE_COVER && window.containsProjected(cameraPos, 0.0)) {
                 offset = -(NEAR_PLANE_COVER - distance);
             }
-            Vec3 paneOffset = window.normal().scale(offset * towardViewer);
+            Vec3 paneOffset = window.normal().scale(offset * towardViewer).subtract(cameraPos);
             quad(builder, pose, window, paneOffset, 0.0f, 0.0f, w, h);
             BufferUploader.drawWithShader(builder.end());
         }
@@ -207,7 +206,6 @@ public final class PortalPlaneRenderer {
         RenderSystem.enableCull();
         RenderSystem.depthMask(true);
         RenderSystem.disableBlend();
-        poseStack.popPose();
     }
 
     private static void quad(BufferBuilder builder, Matrix4f pose, PortalWindow window, Vec3 offset,

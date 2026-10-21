@@ -25,9 +25,11 @@ import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
+import ram.talia.moreiotas.api.casting.iota.StringIota;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Function;
 
 public final class TalismanCasting {
 
@@ -53,10 +55,21 @@ public final class TalismanCasting {
     public static void onTrigger(ServerPlayer player, TalismanData.Trigger trigger,
                                  @Nullable Entity other, @Nullable Double magnitude,
                                  @Nullable Vec3 position) {
+        dispatch(player, trigger, talisman -> contextIota(player, talisman, other, magnitude, position));
+    }
+
+    public static int onCommand(ServerPlayer player, String text) {
+        StringIota seed = StringIota.makeUnchecked(text);
+        return dispatch(player, TalismanData.Trigger.COMMAND, talisman -> seed);
+    }
+
+    private static int dispatch(ServerPlayer player, TalismanData.Trigger trigger,
+                                Function<ItemStack, Iota> seedFor) {
         if (castDepth > 0) {
-            return;
+            return 0;
         }
         ServerLevel level = player.serverLevel();
+        int fired = 0;
         for (ItemStack stack : readyStacks(player, trigger)) {
             if (!(stack.getItem() instanceof TalismanItem)) {
                 continue;
@@ -71,8 +84,10 @@ public final class TalismanCasting {
                 continue;
             }
             TalismanData.setNextFire(stack, level.getGameTime() + TalismanData.cooldownTicks(stack, trigger));
-            fire(player, level, stack, other, magnitude, position);
+            fire(player, level, stack, seedFor.apply(stack));
+            fired++;
         }
+        return fired;
     }
 
     public static boolean onBrink(ServerPlayer player, @Nullable Entity source, double damage) {
@@ -97,7 +112,7 @@ public final class TalismanCasting {
             player.clearFire();
             player.invulnerableTime = Math.max(player.invulnerableTime, REPRIEVE_GRACE_TICKS);
 
-            fire(player, level, stack, source, damage, null);
+            fire(player, level, stack, contextIota(player, stack, source, damage, null));
 
             if (player.getHealth() <= 0.0f) {
                 return false;
@@ -142,18 +157,13 @@ public final class TalismanCasting {
         return stacks;
     }
 
-    private static void fire(ServerPlayer player, ServerLevel level, ItemStack talisman,
-                             @Nullable Entity other, @Nullable Double magnitude,
-                             @Nullable Vec3 position) {
+    private static void fire(ServerPlayer player, ServerLevel level, ItemStack talisman, Iota seed) {
         ADIotaHolder holder = IXplatAbstractions.INSTANCE.findDataHolder(talisman);
         Iota iota = holder == null ? null : holder.readIota(level);
         List<Iota> hex = StoredHex.decode(iota);
         if (hex == null || hex.isEmpty()) {
             return;
         }
-
-        TalismanData.Context context = TalismanData.getContext(talisman).orElse(TalismanData.Context.SELF);
-        Iota seed = buildContextIota(player, context, other, magnitude, position);
 
         castDepth++;
         try {
@@ -173,9 +183,10 @@ public final class TalismanCasting {
         }
     }
 
-    private static Iota buildContextIota(ServerPlayer player, TalismanData.Context context,
-                                         @Nullable Entity other, @Nullable Double magnitude,
-                                         @Nullable Vec3 position) {
+    private static Iota contextIota(ServerPlayer player, ItemStack talisman,
+                                    @Nullable Entity other, @Nullable Double magnitude,
+                                    @Nullable Vec3 position) {
+        TalismanData.Context context = TalismanData.getContext(talisman).orElse(TalismanData.Context.SELF);
         return switch (context) {
             case SELF -> new EntityIota(player);
             case OTHER -> other != null ? new EntityIota(other) : new NullIota();

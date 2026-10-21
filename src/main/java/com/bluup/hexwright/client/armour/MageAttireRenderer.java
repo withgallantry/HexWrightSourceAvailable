@@ -5,16 +5,17 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.fabricmc.fabric.api.client.rendering.v1.ArmorRenderer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.HumanoidModel;
 import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.texture.OverlayTexture;
-import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
+
+import java.util.List;
 
 @Environment(EnvType.CLIENT)
 public final class MageAttireRenderer {
@@ -93,25 +94,23 @@ public final class MageAttireRenderer {
     private MageAttireRenderer() {
     }
 
-    public static void register() {
-        ArmorRenderer.register(MageAttireRenderer::renderMantle, HexwrightItems.MANTLE_OF_ASCENSION);
-        ArmorRenderer.register(MageAttireRenderer::renderHat, HexwrightItems.HAT_OF_ASCENSION);
-        ArmorRenderer.register((pose, buffers, stack, entity, slot, light, model) ->
-            draw(pose, buffers, stack, entity, light, model.body, CAPE), HexwrightItems.CAPE_OF_PASSAGE);
-        ArmorRenderer.register((pose, buffers, stack, entity, slot, light, model) ->
-            draw(pose, buffers, stack, entity, light, model.head, PASSAGE_HAT), HexwrightItems.HAT_OF_PASSAGE);
+    public static List<Item> pieces() {
+        return List.of(HexwrightItems.MANTLE_OF_ASCENSION, HexwrightItems.HAT_OF_ASCENSION,
+            HexwrightItems.CAPE_OF_PASSAGE, HexwrightItems.HAT_OF_PASSAGE);
     }
 
-    private static void renderMantle(PoseStack pose, MultiBufferSource buffers, ItemStack stack,
-                                     LivingEntity entity, EquipmentSlot slot, int light,
-                                     HumanoidModel<LivingEntity> model) {
-        draw(pose, buffers, stack, entity, light, model.body, MANTLE);
-    }
-
-    private static void renderHat(PoseStack pose, MultiBufferSource buffers, ItemStack stack,
-                                  LivingEntity entity, EquipmentSlot slot, int light,
-                                  HumanoidModel<LivingEntity> model) {
-        draw(pose, buffers, stack, entity, light, model.head, HAT);
+    public static void render(PoseStack pose, MultiBufferSource buffers, ItemStack stack,
+                              LivingEntity wearer, int light, HumanoidModel<?> model) {
+        Item item = stack.getItem();
+        if (item == HexwrightItems.MANTLE_OF_ASCENSION) {
+            draw(pose, buffers, stack, wearer, light, model.body, MANTLE);
+        } else if (item == HexwrightItems.HAT_OF_ASCENSION) {
+            draw(pose, buffers, stack, wearer, light, model.head, HAT);
+        } else if (item == HexwrightItems.CAPE_OF_PASSAGE) {
+            draw(pose, buffers, stack, wearer, light, model.body, CAPE);
+        } else if (item == HexwrightItems.HAT_OF_PASSAGE) {
+            draw(pose, buffers, stack, wearer, light, model.head, PASSAGE_HAT);
+        }
     }
 
     private static void draw(PoseStack pose, MultiBufferSource buffers, ItemStack stack,

@@ -120,7 +120,7 @@ public abstract class OrbConstructEntity extends PathfinderMob implements GeoEnt
         return null;
     }
 
-    protected abstract ConstructOrbPower orbPower();
+    protected abstract boolean isClaimed();
 
     @Nullable
     protected abstract Clip clipByOrdinal(int ordinal);
@@ -200,7 +200,7 @@ public abstract class OrbConstructEntity extends PathfinderMob implements GeoEnt
     protected void customServerAiStep() {
         super.customServerAiStep();
         Player owner = owner();
-        if (owner == null || !orbPower().claims(this)) {
+        if (owner == null || !isClaimed()) {
             this.discard();
             return;
         }

@@ -15,6 +15,6 @@ public abstract class ClientLevelGlowIndexMixin {
     @Inject(method = "sendBlockUpdated", at = @At("HEAD"))
     private void hexwright$invalidateGlowIndex(BlockPos pos, BlockState oldState, BlockState newState,
                                                int flags, CallbackInfo ci) {
-        BlockGlow.onBlockChanged(pos);
+        BlockGlow.onBlockChanged((ClientLevel) (Object) this, pos);
     }
 }

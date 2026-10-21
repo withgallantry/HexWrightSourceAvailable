@@ -19,7 +19,7 @@ import static com.mojang.brigadier.Command.SINGLE_SUCCESS;
 
 public final class CloakFieldCommand {
 
-    private static final int DEFAULT_RADIUS = 12;
+    private static final int DEFAULT_WIDTH = 24;
     private static final double REMOVE_REACH = 128.0;
 
     private CloakFieldCommand() {
@@ -32,28 +32,28 @@ public final class CloakFieldCommand {
                 .then(Commands.literal("cloak")
                     .requires(source -> source.hasPermission(2))
                     .then(Commands.literal("add")
-                        .executes(ctx -> add(ctx, DEFAULT_RADIUS, DEFAULT_RADIUS))
-                        .then(Commands.argument("radius", IntegerArgumentType.integer(CloakField.MIN_SIZE, CloakField.MAX_RADIUS))
+                        .executes(ctx -> add(ctx, DEFAULT_WIDTH, DEFAULT_WIDTH))
+                        .then(Commands.argument("width", IntegerArgumentType.integer(CloakField.MIN_SIZE, CloakField.MAX_WIDTH))
                             .executes(ctx -> {
-                                int radius = IntegerArgumentType.getInteger(ctx, "radius");
-                                return add(ctx, radius, radius);
+                                int width = IntegerArgumentType.getInteger(ctx, "width");
+                                return add(ctx, width, width);
                             })
                             .then(Commands.argument("height", IntegerArgumentType.integer(CloakField.MIN_SIZE, CloakField.MAX_HEIGHT))
-                                .executes(ctx -> add(ctx, IntegerArgumentType.getInteger(ctx, "radius"),
+                                .executes(ctx -> add(ctx, IntegerArgumentType.getInteger(ctx, "width"),
                                     IntegerArgumentType.getInteger(ctx, "height"))))))
                     .then(Commands.literal("remove").executes(CloakFieldCommand::removeNearest))
                     .then(Commands.literal("clear").executes(CloakFieldCommand::clear))
                     .then(Commands.literal("list").executes(CloakFieldCommand::list)))));
     }
 
-    private static int add(CommandContext<CommandSourceStack> ctx, int radius, int height) {
+    private static int add(CommandContext<CommandSourceStack> ctx, int width, int height) {
         CommandSourceStack source = ctx.getSource();
         Vec3 at = source.getPosition();
         Vec3 center = new Vec3(Mth.floor(at.x) + 0.5, Mth.floor(at.y), Mth.floor(at.z) + 0.5);
         UUID owner = source.getEntity() == null ? null : source.getEntity().getUUID();
-        CloakFieldStore.add(source.getLevel(), new CloakField(UUID.randomUUID(), center, radius, height, owner));
+        CloakFieldStore.add(source.getLevel(), new CloakField(UUID.randomUUID(), center, width, height, owner));
         source.sendSuccess(() -> Component.literal(
-            "Cloak field of radius " + radius + ", height " + height + " placed at " + describe(center) + ".")
+            "Cloak field of width " + width + ", height " + height + " placed at " + describe(center) + ".")
             .withStyle(ChatFormatting.AQUA), false);
         return SINGLE_SUCCESS;
     }
@@ -100,7 +100,7 @@ public final class CloakFieldCommand {
         }
         for (CloakField field : fields) {
             source.sendSuccess(() -> Component.literal(
-                "radius " + (int) field.radius() + ", height " + (int) field.height() + " at " + describe(field.center()))
+                "width " + (int) field.width() + ", height " + (int) field.height() + " at " + describe(field.center()))
                 .withStyle(ChatFormatting.GRAY), false);
         }
         return fields.size();

@@ -1,9 +1,5 @@
 #version 150
 
-// Shared by all three bloom passes. Positions arrive already in clip space, so
-// this never touches ModelViewMat/ProjMat - the shader JSONs do not declare
-// them, and the pass therefore does not care what camera matrices happen to be
-// live on RenderSystem when it runs.
 
 in vec3 Position;
 in vec2 UV0;

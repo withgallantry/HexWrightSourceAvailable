@@ -5,6 +5,7 @@ import com.bluup.hexwright.compat.recipeviewer.ArmourCraftDisplay
 import com.bluup.hexwright.compat.recipeviewer.EssenceForgeDisplay
 import com.bluup.hexwright.compat.recipeviewer.ScryingSpectaclesDisplay
 import com.bluup.hexwright.server.block.HexwrightBlocks
+import com.bluup.hexwright.server.item.HexwrightItems
 import dev.emi.emi.api.EmiPlugin
 import dev.emi.emi.api.EmiRegistry
 import dev.emi.emi.api.recipe.EmiCraftingRecipe
@@ -38,6 +39,7 @@ class HexwrightEmiPlugin : EmiPlugin {
                 true
             )
         )
+        registry.removeEmiStacks(EmiStack.of(HexwrightItems.TEALS_STAFF))
     }
 
     private companion object {

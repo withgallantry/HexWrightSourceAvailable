@@ -29,7 +29,7 @@ public final class EngraverActions {
 
     public static void register() {
         Registry.register(IXplatAbstractions.INSTANCE.getActionRegistry(), Hexwright.id("engravers_gambit"),
-            new ActionRegistryEntry(HexPattern.fromAngles("deeeed", HexDir.EAST), ENGRAVERS_GAMBIT));
+            new ActionRegistryEntry(HexPattern.fromAngles("wdeeeee", HexDir.EAST), ENGRAVERS_GAMBIT));
     }
 
     private static final SpellAction ENGRAVERS_GAMBIT = new HexwrightSpellAction() {

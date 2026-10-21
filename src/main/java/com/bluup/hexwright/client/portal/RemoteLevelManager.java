@@ -7,6 +7,8 @@ import com.bluup.hexwright.mixin.LevelRendererAccessor;
 import com.bluup.hexwright.mixin.MinecraftPortalAccessor;
 import com.bluup.hexwright.server.portal.PortalPair;
 import com.mojang.authlib.GameProfile;
+import com.mojang.blaze3d.pipeline.RenderTarget;
+import com.mojang.blaze3d.platform.Window;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.minecraft.client.Minecraft;
@@ -43,6 +45,7 @@ import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.chunk.LevelChunkSection;
 import net.minecraft.world.level.dimension.DimensionType;
 import net.minecraft.world.level.lighting.LevelLightEngine;
+import net.minecraft.util.Mth;
 import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
 
@@ -125,8 +128,28 @@ public final class RemoteLevelManager {
 
     private static final int STREAMED_VIEW_DISTANCE = 7;
 
+    private static void bindStreamedRenderer(LevelRenderer renderer, @Nullable ClientLevel level) {
+        if (!SodiumWorldBinding.isUsable()) {
+            renderer.setLevel(level);
+            return;
+        }
+        ((StreamedLevelBinding) renderer).hexwright$bindStreamed(level);
+        SodiumWorldBinding.bind(renderer, level);
+    }
+
     public static int streamedViewDistance(LevelRenderer renderer) {
         return STREAMED_RENDERERS.contains(renderer) ? STREAMED_VIEW_DISTANCE : -1;
+    }
+
+    private static final Set<LevelRenderer> BUILT_RENDERERS =
+        java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+
+    private static LevelRenderer newRenderer(Minecraft mc) {
+        LevelRenderer renderer = new LevelRenderer(mc, mc.getEntityRenderDispatcher(),
+            mc.getBlockEntityRenderDispatcher(), mc.renderBuffers());
+        renderer.initOutline();
+        BUILT_RENDERERS.add(renderer);
+        return renderer;
     }
 
     private static @Nullable ClientLevel savedMainLevel;
@@ -177,11 +200,11 @@ public final class RemoteLevelManager {
         }
 
         LevelRenderer outgoingRenderer = mc.levelRenderer;
-        LevelRenderer replacement = new LevelRenderer(mc, mc.getEntityRenderDispatcher(),
-            mc.getBlockEntityRenderDispatcher(), mc.renderBuffers());
+        LevelRenderer replacement = newRenderer(mc);
         ((MinecraftPortalAccessor) (Object) mc).hexwright$setLevelRenderer(replacement);
         addLive(key, new RemoteLevel(outgoing, outgoingRenderer, true));
-        HexwrightNetworking.sendVaultRetained(key, true);
+        ChunkPos center = mc.player != null ? mc.player.chunkPosition() : ChunkPos.ZERO;
+        HexwrightNetworking.sendVaultRetained(key, center, mc.options.getEffectiveRenderDistance());
         HexwrightDebug.log(HexwrightDebug.VAULT,
             "[vault] retained {} ({} entities cleared) for the view out of {}; loading screen skipped: {}",
             key, stale.size(), incoming.location(), skipNextLoadingScreen);
@@ -213,8 +236,7 @@ public final class RemoteLevelManager {
     private static RemoteLevel createStreamedLevel(Minecraft mc, ClientPacketListener connection,
                                                    ResourceLocation dimension,
                                                    Holder<DimensionType> typeHolder) {
-        LevelRenderer renderer = new LevelRenderer(mc, mc.getEntityRenderDispatcher(),
-            mc.getBlockEntityRenderDispatcher(), mc.renderBuffers());
+        LevelRenderer renderer = newRenderer(mc);
         STREAMED_RENDERERS.add(renderer);
         ClientLevel.ClientLevelData data = new ClientLevel.ClientLevelData(
             mc.level.getDifficulty(), mc.level.getLevelData().isHardcore(), false);
@@ -223,7 +245,7 @@ public final class RemoteLevelManager {
             REMOTE_VIEW_DISTANCE, 2, mc::getProfiler, renderer, false, 0L);
         level.setGameTime(mc.level.getGameTime());
         level.setDayTime(mc.level.getDayTime());
-        renderer.setLevel(level);
+        bindStreamedRenderer(renderer, level);
         return new RemoteLevel(level, renderer, false);
     }
 
@@ -251,19 +273,52 @@ public final class RemoteLevelManager {
         }
         Holder<DimensionType> typeHolder = levels.get(0).level.dimensionTypeRegistration();
         if (levels.size() >= MAX_LIVE_REGIONS) {
-            RemoteLevel evicted = levels.get(0);
-            for (RemoteLevel candidate : levels) {
-                if (candidate.lastDrawnGameTime < evicted.lastDrawnGameTime) {
-                    evicted = candidate;
-                }
-            }
-            retire(dimension, evicted);
+            retire(dimension, leastNeeded(dimension, levels));
         }
         RemoteLevel opened = createStreamedLevel(mc, connection, dimension, typeHolder);
         addLive(dimension, opened);
         HexwrightDebug.log(HexwrightDebug.VAULT, "[vault] {} now streams {} region(s) at once", dimension,
             live(dimension).size());
         return opened;
+    }
+
+    private static RemoteLevel leastNeeded(ResourceLocation dimension, List<RemoteLevel> levels) {
+        RemoteLevel evicted = null;
+        boolean evictedNeeded = true;
+        for (RemoteLevel candidate : levels) {
+            boolean needed = openDoorLooksInto(dimension, candidate);
+            if (evicted == null
+                || (evictedNeeded && !needed)
+                || (evictedNeeded == needed && candidate.lastDrawnGameTime < evicted.lastDrawnGameTime)) {
+                evicted = candidate;
+                evictedNeeded = needed;
+            }
+        }
+        return evicted;
+    }
+
+    private static boolean openDoorLooksInto(ResourceLocation dimension, RemoteLevel remote) {
+        ClientLevel playerLevel = playerLevel();
+        if (playerLevel == null) {
+            return false;
+        }
+        for (ClientPortalManager.Entry entry : ClientPortalManager.entries()) {
+            if (entry.closing()) {
+                continue;
+            }
+            PortalPair pair = entry.pair();
+            for (int side = 0; side < 2; side++) {
+                if (!pair.sideIn(side, playerLevel.dimension())
+                    || !pair.dimensionOr(1 - side, playerLevel.dimension()).location().equals(dimension)) {
+                    continue;
+                }
+                Vec3 anchor = pair.window(1 - side).center();
+                if (holds(remote, Mth.floor(anchor.x) >> 4, Mth.floor(anchor.z) >> 4)) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     private static boolean applyChunk(RemoteLevel remote, ClientboundLevelChunkWithLightPacket packet) {
@@ -306,7 +361,7 @@ public final class RemoteLevelManager {
         outgoing.retireDeadlineGameTime = gameTime() + PortalPair.OPEN_TICKS + FORGET_GRACE_TICKS;
         RETIRING.computeIfAbsent(dimension, key -> new ArrayList<>()).add(outgoing);
         HexwrightDebug.log(HexwrightDebug.VAULT,
-            "[vault] {} is at its region limit; the least recently drawn one retires with its fading pane",
+            "[vault] {} is at its region limit; the one no open door needs retires with its fading pane",
             dimension);
     }
 
@@ -661,7 +716,8 @@ public final class RemoteLevelManager {
         if (remote == null || remote.retained || remote.chunks.size() <= 1) {
             return -1.0;
         }
-        if (remote.level.dimension().equals(com.bluup.hexwright.server.vault.VaultDimension.KEY)) {
+        if (remote.level.dimension().equals(com.bluup.hexwright.server.vault.VaultDimension.KEY)
+            || remote.level.dimension().equals(com.bluup.hexwright.server.dungeon.DungeonDimension.KEY)) {
             return -1.0;
         }
         int minChunkX = Integer.MAX_VALUE;
@@ -705,6 +761,11 @@ public final class RemoteLevelManager {
             ((LevelRendererAccessor) remote.renderer).hexwright$viewArea()
                 .repositionCamera(foldedCamera.x, foldedCamera.z);
         }
+        RenderTarget outline = remote.renderer.entityTarget();
+        Window window = mc.getWindow();
+        if (outline != null && (outline.width != window.getWidth() || outline.height != window.getHeight())) {
+            remote.renderer.resize(window.getWidth(), window.getHeight());
+        }
         remote.lastDrawnGameTime = gameTime();
         savedMainLevel = mc.level;
         savedMainRenderer = mc.levelRenderer;
@@ -745,9 +806,12 @@ public final class RemoteLevelManager {
         }
         remote.entities.clear();
         STREAMED_RENDERERS.remove(remote.renderer);
-        remote.renderer.setLevel(null);
+        bindStreamedRenderer(remote.renderer, null);
+        if (BUILT_RENDERERS.remove(remote.renderer)) {
+            remote.renderer.close();
+        }
         if (remote.retained && Minecraft.getInstance().getConnection() != null) {
-            HexwrightNetworking.sendVaultRetained(dimension, false);
+            HexwrightNetworking.sendVaultRetainedDropped(dimension);
         }
     }
 
