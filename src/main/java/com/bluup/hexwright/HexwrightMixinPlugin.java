@@ -55,6 +55,9 @@ public class HexwrightMixinPlugin implements IMixinConfigPlugin {
         if (simple.startsWith("BetterCombat")) {
             return FabricLoader.getInstance().isModLoaded("bettercombat");
         }
+        if (simple.endsWith("RegionBatchMixin")) {
+            return !FabricLoader.getInstance().isModLoaded("hexpanse");
+        }
         return true;
     }
 

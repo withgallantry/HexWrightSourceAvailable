@@ -45,17 +45,19 @@ public final class WovenOrbCasting {
 
     public static Result activate(ServerPlayer holder, InteractionHand hand, ItemStack orb, WeaveTrigger.Kind event,
                                   String key, @Nullable Iota seed) {
-        return activate(holder, hand, orb, event.id() + (key.isEmpty() ? "" : " " + key),
+        return activate(holder, hand, orb, event.id() + (key.isEmpty() ? "" : " " + key), event.deliberate(),
             weave -> weave.starts(event, key), seed);
     }
 
     public static Result activate(ServerPlayer holder, InteractionHand hand, ItemStack orb, WeaveTrigger.Kind event,
                                   int reach, @Nullable Iota seed) {
-        return activate(holder, hand, orb, event.id() + " within " + reach, weave -> weave.starts(event, reach), seed);
+        return activate(holder, hand, orb, event.id() + " within " + reach, event.deliberate(),
+            weave -> weave.starts(event, reach), seed);
     }
 
     private static Result activate(ServerPlayer holder, InteractionHand hand, ItemStack orb, String event,
-                                   Function<Hexweave, List<Integer>> starts, @Nullable Iota seed) {
+                                   boolean deliberate, Function<Hexweave, List<Integer>> starts,
+                                   @Nullable Iota seed) {
         if (!WovenOrbItem.hasWeave(orb)) {
             return new Result(Outcome.BLANK, null, null, false);
         }
@@ -70,7 +72,7 @@ public final class WovenOrbCasting {
 
         WeaveExecutionBudget budget = new WeaveExecutionBudget();
         Activation activation = HexweaveCasting.activate(weave, starts.apply(weave), holder.serverLevel(),
-            () -> new WovenOrbCastEnv(holder, hand), seed, budget);
+            () -> new WovenOrbCastEnv(holder, hand, deliberate), seed, budget);
 
         boolean unravelled = activation.stop() == HexweaveCasting.Stop.INVOCATION_CAP;
         if (unravelled) {

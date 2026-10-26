@@ -27,25 +27,26 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public final class TravelStoneCollision {
 
-    private static final String TABLE = "/data/hexwright/travel_stone_collision.json";
+    public static final TravelStoneCollision TRAVEL_STONE =
+        new TravelStoneCollision("/data/hexwright/travel_stone_collision.json");
 
-    private static final List<int[]> CLOSED;
-    private static final List<int[]> OPEN;
+    public static final TravelStoneCollision ANCIENT_PORTAL =
+        new TravelStoneCollision("/data/hexwright/ancient_portal_collision.json");
 
-    static {
-        JsonObject table = load();
-        CLOSED = boxes(table, "closed");
-        OPEN = boxes(table, "open");
+    private final List<int[]> closedBoxes;
+    private final List<int[]> openBoxes;
+
+    private final Map<Direction, Map<BlockPos, VoxelShape>> closedCells = new ConcurrentHashMap<>();
+    private final Map<Direction, Map<BlockPos, VoxelShape>> openCells = new ConcurrentHashMap<>();
+    private final Map<Direction, Set<BlockPos>> reach = new ConcurrentHashMap<>();
+
+    private TravelStoneCollision(String table) {
+        JsonObject loaded = load(table);
+        this.closedBoxes = boxes(loaded, "closed");
+        this.openBoxes = boxes(loaded, "open");
     }
 
-    private static final Map<Direction, Map<BlockPos, VoxelShape>> CLOSED_CELLS = new ConcurrentHashMap<>();
-    private static final Map<Direction, Map<BlockPos, VoxelShape>> OPEN_CELLS = new ConcurrentHashMap<>();
-    private static final Map<Direction, Set<BlockPos>> REACH = new ConcurrentHashMap<>();
-
-    private TravelStoneCollision() {
-    }
-
-    public static VoxelShape cell(Direction facing, TravelStoneBlockEntity.Phase phase, BlockPos offset) {
+    public VoxelShape cell(Direction facing, TravelStoneBlockEntity.Phase phase, BlockPos offset) {
         Map<BlockPos, VoxelShape> cells = switch (phase) {
             case CLOSED -> closed(facing);
             case OPEN -> open(facing);
@@ -54,8 +55,8 @@ public final class TravelStoneCollision {
         return cells.getOrDefault(offset, Shapes.empty());
     }
 
-    public static Set<BlockPos> reach(Direction facing) {
-        return REACH.computeIfAbsent(facing, f -> {
+    public Set<BlockPos> reach(Direction facing) {
+        return this.reach.computeIfAbsent(facing, f -> {
             Set<BlockPos> cells = new HashSet<>(closed(f).keySet());
             cells.addAll(open(f).keySet());
             return Collections.unmodifiableSet(cells);
@@ -67,25 +68,25 @@ public final class TravelStoneCollision {
             SectionPos.blockToSectionCoord(pos.getX()), SectionPos.blockToSectionCoord(pos.getZ())) != null;
     }
 
-    private static Map<BlockPos, VoxelShape> closed(Direction facing) {
-        return CLOSED_CELLS.computeIfAbsent(facing, f -> DungeonPropCollision.cut(CLOSED, f));
+    private Map<BlockPos, VoxelShape> closed(Direction facing) {
+        return this.closedCells.computeIfAbsent(facing, f -> DungeonPropCollision.cut(this.closedBoxes, f));
     }
 
-    private static Map<BlockPos, VoxelShape> open(Direction facing) {
-        return OPEN_CELLS.computeIfAbsent(facing, f -> DungeonPropCollision.cut(OPEN, f));
+    private Map<BlockPos, VoxelShape> open(Direction facing) {
+        return this.openCells.computeIfAbsent(facing, f -> DungeonPropCollision.cut(this.openBoxes, f));
     }
 
-    private static JsonObject load() {
-        try (InputStream in = TravelStoneCollision.class.getResourceAsStream(TABLE)) {
+    private static JsonObject load(String table) {
+        try (InputStream in = TravelStoneCollision.class.getResourceAsStream(table)) {
             if (in == null) {
-                Hexwright.LOGGER.error("[travel stone] collision table {} is missing; stones will be walk-through", TABLE);
+                Hexwright.LOGGER.error("[travel stone] collision table {} is missing; stones will be walk-through", table);
                 return new JsonObject();
             }
             try (Reader reader = new InputStreamReader(in, StandardCharsets.UTF_8)) {
                 return JsonParser.parseReader(reader).getAsJsonObject();
             }
         } catch (Exception e) {
-            Hexwright.LOGGER.error("[travel stone] could not read collision table {}", TABLE, e);
+            Hexwright.LOGGER.error("[travel stone] could not read collision table {}", table, e);
             return new JsonObject();
         }
     }

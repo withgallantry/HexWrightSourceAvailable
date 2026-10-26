@@ -23,7 +23,7 @@ public final class BindstoneReward {
 
     private static final float DUNGEON_KEY_CHANCE = 1.0F / 6.0F;
 
-    private static final float CONSTRUCT_EXPERIMENT_KEY_CHANCE = 1.0F / 40.0F;
+    private static final float CONSTRUCT_EXPERIMENT_KEY_CHANCE = 1.0F / 8.0F;
 
     private static final int KYANITE_MIN = 2;
     private static final int KYANITE_SPREAD = 3;

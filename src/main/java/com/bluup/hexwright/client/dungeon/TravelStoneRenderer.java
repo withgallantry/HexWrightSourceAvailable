@@ -71,14 +71,15 @@ public class TravelStoneRenderer extends GeoBlockRenderer<TravelStoneBlockEntity
 
     public static void register() {
         BlockEntityRenderers.register(InstancedDungeons.TRAVEL_STONE_BLOCK_ENTITY, TravelStoneRenderer::new);
-        BlockEntityRenderers.register(InstancedDungeons.CRYSTAL_ALTAR_BLOCK_ENTITY, CrystalAltarRenderer::new);
+        BlockEntityRenderers.register(InstancedDungeons.CRYSTAL_ALTAR_BLOCK_ENTITY, context -> CrystalAltarRenderer.crystal());
         BuiltinItemRendererRegistry.INSTANCE.register(InstancedDungeons.TRAVEL_STONE.asItem(), new Icon(
             new TravelStoneBlockEntity(BlockPos.ZERO, InstancedDungeons.TRAVEL_STONE.defaultBlockState()), 0.1F, 5.5F));
         BuiltinItemRendererRegistry.INSTANCE.register(InstancedDungeons.CRYSTAL_ALTAR.asItem(), new Icon(
             new CrystalAltarBlockEntity(BlockPos.ZERO, InstancedDungeons.CRYSTAL_ALTAR.defaultBlockState()), 0.6F, 0.9F));
+        AncientPortalRenderer.register();
     }
 
-    private record Icon(BlockEntity entity, float scale, float centreY) implements BuiltinItemRendererRegistry.DynamicItemRenderer {
+    record Icon(BlockEntity entity, float scale, float centreY) implements BuiltinItemRendererRegistry.DynamicItemRenderer {
 
         @Override
         public void render(ItemStack stack, ItemDisplayContext mode, PoseStack poseStack, MultiBufferSource buffers,

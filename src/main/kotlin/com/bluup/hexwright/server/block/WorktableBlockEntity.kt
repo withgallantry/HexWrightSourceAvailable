@@ -268,6 +268,12 @@ class WorktableBlockEntity(
             setChanged()
             return
         }
+        val worldCrystals = recipe().worldCrystals
+        if (player.inventory.countItem(HexwrightItems.WORLD_CRYSTAL) < worldCrystals) {
+            judgementKey = "gui.hexwright.worktable.judgement.missing_world_crystal"
+            setChanged()
+            return
+        }
 
         Mastery.checkEssenceMilestones(player, pouchStack())
 
@@ -277,6 +283,10 @@ class WorktableBlockEntity(
         }
         if (golemCores > 0) {
             GolemCoreItem.consume(player, golemCores, "at the Essence Forge")
+        }
+        if (worldCrystals > 0) {
+            ContainerHelper.clearOrCountMatchingItems(player.inventory, { it.`is`(HexwrightItems.WORLD_CRYSTAL) },
+                worldCrystals, false)
         }
         EssenceNetwork.pulseFlow(level, worldPosition, items[POUCH_SLOT], false)
 
@@ -801,10 +811,12 @@ class WorktableBlockEntity(
             val steps = activeSteps()
             val golemCores = recipe().golemCores
             val golemCoresHeld = if (golemCores > 0) GolemCoreItem.carried(player) else 0
+            val worldCrystals = recipe().worldCrystals
+            val worldCrystalsHeld = if (worldCrystals > 0) player.inventory.countItem(HexwrightItems.WORLD_CRYSTAL) else 0
 
             val fingerprint = buildString {
                 append(selectedRecipe).append('|').append(hasPouch).append('|').append(judgementKey)
-                append('|').append(golemCoresHeld)
+                append('|').append(golemCoresHeld).append('|').append(worldCrystalsHeld)
                 for (step in steps) {
                     append('|').append(step.aspect.name).append(':')
                     append(if (hasPouch) EssencePouchData.get(pouch, step.aspect) else 0.0)
@@ -830,15 +842,23 @@ class WorktableBlockEntity(
                 y += 10
             }
 
-            if (golemCores > 0) {
-                val coreX = group.sizeWidth / 2
-                val icon = ImageWidget(coreX, 2, 8, 8, ItemStackTexture(HexwrightItems.GOLEM_CORE))
+            var reagentY = 2
+            for ((item, name, counts) in listOf(
+                Triple(HexwrightItems.GOLEM_CORE, HexwrightItems.GOLEM_CORE.description, golemCoresHeld to golemCores),
+                Triple(HexwrightItems.WORLD_CRYSTAL, Component.translatable("gui.hexwright.worktable.world_crystal"),
+                    worldCrystalsHeld to worldCrystals)
+            )) {
+                val (held, needed) = counts
+                if (needed <= 0) continue
+                val reagentX = group.sizeWidth / 2
+                val icon = ImageWidget(reagentX, reagentY, 8, 8, ItemStackTexture(item))
                 group.addWidget(icon)
                 essenceRows.add(icon)
-                val label = LabelWidget(coreX + 10, 2, "${HexwrightItems.GOLEM_CORE.description.string}: $golemCoresHeld / $golemCores")
-                label.setColor(if (golemCoresHeld >= golemCores) GOOD_COLOR else MISS_COLOR)
+                val label = LabelWidget(reagentX + 10, reagentY, "${name.string}: $held / $needed")
+                label.setColor(if (held >= needed) GOOD_COLOR else MISS_COLOR)
                 group.addWidget(label)
                 essenceRows.add(label)
+                reagentY += 10
             }
 
             if (judgementKey.isNotEmpty()) {

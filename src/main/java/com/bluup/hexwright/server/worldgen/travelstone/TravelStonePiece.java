@@ -4,7 +4,9 @@ import com.bluup.hexwright.server.dungeon.InstancedDungeons;
 import com.bluup.hexwright.server.worldgen.HexwrightWorldgen;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.SectionPos;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.util.Mth;
 import net.minecraft.util.RandomSource;
@@ -106,11 +108,35 @@ public class TravelStonePiece extends StructurePiece {
             }
         }
         placeBoulders(level, chunkBox, RandomSource.create(site));
-        Direction side = this.front.getClockWise();
-        place(level, chunkBox, new BlockPos(this.originX, this.originY, this.originZ),
-            InstancedDungeons.TRAVEL_STONE.defaultBlockState().setValue(HorizontalDirectionalBlock.FACING, this.front));
-        place(level, chunkBox, new BlockPos(this.originX, this.originY, this.originZ)
-            .relative(this.front, ALTAR_FRONT).relative(side, ALTAR_SIDE), InstancedDungeons.CRYSTAL_ALTAR.defaultBlockState());
+        place(level, chunkBox, stonePos(), stoneState());
+        place(level, chunkBox, altarPos(), InstancedDungeons.CRYSTAL_ALTAR.defaultBlockState());
+    }
+
+    public BlockPos stonePos() {
+        return new BlockPos(this.originX, this.originY, this.originZ);
+    }
+
+    public BlockPos altarPos() {
+        return stonePos().relative(this.front, ALTAR_FRONT).relative(this.front.getClockWise(), ALTAR_SIDE);
+    }
+
+    private BlockState stoneState() {
+        return InstancedDungeons.TRAVEL_STONE.defaultBlockState().setValue(HorizontalDirectionalBlock.FACING, this.front);
+    }
+
+    public boolean restore(ServerLevel level) {
+        boolean stone = restoreBlock(level, stonePos(), stoneState());
+        boolean altar = restoreBlock(level, altarPos(), InstancedDungeons.CRYSTAL_ALTAR.defaultBlockState());
+        return stone || altar;
+    }
+
+    private static boolean restoreBlock(ServerLevel level, BlockPos pos, BlockState state) {
+        if (level.getChunkSource().getChunkNow(SectionPos.blockToSectionCoord(pos.getX()),
+                SectionPos.blockToSectionCoord(pos.getZ())) == null
+            || level.getBlockState(pos).is(state.getBlock())) {
+            return false;
+        }
+        return level.setBlock(pos, state, Block.UPDATE_ALL);
     }
 
     private void shapeColumn(WorldGenLevel level, BoundingBox chunkBox, int x, int z, RandomSource random) {

@@ -20,11 +20,13 @@ missing = [
     "hexwright:wither_storm_spawn_egg", "hexwright:experimental_construct_spawn_egg",
     "hexwright:fractured_construct_spawn_egg", "hexwright:runestone_titan_spawn_egg",
     "hexwright:servitor_construct_spawn_egg", "hexwright:cog_sentinel_spawn_egg",
-    "hexwright:corrupt_experiment_spawn_egg",
+    "hexwright:corrupt_experiment_spawn_egg", "hexwright:magnus_spawn_egg",
+    "hexwright:talus_knight_spawn_egg", "hexwright:tower_skeleton_spawn_egg",
     "hexwright:broom_bristleback", "hexwright:broom_crooked_comber", "hexwright:broom_gleamglide",
     "hexwright:broom_nightsweep", "hexwright:broom_splintered_sweeper", "hexwright:broom_starbeam",
     "hexwright:broom_twin_whisk", "hexwright:broom_whisperwind",
     "hexwright:dungeon_prop", "hexwright:prop_*", "hexwright:weapon_rack",
+    "hexwright:crystal_altar", "hexwright:travel_stone",
     "hexwright:blossom_staff", "hexwright:dark_forest_staff", "hexwright:dark_forest_tome_staff",
     "hexwright:dark_forest_tome_staff_open", "hexwright:eclipse_staff", "hexwright:eclipse_tome_staff",
     "hexwright:eclipse_tome_staff_open", "hexwright:end_staff", "hexwright:end_tome_staff",
@@ -53,6 +55,9 @@ texture = "hexwright:textures/item/vault_key_icon.png"
 
 [textures.override."hexwright:reliquary_mirror"]
 texture = "hexwright:textures/item/hexbound_chest_icon.png"
+
+[flags]
+"mod:hexpanse" = false
 
 [extra.hexcasting]
 _pattern_regex = { "!Raw" = 'Registry\.register\((?:registry|IXplatAbstractions\.INSTANCE\.getActionRegistry\(\)),\s*Hexwright\.id\("(?P<name>[a-zA-Z0-9_\/]+)"\),\s*new ActionRegistryEntry\(\s*HexPattern\.fromAngles\("(?P<signature>[qweasd]+)",\s*HexDir\.(?P<startdir>\w+)\)' }
@@ -135,6 +140,22 @@ regex = "{^_pattern_regex}"
 
 [[extra.hexcasting.pattern_stubs]]
 path = "{$_common.src}/main/java/com/bluup/hexwright/server/hexpatterns/MediaGrantActions.java"
+regex = "{^_pattern_regex}"
+
+[[extra.hexcasting.pattern_stubs]]
+path = "{$_common.src}/main/java/com/bluup/hexwright/server/hexpatterns/ShieldGeneratorActions.java"
+regex = "{^_pattern_regex}"
+
+[[extra.hexcasting.pattern_stubs]]
+path = "{$_common.src}/main/java/com/bluup/hexwright/server/soulforge/SoulforgeActions.java"
+regex = "{^_pattern_regex}"
+
+[[extra.hexcasting.pattern_stubs]]
+path = "{$_common.src}/main/java/com/bluup/hexwright/server/constructshand/ConstructsGesture.java"
+regex = "{^_pattern_regex}"
+
+[[extra.hexcasting.pattern_stubs]]
+path = "{$_common.src}/main/java/com/bluup/hexwright/server/constructshand/ConstructsGrasp.java"
 regex = "{^_pattern_regex}"
 
 [template]

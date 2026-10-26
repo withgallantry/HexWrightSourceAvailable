@@ -29,7 +29,7 @@ public final class SoulCleave {
     public static final int VFX_SLASH_LEFT = 1;
     public static final int VFX_PIERCE = 2;
 
-    public static final int CLEAVE_TICKS = 200;
+    public static final int CLEAVE_TICKS = 120;
     public static final int SELF_CLEAVE_TICKS = 100;
 
     private static final int SECOND_CUT_TICKS = 10;
@@ -167,9 +167,13 @@ public final class SoulCleave {
                 }
                 this.struck.add(victim);
                 Vec3 hit = victim.getBoundingBox().getCenter();
-                if (victim.isAlive() && (victim instanceof Player || !Bosses.is(victim))) {
+                boolean cleaves = victim instanceof ServerPlayer player ? Silence.mayLock(player) : !Bosses.is(victim);
+                if (victim.isAlive() && cleaves) {
                     victim.addEffect(new MobEffectInstance(HexwrightEffects.SOUL_CLEAVED, CLEAVE_TICKS, 0,
                         false, false, true), this.wielder);
+                    if (victim instanceof ServerPlayer player) {
+                        Silence.noteLock(player, CLEAVE_TICKS);
+                    }
                     this.level.playSound(null, hit.x, hit.y, hit.z, SoundEvents.SOUL_ESCAPE,
                         SoundSource.PLAYERS, 1.0F, pitch(random, 0.8F, 1.0F));
                 }

@@ -1,5 +1,6 @@
 package com.bluup.hexwright.server.dungeon;
 
+import com.bluup.hexwright.server.boss.BossFavour;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.RandomSource;
@@ -40,5 +41,14 @@ public final class DungeonKeyItem extends Item {
         tooltip.add(Component.translatable(this.getDescriptionId() + ".tooltip").withStyle(ChatFormatting.GRAY));
         tooltip.add(Component.translatable("item.hexwright.dungeon_key.tooltip_time",
             DungeonInstances.duration(DungeonInstances.RIFT_OPEN_TICKS)).withStyle(ChatFormatting.DARK_GRAY));
+        int favour = BossFavour.Shown.favour();
+        if (level != null && level.isClientSide() && favour >= 0) {
+            long next = BossFavour.Shown.untilNext();
+            tooltip.add(next == 0L
+                ? Component.translatable("item.hexwright.dungeon_key.tooltip_favour_full", favour, BossFavour.CAP)
+                    .withStyle(ChatFormatting.LIGHT_PURPLE)
+                : Component.translatable("item.hexwright.dungeon_key.tooltip_favour", favour, BossFavour.CAP,
+                    BossFavour.describe(next)).withStyle(favour > 0 ? ChatFormatting.LIGHT_PURPLE : ChatFormatting.GRAY));
+        }
     }
 }

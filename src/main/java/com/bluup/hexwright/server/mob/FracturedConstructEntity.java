@@ -169,14 +169,14 @@ public class FracturedConstructEntity extends ConstructEntity {
         servitor.playSound(SoundEvents.DEEPSLATE_BREAK, 0.9F, 0.8F);
     }
 
-    static void summonFor(RunestoneTitanEntity titan, ServerLevel level, Vec3 spot, @Nullable LivingEntity target) {
+    static boolean summonFor(RunestoneTitanEntity titan, ServerLevel level, Vec3 spot, @Nullable LivingEntity target) {
         FracturedConstructEntity block = HexwrightMobEntities.FRACTURED_CONSTRUCT.create(level);
         if (block == null) {
-            return;
+            return false;
         }
         block.moveTo(spot.x, spot.y, spot.z, titan.getRandom().nextFloat() * 360.0F, 0.0F);
         if (!level.noCollision(block)) {
-            return;
+            return false;
         }
         block.setPiece(1 + titan.getRandom().nextInt(PIECES));
         if (titan.isPersistenceRequired()) {
@@ -191,7 +191,7 @@ public class FracturedConstructEntity extends ConstructEntity {
         level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, Blocks.STONE_BRICKS.defaultBlockState()),
             block.getX(), block.getY() + 0.1D, block.getZ(), 20, 0.5D, 0.2D, 0.5D, 0.0D);
         block.playSound(SoundEvents.DEEPSLATE_BREAK, 0.9F, 0.8F);
-        level.addFreshEntity(block);
+        return level.addFreshEntity(block);
     }
 
     @Nullable

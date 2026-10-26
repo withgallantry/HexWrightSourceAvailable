@@ -30,6 +30,10 @@ public record WeaveTrigger(int id, Kind kind, String key, int reach, List<Intege
             return id;
         }
 
+        public boolean deliberate() {
+            return this == ON_USE || this == SNEAK_USE || this == KEY || this == KEY_USE;
+        }
+
         public boolean keyed() {
             return this == KEY || this == KEY_USE;
         }

@@ -11,7 +11,6 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
@@ -77,12 +76,6 @@ public abstract class SoulforgedBladeItem extends BattleAxeItem implements Soulf
     public void inventoryTick(ItemStack stack, Level level, Entity holder, int slot, boolean selected) {
         super.inventoryTick(stack, level, holder, slot, selected);
         Soulforge.inventoryTick(stack, level, holder);
-    }
-
-    @Override
-    public void onDestroyed(ItemEntity entity) {
-        super.onDestroyed(entity);
-        Soulforge.onDestroyed(entity);
     }
 
     @Override

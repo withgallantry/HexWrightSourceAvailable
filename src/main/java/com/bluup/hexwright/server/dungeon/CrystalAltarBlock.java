@@ -39,7 +39,11 @@ public class CrystalAltarBlock extends Block implements EntityBlock {
             if (level.isClientSide) {
                 return InteractionResult.SUCCESS;
             }
-            return TravelStones.useKey((ServerLevel) level, pos, (ServerPlayer) player, held,
+            TravelStoneBlockEntity stone = stoneFor((ServerLevel) level, pos, (ServerPlayer) player);
+            if (stone == null) {
+                return InteractionResult.FAIL;
+            }
+            return TravelStones.useKey((ServerLevel) level, pos, stone, (ServerPlayer) player, held,
                 key.draw(level.random));
         }
         if (!held.isEmpty() || hand != InteractionHand.MAIN_HAND) {
@@ -51,8 +55,20 @@ public class CrystalAltarBlock extends Block implements EntityBlock {
         if (level.getBlockEntity(pos) instanceof CrystalAltarBlockEntity altar && altar.lit()) {
             return TravelStones.takeKey((ServerLevel) level, altar, (ServerPlayer) player);
         }
-        player.displayClientMessage(Component.translatable("message.hexwright.travel_stone.altar_hint"), true);
+        player.displayClientMessage(hint(level, pos), true);
         return InteractionResult.CONSUME;
+    }
+
+    protected Component hint(Level level, BlockPos altar) {
+        return Component.translatable("message.hexwright.travel_stone.altar_hint");
+    }
+
+    protected @Nullable TravelStoneBlockEntity stoneFor(ServerLevel level, BlockPos altar, ServerPlayer player) {
+        TravelStoneBlockEntity stone = TravelStones.nearestStone(level, altar);
+        if (stone == null) {
+            player.displayClientMessage(Component.translatable("message.hexwright.travel_stone.no_stone"), true);
+        }
+        return stone;
     }
 
     @Override
@@ -63,13 +79,13 @@ public class CrystalAltarBlock extends Block implements EntityBlock {
     @Override
     public <T extends BlockEntity> @Nullable BlockEntityTicker<T> getTicker(Level level, BlockState state,
                                                                            BlockEntityType<T> type) {
-        if (level.isClientSide || type != InstancedDungeons.CRYSTAL_ALTAR_BLOCK_ENTITY) {
+        if (level.isClientSide) {
             return null;
         }
-        BlockEntityTicker<CrystalAltarBlockEntity> ticker =
-            (tickLevel, pos, tickState, altar) -> altar.serverTick((ServerLevel) tickLevel);
-        @SuppressWarnings("unchecked")
-        BlockEntityTicker<T> cast = (BlockEntityTicker<T>) ticker;
-        return cast;
+        return (tickLevel, pos, tickState, entity) -> {
+            if (entity instanceof CrystalAltarBlockEntity altar) {
+                altar.serverTick((ServerLevel) tickLevel);
+            }
+        };
     }
 }

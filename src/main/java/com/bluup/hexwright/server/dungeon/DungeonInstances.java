@@ -152,16 +152,16 @@ public final class DungeonInstances {
         return true;
     }
 
-    public static @Nullable DungeonInstance openAtStone(ServerLevel level, BlockPos stone, Direction front,
-                                                        UUID opener, DungeonInstance.Kind kind,
-                                                        Consumer<Component> tell) {
+    public static @Nullable DungeonInstance openAtStone(ServerLevel level, TravelStoneBlockEntity stone, UUID opener,
+                                                        DungeonInstance.Kind kind, Consumer<Component> tell) {
         if (!mayOpenFrom(level, tell)) {
             return null;
         }
+        BlockPos at = stone.getBlockPos();
         DungeonInstance instance = create(level, new DungeonInstance.Entrance(level.dimension(),
-            TravelStones.windowCenter(stone), front.getOpposite(), stone), opener, kind, tell);
+            stone.windowCenter(), stone.front().getOpposite(), at), opener, kind, tell);
         if (instance != null) {
-            instance.holdWindowUntil(level.getServer().overworld().getGameTime() + TravelStoneBlockEntity.OPEN_TICKS);
+            instance.holdWindowUntil(level.getServer().overworld().getGameTime() + stone.openTicks());
             DungeonInstanceRegistry.get(level.getServer()).setDirty();
         }
         return instance;

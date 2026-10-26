@@ -11,10 +11,7 @@ import net.minecraft.commands.Commands;
 import net.minecraft.commands.SharedSuggestionProvider;
 import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.commands.arguments.GameProfileArgument;
-import net.minecraft.commands.arguments.ResourceLocationArgument;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.Item;
 
@@ -46,13 +43,6 @@ public final class SoulforgeCommand {
                         .requires(source -> source.hasPermission(2))
                         .then(Commands.argument("player", EntityArgument.player())
                             .executes(SoulforgeCommand::sever)))
-                    .then(Commands.literal("release")
-                        .requires(source -> source.hasPermission(2))
-                        .then(Commands.argument("item", ResourceLocationArgument.id())
-                            .suggests((ctx, builder) -> SharedSuggestionProvider.suggestResource(
-                                BuiltInRegistries.ITEM.stream().filter(SoulforgedItem.class::isInstance)
-                                    .map(BuiltInRegistries.ITEM::getKey), builder))
-                            .executes(SoulforgeCommand::release)))
                     .then(Commands.literal("blacklist")
                         .requires(source -> source.hasPermission(2))
                         .then(Commands.literal("add")
@@ -102,28 +92,13 @@ public final class SoulforgeCommand {
 
     private static int sever(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
         ServerPlayer owner = EntityArgument.getPlayer(ctx, "player");
-        Item weapon = Soulforge.unbind(ctx.getSource().getServer(), owner.getUUID());
+        Item weapon = Soulforge.unbind(ctx.getSource().getServer(), owner.getUUID(), true);
         if (weapon == null) {
             ctx.getSource().sendFailure(Component.literal(owner.getScoreboardName() + " has no bond to sever."));
             return 0;
         }
-        ctx.getSource().sendSuccess(() -> Component.literal("Severed " + owner.getScoreboardName() + "'s bond; ")
-            .append(weapon.getDescription()).append(" is back in the drop pool.").withStyle(ChatFormatting.AQUA), true);
-        return SINGLE_SUCCESS;
-    }
-
-    private static int release(CommandContext<CommandSourceStack> ctx) {
-        ResourceLocation id = ResourceLocationArgument.getId(ctx, "item");
-        Item weapon = BuiltInRegistries.ITEM.get(id);
-        if (!(weapon instanceof SoulforgedItem)) {
-            ctx.getSource().sendFailure(Component.literal(id + " is not a Soulforged weapon."));
-            return 0;
-        }
-        if (!Soulforge.release(ctx.getSource().getServer(), weapon)) {
-            ctx.getSource().sendFailure(Component.literal(id + " is already in the drop pool."));
-            return 0;
-        }
-        ctx.getSource().sendSuccess(() -> weapon.getDescription().copy().append(" is back in the drop pool.")
+        ctx.getSource().sendSuccess(() -> Component.literal("Severed " + owner.getScoreboardName() + "'s bond; their ")
+            .append(weapon.getDescription()).append(" crumbles in " + Soulforge.DOOM_MINUTES + " minutes.")
             .withStyle(ChatFormatting.AQUA), true);
         return SINGLE_SUCCESS;
     }

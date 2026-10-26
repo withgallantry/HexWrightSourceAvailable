@@ -187,6 +187,9 @@ public final class HexwrightClient implements ClientModInitializer {
         com.bluup.hexwright.client.portal.VoidTearShaders.register();
         com.bluup.hexwright.client.portal.VoidTearRenderer.register();
         com.bluup.hexwright.client.portal.ClientVoidTears.register();
+        com.bluup.hexwright.client.flourish.FlourishShaders.register();
+        com.bluup.hexwright.client.flourish.FlourishRenderer.register();
+        com.bluup.hexwright.client.flourish.ClientFlourishes.register();
         com.bluup.hexwright.client.block.RuinedPortalRifts.register();
         com.bluup.hexwright.client.dungeon.ClientDungeonRifts.register();
         com.bluup.hexwright.client.sky.ClientSkies.register();
@@ -341,6 +344,7 @@ public final class HexwrightClient implements ClientModInitializer {
             com.bluup.hexwright.client.powerorb.SanctuaryHandsRenderer::new);
         com.bluup.hexwright.client.boss.storm.StormLightning.register();
         com.bluup.hexwright.client.boss.cog.CogScorchClient.register();
+        com.bluup.hexwright.client.boss.BossFavourClient.register();
         com.bluup.hexwright.client.boss.ancient.GolemZones.register();
         com.bluup.hexwright.client.vehicle.CarpetTailModels.registerModels();
 

@@ -1212,7 +1212,7 @@ final class HexweaveSelfTest {
         WeaveExecutionBudget budget = new WeaveExecutionBudget();
         List<WeaveExecutionBudget> seen = new ArrayList<>();
         Supplier<CastingEnvironment> environments = () -> {
-            WovenOrbCastEnv env = new WovenOrbCastEnv(player, InteractionHand.OFF_HAND);
+            WovenOrbCastEnv env = new WovenOrbCastEnv(player, InteractionHand.OFF_HAND, true);
             env.addExtension(new BudgetProbe(env, seen));
             return env;
         };
@@ -1220,7 +1220,7 @@ final class HexweaveSelfTest {
         check("Y", !seen.isEmpty() && seen.stream().allMatch(found -> found == budget),
             "every step of both Threads found the activation's own budget on its environment (" + seen.size()
                 + " steps) - attachment only; nested accounting is still unproven");
-        check("Y", WeaveExecutionBudget.of(new WovenOrbCastEnv(player, InteractionHand.OFF_HAND)) == null,
+        check("Y", WeaveExecutionBudget.of(new WovenOrbCastEnv(player, InteractionHand.OFF_HAND, true)) == null,
             "an environment outside a weave carries none");
     }
 

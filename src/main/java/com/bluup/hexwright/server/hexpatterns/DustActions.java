@@ -26,9 +26,9 @@ import com.bluup.hexwright.server.dust.DustLicence;
 import com.bluup.hexwright.server.dust.DustManifestations;
 import com.bluup.hexwright.server.dust.DustTuning;
 import com.bluup.hexwright.server.powerorb.PowerOrbPower;
+import com.bluup.hexwright.server.region.HexpanseBridge;
 import com.bluup.hexwright.server.region.Region;
 import com.bluup.hexwright.server.region.RegionAmbit;
-import com.bluup.hexwright.server.region.RegionIota;
 import net.minecraft.core.Registry;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
@@ -118,10 +118,10 @@ public final class DustActions {
         @Override
         public Result execute(List<? extends Iota> args, CastingEnvironment env) {
             Iota raw = args.get(0);
-            if (!(raw instanceof RegionIota regionIota)) {
+            Region region = HexpanseBridge.regionOf(raw);
+            if (region == null) {
                 throw MishapInvalidIota.ofType(raw, 0, "hexwright.region");
             }
-            Region region = regionIota.getRegion();
             if (region.isEmpty()) {
                 throw MishapInvalidIota.of(raw, 0, "hexwright.dust_region");
             }

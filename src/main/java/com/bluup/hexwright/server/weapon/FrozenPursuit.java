@@ -1,6 +1,7 @@
 package com.bluup.hexwright.server.weapon;
 
 import com.bluup.hexwright.inits.HexwrightNetworking;
+import com.bluup.hexwright.server.boss.Bosses;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -117,13 +118,16 @@ public final class FrozenPursuit {
     }
 
     private static void freeze(LivingEntity victim) {
+        if (Bosses.is(victim)) {
+            return;
+        }
         victim.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, FREEZE_TICKS,
             FREEZE_AMPLIFIER, false, false, true));
         frost(victim);
     }
 
     private static void frost(LivingEntity victim) {
-        if (victim.canFreeze()) {
+        if (victim.canFreeze() && !Bosses.is(victim)) {
             victim.setTicksFrozen(Math.max(victim.getTicksFrozen(),
                 victim.getTicksRequiredToFreeze() + FREEZE_TICKS * 2));
         }

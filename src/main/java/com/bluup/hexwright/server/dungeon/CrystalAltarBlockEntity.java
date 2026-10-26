@@ -13,7 +13,9 @@ import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.Vec3;
 import software.bernie.geckolib.animatable.GeoBlockEntity;
 import software.bernie.geckolib.core.animatable.instance.AnimatableInstanceCache;
 import software.bernie.geckolib.core.animation.AnimatableManager;
@@ -21,7 +23,7 @@ import software.bernie.geckolib.util.GeckoLibUtil;
 
 public class CrystalAltarBlockEntity extends BlockEntity implements GeoBlockEntity {
 
-    public static final double KEY_HEIGHT = 1.45;
+    private static final Vec3 KEY_OFFSET = new Vec3(0.0, 1.45, 0.0);
 
     private final AnimatableInstanceCache cache = GeckoLibUtil.createInstanceCache(this);
 
@@ -30,7 +32,15 @@ public class CrystalAltarBlockEntity extends BlockEntity implements GeoBlockEnti
     private long closesAt;
 
     public CrystalAltarBlockEntity(BlockPos pos, BlockState state) {
-        super(InstancedDungeons.CRYSTAL_ALTAR_BLOCK_ENTITY, pos, state);
+        this(InstancedDungeons.CRYSTAL_ALTAR_BLOCK_ENTITY, pos, state);
+    }
+
+    protected CrystalAltarBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState state) {
+        super(type, pos, state);
+    }
+
+    public Vec3 keyOffset() {
+        return KEY_OFFSET;
     }
 
     public boolean lit() {
@@ -65,8 +75,8 @@ public class CrystalAltarBlockEntity extends BlockEntity implements GeoBlockEnti
             return;
         }
         level.playSound(null, this.worldPosition, SoundEvents.ITEM_BREAK, SoundSource.BLOCKS, 0.7F, 0.9F);
-        level.sendParticles(new ItemParticleOption(ParticleTypes.ITEM, this.key),
-            this.worldPosition.getX() + 0.5, this.worldPosition.getY() + KEY_HEIGHT, this.worldPosition.getZ() + 0.5,
+        Vec3 at = Vec3.atBottomCenterOf(this.worldPosition).add(keyOffset());
+        level.sendParticles(new ItemParticleOption(ParticleTypes.ITEM, this.key), at.x, at.y, at.z,
             16, 0.12, 0.12, 0.12, 0.06);
     }
 

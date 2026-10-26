@@ -9,6 +9,7 @@ import com.bluup.hexwright.server.worldgen.dungeon.DungeonClears;
 import com.bluup.hexwright.server.worldgen.dungeon.DungeonPiece;
 import com.bluup.hexwright.server.worldgen.dungeon.DungeonPlanner;
 import com.bluup.hexwright.server.worldgen.dungeon.DungeonStructure;
+import com.bluup.hexwright.server.worldgen.dungeon.PlayerBuilds;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.event.player.AttackBlockCallback;
@@ -152,7 +153,8 @@ public final class AreaWard {
     }
 
     public static boolean immovable(Level level, BlockPos pos) {
-        return sealed(level, pos) || (level instanceof ServerLevel server && CloakFieldShell.holds(server, pos));
+        return sealed(level, pos) || level.getBlockState(pos).is(PlayerBuilds.LOOT)
+            || (level instanceof ServerLevel server && CloakFieldShell.holds(server, pos));
     }
 
     private static boolean inArea(ServerLevel level, BlockPos pos) {
@@ -185,7 +187,7 @@ public final class AreaWard {
             return;
         }
         boolean breaks = source instanceof DungeonBlast blast && blast.hexwright$breaksDungeon();
-        positions.removeIf(pos -> CloakFieldShell.holds(server, pos));
+        positions.removeIf(pos -> CloakFieldShell.holds(server, pos) || server.getBlockState(pos).is(PlayerBuilds.LOOT));
         CloakFieldExclusion.pruneBlast(server, positions, igniter);
         if (AREAS.isEmpty() && (breaks || seal(server).structure() == null)) {
             return;
@@ -273,6 +275,9 @@ public final class AreaWard {
         }
         if (sealed(level, pos)) {
             return "message.hexwright.dungeon.immovable";
+        }
+        if (level.getBlockState(pos).is(PlayerBuilds.LOOT)) {
+            return "message.hexwright.loot_container.fixed";
         }
         boolean shielded = CloakFieldShell.holds(server, pos)
             || CloakFieldExclusion.excludes(server, Vec3.atCenterOf(pos), player);

@@ -46,7 +46,7 @@ public final class InstancedDungeons {
     private InstancedDungeons() {
     }
 
-    private static BlockBehaviour.Properties travelStoneSettings() {
+    static BlockBehaviour.Properties travelStoneSettings() {
         return FabricBlockSettings.copyOf(Blocks.STONE)
             .noOcclusion()
             .dynamicShape()
@@ -86,6 +86,7 @@ public final class InstancedDungeons {
             entries.accept(travelStone);
             entries.accept(crystalAltar);
         });
+        AncientPortals.register();
         DungeonInstances.register();
         TravelStones.register();
         DungeonInstanceCommand.register();

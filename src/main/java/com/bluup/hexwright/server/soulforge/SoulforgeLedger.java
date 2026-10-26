@@ -12,24 +12,22 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.saveddata.SavedData;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 public final class SoulforgeLedger extends SavedData {
 
     private static final String STORAGE_ID = "hexwright_soulforged_weapons";
 
-    enum State {
-        POOL,
-        LOOSE,
-        BOUND
-    }
+    private final Map<UUID, Bond> bonds = new HashMap<>();
 
-    private final Map<ResourceLocation, Record> records = new HashMap<>();
-
-    private final Map<UUID, ResourceLocation> lapsed = new HashMap<>();
+    private final Set<UUID> spent = new HashSet<>();
 
     private final Map<UUID, String> blacklist = new HashMap<>();
 
@@ -38,118 +36,93 @@ public final class SoulforgeLedger extends SavedData {
             .computeIfAbsent(SoulforgeLedger::load, SoulforgeLedger::new, STORAGE_ID);
     }
 
-    Record record(Item item) {
-        return this.records.computeIfAbsent(BuiltInRegistries.ITEM.getKey(item), Record::new);
+    private Bond bond(UUID owner) {
+        return this.bonds.computeIfAbsent(owner, Bond::new);
     }
 
     @Nullable
-    Record ownedBy(UUID owner) {
-        for (Record record : this.records.values()) {
-            if (record.state == State.BOUND && owner.equals(record.owner)) {
-                return record;
+    Bond ownedBy(UUID owner) {
+        Bond bond = this.bonds.get(owner);
+        return bond != null && bond.item != null ? bond : null;
+    }
+
+    List<Bond> bonded() {
+        List<Bond> bonded = new ArrayList<>();
+        for (Bond bond : this.bonds.values()) {
+            if (bond.item != null) {
+                bonded.add(bond);
             }
         }
-        return null;
+        return bonded;
     }
 
-    Collection<Record> records() {
-        return this.records.values();
+    Bond bind(ServerPlayer owner, ItemStack stack) {
+        Bond bond = bond(owner.getUUID());
+        UUID instance = SoulBond.instance(stack);
+        bond.ownerName = owner.getGameProfile().getName();
+        bond.item = BuiltInRegistries.ITEM.getKey(stack.getItem());
+        bond.instance = instance != null ? instance : UUID.randomUUID();
+        bond.doomAt = SoulBond.doomAt(stack);
+        bond.dismissed = false;
+        bond.generation++;
+        SoulBond.stamp(stack, bond.owner, bond.ownerName, bond.generation, bond.instance);
+        bond.weapon = save(stack);
+        setDirty();
+        return bond;
     }
 
-    void release(Record record, ItemStack stack) {
-        record.state = State.LOOSE;
-        record.owner = null;
-        record.ownerName = "";
-        record.absentMillis = 0L;
-        record.generation++;
-        SoulBond.stamp(stack, null, "", record.generation);
+    void restamp(Bond bond, ItemStack stack) {
+        bond.generation++;
+        SoulBond.stamp(stack, bond.owner, bond.ownerName, bond.generation, bond.instance);
+        bond.weapon = save(stack);
         setDirty();
     }
 
-    void bind(Record record, ServerPlayer owner, ItemStack stack) {
-        record.state = State.BOUND;
-        record.owner = owner.getUUID();
-        record.ownerName = owner.getGameProfile().getName();
-        record.dismissed = false;
-        record.absentMillis = 0L;
-        record.generation++;
-        SoulBond.stamp(stack, record.owner, record.ownerName, record.generation);
-        record.weapon = save(stack);
-        this.lapsed.remove(record.owner);
-        setDirty();
-    }
-
-    void restamp(Record record, ItemStack stack) {
-        record.generation++;
-        SoulBond.stamp(stack, record.owner, record.ownerName, record.generation);
-        if (record.state == State.BOUND) {
-            record.weapon = save(stack);
-        }
-        setDirty();
-    }
-
-    void remember(Record record, ItemStack stack) {
+    void remember(Bond bond, ItemStack stack) {
         CompoundTag saved = save(stack);
-        if (!saved.equals(record.weapon)) {
-            record.weapon = saved;
+        if (!saved.equals(bond.weapon)) {
+            bond.weapon = saved;
             setDirty();
         }
     }
 
-    void stow(Record record, @Nullable ItemStack stack) {
+    void stow(Bond bond, @Nullable ItemStack stack) {
         if (stack != null) {
-            record.weapon = save(stack);
+            bond.weapon = save(stack);
         }
-        record.dismissed = true;
-        record.generation++;
+        bond.dismissed = true;
+        bond.generation++;
         setDirty();
     }
 
-    ItemStack draw(Record record) {
-        record.generation++;
-        record.dismissed = false;
-        ItemStack stack = ItemStack.of(record.weapon);
+    ItemStack draw(Bond bond) {
+        bond.generation++;
+        bond.dismissed = false;
+        ItemStack stack = ItemStack.of(bond.weapon);
         if (stack.isEmpty()) {
-            stack = new ItemStack(record.item());
+            stack = new ItemStack(bond.item());
         }
-        SoulBond.stamp(stack, record.owner, record.ownerName, record.generation);
-        record.weapon = save(stack);
+        SoulBond.stamp(stack, bond.owner, bond.ownerName, bond.generation, bond.instance);
+        bond.weapon = save(stack);
         setDirty();
         return stack;
     }
 
-    void returnToPool(Record record) {
-        record.state = State.POOL;
-        record.owner = null;
-        record.ownerName = "";
-        record.weapon = new CompoundTag();
-        record.dismissed = false;
-        record.absentMillis = 0L;
-        record.generation++;
-        setDirty();
-    }
-
-    void age(Record record, long step) {
-        long absent = step < 0L ? 0L : record.absentMillis + step;
-        if (absent != record.absentMillis) {
-            record.absentMillis = absent;
-            setDirty();
+    void end(Bond bond) {
+        if (bond.instance != null) {
+            this.spent.add(bond.instance);
         }
-    }
-
-    void noteLapsed(UUID owner, Record record) {
-        this.lapsed.put(owner, record.item);
+        bond.item = null;
+        bond.instance = null;
+        bond.weapon = new CompoundTag();
+        bond.dismissed = false;
+        bond.doomAt = 0L;
+        bond.generation++;
         setDirty();
     }
 
-    @Nullable
-    Item takeLapsed(UUID owner) {
-        ResourceLocation item = this.lapsed.remove(owner);
-        if (item == null) {
-            return null;
-        }
-        setDirty();
-        return BuiltInRegistries.ITEM.get(item);
+    boolean isSpent(@Nullable UUID instance) {
+        return instance != null && this.spent.contains(instance);
     }
 
     boolean isBlacklisted(UUID player) {
@@ -183,32 +156,28 @@ public final class SoulforgeLedger extends SavedData {
     @Override
     public CompoundTag save(CompoundTag tag) {
         ListTag list = new ListTag();
-        for (Record record : this.records.values()) {
-            if (record.generation == 0) {
-                continue;
-            }
+        for (Bond bond : this.bonds.values()) {
             CompoundTag entry = new CompoundTag();
-            entry.putString("Item", record.item.toString());
-            entry.putString("State", record.state.name());
-            entry.putInt("Generation", record.generation);
-            if (record.owner != null) {
-                entry.putUUID("Owner", record.owner);
-                entry.putString("Name", record.ownerName);
+            entry.putUUID("Owner", bond.owner);
+            entry.putString("Name", bond.ownerName);
+            entry.putInt("Generation", bond.generation);
+            if (bond.item != null && bond.instance != null) {
+                entry.putString("Item", bond.item.toString());
+                entry.putUUID("Instance", bond.instance);
+                entry.put("Weapon", bond.weapon);
+                entry.putBoolean("Dismissed", bond.dismissed);
+                entry.putLong("DoomAt", bond.doomAt);
             }
-            entry.put("Weapon", record.weapon);
-            entry.putBoolean("Dismissed", record.dismissed);
-            entry.putLong("AbsentMillis", record.absentMillis);
             list.add(entry);
         }
-        tag.put("Weapons", list);
-        ListTag lapsedList = new ListTag();
-        for (Map.Entry<UUID, ResourceLocation> entry : this.lapsed.entrySet()) {
-            CompoundTag lapsedEntry = new CompoundTag();
-            lapsedEntry.putUUID("Owner", entry.getKey());
-            lapsedEntry.putString("Item", entry.getValue().toString());
-            lapsedList.add(lapsedEntry);
+        tag.put("Bonds", list);
+        ListTag spentList = new ListTag();
+        for (UUID instance : this.spent) {
+            CompoundTag spentEntry = new CompoundTag();
+            spentEntry.putUUID("Instance", instance);
+            spentList.add(spentEntry);
         }
-        tag.put("Lapsed", lapsedList);
+        tag.put("Spent", spentList);
         ListTag blacklistTag = new ListTag();
         for (Map.Entry<UUID, String> entry : this.blacklist.entrySet()) {
             CompoundTag blacklistEntry = new CompoundTag();
@@ -222,30 +191,26 @@ public final class SoulforgeLedger extends SavedData {
 
     private static SoulforgeLedger load(CompoundTag tag) {
         SoulforgeLedger ledger = new SoulforgeLedger();
-        for (Tag element : tag.getList("Weapons", Tag.TAG_COMPOUND)) {
-            CompoundTag entry = (CompoundTag) element;
-            ResourceLocation item = ResourceLocation.tryParse(entry.getString("Item"));
-            if (item == null || !BuiltInRegistries.ITEM.containsKey(item)) {
-                continue;
+        if (tag.contains("Bonds", Tag.TAG_LIST)) {
+            for (Tag element : tag.getList("Bonds", Tag.TAG_COMPOUND)) {
+                CompoundTag entry = (CompoundTag) element;
+                Bond bond = ledger.bond(entry.getUUID("Owner"));
+                bond.ownerName = entry.getString("Name");
+                bond.generation = entry.getInt("Generation");
+                ResourceLocation item = ResourceLocation.tryParse(entry.getString("Item"));
+                if (item != null && BuiltInRegistries.ITEM.containsKey(item) && entry.hasUUID("Instance")) {
+                    bond.item = item;
+                    bond.instance = entry.getUUID("Instance");
+                    bond.weapon = entry.getCompound("Weapon");
+                    bond.dismissed = entry.getBoolean("Dismissed");
+                    bond.doomAt = entry.getLong("DoomAt");
+                }
             }
-            Record record = new Record(item);
-            record.state = State.valueOf(entry.getString("State"));
-            record.generation = entry.getInt("Generation");
-            if (entry.hasUUID("Owner")) {
-                record.owner = entry.getUUID("Owner");
-                record.ownerName = entry.getString("Name");
-            }
-            record.weapon = entry.getCompound("Weapon");
-            record.dismissed = entry.getBoolean("Dismissed");
-            record.absentMillis = entry.getLong("AbsentMillis");
-            ledger.records.put(item, record);
+        } else {
+            ledger.migrateWorldUnique(tag);
         }
-        for (Tag element : tag.getList("Lapsed", Tag.TAG_COMPOUND)) {
-            CompoundTag entry = (CompoundTag) element;
-            ResourceLocation item = ResourceLocation.tryParse(entry.getString("Item"));
-            if (item != null && BuiltInRegistries.ITEM.containsKey(item)) {
-                ledger.lapsed.put(entry.getUUID("Owner"), item);
-            }
+        for (Tag element : tag.getList("Spent", Tag.TAG_COMPOUND)) {
+            ledger.spent.add(((CompoundTag) element).getUUID("Instance"));
         }
         for (Tag element : tag.getList("Blacklist", Tag.TAG_COMPOUND)) {
             CompoundTag entry = (CompoundTag) element;
@@ -254,22 +219,40 @@ public final class SoulforgeLedger extends SavedData {
         return ledger;
     }
 
-    static final class Record {
-        final ResourceLocation item;
-        State state = State.POOL;
-        int generation;
-        @Nullable
-        UUID owner;
+    private void migrateWorldUnique(CompoundTag tag) {
+        for (Tag element : tag.getList("Weapons", Tag.TAG_COMPOUND)) {
+            CompoundTag entry = (CompoundTag) element;
+            ResourceLocation item = ResourceLocation.tryParse(entry.getString("Item"));
+            if (item == null || !BuiltInRegistries.ITEM.containsKey(item)
+                || !"BOUND".equals(entry.getString("State")) || !entry.hasUUID("Owner")) {
+                continue;
+            }
+            Bond bond = bond(entry.getUUID("Owner"));
+            bond.ownerName = entry.getString("Name");
+            bond.item = item;
+            bond.instance = UUID.randomUUID();
+            bond.generation = entry.getInt("Generation");
+            bond.weapon = entry.getCompound("Weapon");
+            bond.dismissed = entry.getBoolean("Dismissed");
+        }
+        setDirty();
+    }
+
+    static final class Bond {
+        final UUID owner;
         String ownerName = "";
+        @Nullable
+        ResourceLocation item;
+        @Nullable
+        UUID instance;
+        int generation;
         CompoundTag weapon = new CompoundTag();
         boolean dismissed;
-        long absentMillis;
+        long doomAt;
         long carriedTick = Long.MIN_VALUE;
-        @Nullable
-        UUID lastHolder;
 
-        private Record(ResourceLocation item) {
-            this.item = item;
+        private Bond(UUID owner) {
+            this.owner = owner;
         }
 
         Item item() {
@@ -277,7 +260,9 @@ public final class SoulforgeLedger extends SavedData {
         }
 
         boolean isCurrent(ItemStack stack) {
-            return this.state != State.POOL && SoulBond.generation(stack) == this.generation;
+            return this.item != null && this.owner.equals(SoulBond.owner(stack))
+                && SoulBond.generation(stack) == this.generation
+                && this.item.equals(BuiltInRegistries.ITEM.getKey(stack.getItem()));
         }
     }
 }

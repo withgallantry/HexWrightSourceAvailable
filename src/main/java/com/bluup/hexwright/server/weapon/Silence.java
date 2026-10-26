@@ -22,13 +22,17 @@ import java.util.UUID;
 
 public final class Silence {
 
-    public static final int SILENCE_TICKS = 500;
+    public static final int SILENCE_TICKS = 200;
+
+    public static final int LOCK_IMMUNITY_TICKS = 600;
 
     private static final int SWEEP_INTERVAL_TICKS = 20;
 
     private static final Map<UUID, Long> SILENCED = new HashMap<>();
 
     private static final Map<UUID, Spurn> SPURNED = new HashMap<>();
+
+    private static final Map<UUID, Long> LOCK_IMMUNE = new HashMap<>();
 
     private record Spurn(UUID wielder, long until) {
     }
@@ -41,16 +45,18 @@ public final class Silence {
         ServerLifecycleEvents.SERVER_STOPPED.register(server -> {
             SILENCED.clear();
             SPURNED.clear();
+            LOCK_IMMUNE.clear();
         });
     }
 
     public static boolean strike(LivingEntity victim, ServerPlayer wielder) {
         long now = wielder.server.overworld().getGameTime();
         if (victim instanceof ServerPlayer player) {
-            int ticks = PestiferousItem.afflictedTicks(player, SILENCE_TICKS);
-            SILENCED.put(player.getUUID(), now + ticks);
-            HexwrightEffects.restart(player, HexwrightEffects.SILENCED, ticks);
-            DustManifestations.release(player);
+            if (!mayLock(player)) {
+                return false;
+            }
+            int ticks = silence(player, SILENCE_TICKS);
+            noteLock(player, ticks);
             player.displayClientMessage(Component.translatable("message.hexwright.silenced",
                 wielder.getDisplayName(), ticks / 20), true);
             HexwrightDebug.log(HexwrightDebug.WEAPON, "[weapon] {} silenced by {}",
@@ -69,6 +75,26 @@ public final class Silence {
             return true;
         }
         return false;
+    }
+
+    public static int silence(ServerPlayer player, int ticks) {
+        long now = player.server.overworld().getGameTime();
+        long until = Math.max(SILENCED.getOrDefault(player.getUUID(), 0L),
+            now + PestiferousItem.afflictedTicks(player, ticks));
+        SILENCED.put(player.getUUID(), until);
+        int left = (int) (until - now);
+        HexwrightEffects.restart(player, HexwrightEffects.SILENCED, left);
+        DustManifestations.release(player);
+        return left;
+    }
+
+    public static boolean mayLock(ServerPlayer player) {
+        Long until = LOCK_IMMUNE.get(player.getUUID());
+        return until == null || until <= player.server.overworld().getGameTime();
+    }
+
+    public static void noteLock(ServerPlayer player, int ticks) {
+        LOCK_IMMUNE.put(player.getUUID(), player.server.overworld().getGameTime() + ticks + LOCK_IMMUNITY_TICKS);
     }
 
     public static boolean isSilenced(@Nullable Entity entity) {
@@ -95,6 +121,7 @@ public final class Silence {
         }
         SILENCED.values().removeIf(until -> until <= now);
         SPURNED.values().removeIf(spurn -> spurn.until <= now);
+        LOCK_IMMUNE.values().removeIf(until -> until <= now);
         for (ServerPlayer player : server.getPlayerList().getPlayers()) {
             Long until = SILENCED.get(player.getUUID());
             HexwrightEffects.sync(player, HexwrightEffects.SILENCED, until != null,

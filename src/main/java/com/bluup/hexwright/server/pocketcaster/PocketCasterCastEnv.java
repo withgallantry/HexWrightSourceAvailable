@@ -9,8 +9,19 @@ import net.minecraft.world.InteractionHand;
 
 public class PocketCasterCastEnv extends StaffCastEnv {
 
+    private final boolean deliberate;
+
     public PocketCasterCastEnv(ServerPlayer caster, InteractionHand castingHand) {
+        this(caster, castingHand, true);
+    }
+
+    public PocketCasterCastEnv(ServerPlayer caster, InteractionHand castingHand, boolean deliberate) {
         super(caster, castingHand);
+        this.deliberate = deliberate;
+    }
+
+    public boolean deliberate() {
+        return deliberate;
     }
 
     @Override

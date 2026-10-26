@@ -1,6 +1,5 @@
 package com.bluup.hexwright.server.item;
 
-import at.petrak.hexcasting.api.casting.castables.Action;
 import at.petrak.hexcasting.api.casting.eval.CastingEnvironment;
 import at.petrak.hexcasting.common.lib.HexAttributes;
 import com.bluup.hexwright.HexwrightDebug;
@@ -8,6 +7,7 @@ import com.bluup.hexwright.server.boss.Bosses;
 import com.bluup.hexwright.server.soulforge.SoulBond;
 import com.bluup.hexwright.server.soulforge.Soulforge;
 import com.bluup.hexwright.server.soulforge.SoulforgedItem;
+import com.bluup.hexwright.server.weapon.SpearStaff;
 import com.bluup.hexwright.server.weapon.WeaponTooltips;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableMultimap;
@@ -27,18 +27,18 @@ import net.minecraft.world.entity.NeutralMob;
 import net.minecraft.world.entity.ai.attributes.Attribute;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
-import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.monster.Enemy;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 import java.util.UUID;
 
-public class DivinityItem extends ItemHexwrightStaff implements SoulforgedItem, FabricItem {
+public class DivinityItem extends ItemHexwrightStaff implements SoulforgedItem, FabricItem, SpearStaff {
 
     public static final double AMBIT_MULTIPLIER = 5.0;
 
@@ -49,10 +49,6 @@ public class DivinityItem extends ItemHexwrightStaff implements SoulforgedItem, 
     private static final int GLOW_REFRESH_BELOW_TICKS = 300;
 
     private static final int OTHER_GLOW_MAX_TICKS = 200;
-
-    private static final AttributeModifier AMBIT = new AttributeModifier(
-        UUID.fromString("01cd9e72-a1af-434a-82c4-8390e3f8daaa"),
-        "Divinity Ambit", AMBIT_MULTIPLIER - 1.0, AttributeModifier.Operation.MULTIPLY_BASE);
 
     private static final AttributeModifier GRID_ZOOM = new AttributeModifier(
         UUID.fromString("6b0e4f27-d3a1-4c58-9e72-1f8a5c3d0b64"),
@@ -75,14 +71,20 @@ public class DivinityItem extends ItemHexwrightStaff implements SoulforgedItem, 
                 attackSpeedModifier, AttributeModifier.Operation.ADDITION));
     }
 
-    public static double raycastReach(CastingEnvironment env) {
+    public static double buildReach(CastingEnvironment env) {
         if (env.getCastingEntity() instanceof Player player && holdsOwn(player)) {
-            return Math.max(Action.RAYCAST_DISTANCE, player.getAttributeValue(HexAttributes.AMBIT_RADIUS));
+            return player.getAttributeValue(HexAttributes.AMBIT_RADIUS) * AMBIT_MULTIPLIER;
         }
-        return Action.RAYCAST_DISTANCE;
+        return 0.0;
     }
 
-    private static boolean holdsOwn(Player player) {
+    public static boolean inBuildReach(CastingEnvironment env, Vec3 vec) {
+        double reach = buildReach(env);
+        return reach > 0.0 && env.getCastingEntity() != null
+            && vec.distanceToSqr(env.getCastingEntity().position()) <= reach * reach;
+    }
+
+    public static boolean holdsOwn(Player player) {
         for (InteractionHand hand : InteractionHand.values()) {
             ItemStack held = player.getItemInHand(hand);
             if (held.getItem() instanceof DivinityItem && SoulBond.isOwnedBy(held, player)) {
@@ -113,7 +115,6 @@ public class DivinityItem extends ItemHexwrightStaff implements SoulforgedItem, 
             return base;
         }
         Multimap<Attribute, AttributeModifier> out = HashMultimap.create(base);
-        out.put(HexAttributes.AMBIT_RADIUS, AMBIT);
         out.put(HexAttributes.GRID_ZOOM, GRID_ZOOM);
         out.put(HexAttributes.MEDIA_CONSUMPTION_MODIFIER, MEDIA_DISCOUNT);
         return out;
@@ -166,12 +167,6 @@ public class DivinityItem extends ItemHexwrightStaff implements SoulforgedItem, 
             player.getAbilities().flying = false;
             player.onUpdateAbilities();
         }
-    }
-
-    @Override
-    public void onDestroyed(ItemEntity entity) {
-        super.onDestroyed(entity);
-        Soulforge.onDestroyed(entity);
     }
 
     @Override

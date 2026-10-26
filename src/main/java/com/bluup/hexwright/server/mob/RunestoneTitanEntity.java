@@ -1,6 +1,7 @@
 package com.bluup.hexwright.server.mob;
 
 import com.bluup.hexwright.server.boss.BossDamage;
+import com.bluup.hexwright.server.dungeon.DungeonDimension;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.particles.BlockParticleOption;
@@ -106,6 +107,7 @@ public class RunestoneTitanEntity extends ConstructEntity {
     private static final double SUMMON_SPREAD = 6.0D;
     private static final int MAX_MINIONS = 6;
     private static final double MINION_COUNT_RANGE = 24.0D;
+    private static final int SUMMONS_OUTSIDE_DUNGEON = 10;
 
     private static final int RECOVER_TICKS = 10;
 
@@ -117,9 +119,11 @@ public class RunestoneTitanEntity extends ConstructEntity {
     private static final float PER_SECOND_CAP = 80.0F;
 
     private static final String TAG_HOME = "Home";
+    private static final String TAG_SUMMONED_OUTSIDE = "SummonedOutside";
 
     @Nullable
     private BlockPos home;
+    private int summonedOutside;
     private int recover;
     private int repath;
     private int sweepCooldown;
@@ -348,16 +352,21 @@ public class RunestoneTitanEntity extends ConstructEntity {
         }
         for (int beat = 0; beat < SUMMON_TICKS.length; beat++) {
             if (tick == SUMMON_TICKS[beat] && this.level() instanceof ServerLevel level) {
-                for (int count = 0; count < SUMMON_COUNTS[beat] && minions() < MAX_MINIONS; count++) {
+                boolean outside = !DungeonDimension.isDungeonLevel(level);
+                for (int count = 0; count < SUMMON_COUNTS[beat] && minions() < MAX_MINIONS
+                    && (!outside || this.summonedOutside < SUMMONS_OUTSIDE_DUNGEON); count++) {
                     Vec3 spot = summonSpot(level);
-                    if (spot != null) {
-                        FracturedConstructEntity.summonFor(this, level, spot, target);
+                    if (spot != null && FracturedConstructEntity.summonFor(this, level, spot, target) && outside) {
+                        this.summonedOutside++;
                     }
                 }
             }
         }
         if (tick >= Clip.SUMMON.length()) {
             finish();
+            if (spent()) {
+                this.kill();
+            }
         }
     }
 
@@ -471,6 +480,20 @@ public class RunestoneTitanEntity extends ConstructEntity {
         this.playSound(SoundEvents.DEEPSLATE_STEP, 1.0F, 0.6F);
     }
 
+    private boolean spent() {
+        return this.summonedOutside >= SUMMONS_OUTSIDE_DUNGEON;
+    }
+
+    @Override
+    protected boolean shouldDropLoot() {
+        return !spent() && super.shouldDropLoot();
+    }
+
+    @Override
+    public boolean shouldDropExperience() {
+        return !spent() && super.shouldDropExperience();
+    }
+
     @Override
     protected int deathTicks() {
         return DEATH_TICKS;
@@ -512,6 +535,7 @@ public class RunestoneTitanEntity extends ConstructEntity {
         if (this.home != null) {
             tag.put(TAG_HOME, NbtUtils.writeBlockPos(this.home));
         }
+        tag.putInt(TAG_SUMMONED_OUTSIDE, this.summonedOutside);
     }
 
     @Override
@@ -520,6 +544,7 @@ public class RunestoneTitanEntity extends ConstructEntity {
         if (tag.contains(TAG_HOME)) {
             setHome(NbtUtils.readBlockPos(tag.getCompound(TAG_HOME)));
         }
+        this.summonedOutside = tag.getInt(TAG_SUMMONED_OUTSIDE);
     }
 
     @Override

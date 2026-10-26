@@ -41,7 +41,7 @@ public final class PlayerBuilds {
 
     public static final TagKey<Block> DEBRIS = TagKey.create(Registries.BLOCK, Hexwright.id("dungeon_debris"));
 
-    static final TagKey<Block> LOOT = TagKey.create(Registries.BLOCK, Hexwright.id("loot_containers"));
+    public static final TagKey<Block> LOOT = TagKey.create(Registries.BLOCK, Hexwright.id("loot_containers"));
 
     private static final Set<BlockEntityType<?>> WORLDGEN_BLOCK_ENTITIES = Set.of(
         BlockEntityType.MOB_SPAWNER,

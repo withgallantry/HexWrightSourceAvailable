@@ -15,6 +15,7 @@ public final class TalismanData {
     private static final String TAG_TRIGGER = "Trigger";
     private static final String TAG_CONTEXT = "Context";
     private static final String TAG_NEXT_FIRE = "NextFire";
+    private static final String TAG_WAIT = "Wait";
 
     public static final String TAG_HEX_DATA = "data";
 
@@ -51,6 +52,10 @@ public final class TalismanData {
 
         public String translationKey() {
             return "trigger.hexwright." + name().toLowerCase(Locale.ROOT);
+        }
+
+        public boolean deliberate() {
+            return this == USE || this == INTERACT || this == COMMAND;
         }
     }
 
@@ -152,6 +157,17 @@ public final class TalismanData {
 
     public static void setNextFire(ItemStack stack, long gameTime) {
         stack.getOrCreateTagElement(ROOT_TAG).putLong(TAG_NEXT_FIRE, gameTime);
+    }
+
+    public static void startWait(ItemStack stack, long now, long ticks) {
+        CompoundTag root = stack.getOrCreateTagElement(ROOT_TAG);
+        root.putLong(TAG_NEXT_FIRE, now + ticks);
+        root.putLong(TAG_WAIT, ticks);
+    }
+
+    public static long getWait(ItemStack stack) {
+        CompoundTag root = stack.getTagElement(ROOT_TAG);
+        return root == null ? 0L : root.getLong(TAG_WAIT);
     }
 
     public static boolean isArmed(ItemStack stack) {

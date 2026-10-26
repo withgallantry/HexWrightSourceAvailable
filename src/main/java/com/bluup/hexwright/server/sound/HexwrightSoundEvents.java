@@ -97,6 +97,7 @@ public final class HexwrightSoundEvents {
         com.bluup.hexwright.server.weapon.ShadowMonarchSounds.register();
         com.bluup.hexwright.server.weapon.PestiferousSounds.register();
         com.bluup.hexwright.server.powerorb.PowerOrbSounds.register();
+        com.bluup.hexwright.server.flourish.FlourishSounds.register();
         registered = true;
     }
 

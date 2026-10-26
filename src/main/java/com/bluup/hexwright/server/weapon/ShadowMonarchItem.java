@@ -16,7 +16,6 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.Attribute;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
-import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemCooldowns;
 import net.minecraft.world.item.ItemStack;
@@ -87,12 +86,6 @@ public class ShadowMonarchItem extends EternalWakizashiItem implements Soulforge
     public void inventoryTick(ItemStack stack, Level level, Entity holder, int slot, boolean selected) {
         super.inventoryTick(stack, level, holder, slot, selected);
         Soulforge.inventoryTick(stack, level, holder);
-    }
-
-    @Override
-    public void onDestroyed(ItemEntity entity) {
-        super.onDestroyed(entity);
-        Soulforge.onDestroyed(entity);
     }
 
     @Override

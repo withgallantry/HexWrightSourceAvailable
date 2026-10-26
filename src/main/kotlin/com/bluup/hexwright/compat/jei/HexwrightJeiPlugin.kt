@@ -4,8 +4,8 @@ import com.bluup.hexwright.Hexwright
 import com.bluup.hexwright.compat.recipeviewer.ArmourCraftDisplay
 import com.bluup.hexwright.compat.recipeviewer.EssenceForgeDisplay
 import com.bluup.hexwright.compat.recipeviewer.ScryingSpectaclesDisplay
+import com.bluup.hexwright.compat.recipeviewer.Unlisted
 import com.bluup.hexwright.server.block.HexwrightBlocks
-import com.bluup.hexwright.server.item.HexwrightItems
 import mezz.jei.api.IModPlugin
 import mezz.jei.api.constants.RecipeTypes
 import mezz.jei.api.constants.VanillaTypes
@@ -43,7 +43,7 @@ class HexwrightJeiPlugin : IModPlugin {
     override fun onRuntimeAvailable(jeiRuntime: IJeiRuntime) {
         jeiRuntime.ingredientManager.removeIngredientsAtRuntime(
             VanillaTypes.ITEM_STACK,
-            listOf(ItemStack(HexwrightItems.TEALS_STAFF))
+            Unlisted.items().map { ItemStack(it) }
         )
     }
 

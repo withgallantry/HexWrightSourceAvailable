@@ -46,6 +46,7 @@ public final class RecipeTablets {
         Set<String> gatedRecipes,
         Set<String> siteRecipes,
         Set<String> artifactRecipes,
+        Set<String> secretRecipes,
         List<TabletDrop> ruinedDrops,
         List<TabletDrop> artifactDrops
     ) {
@@ -85,11 +86,16 @@ public final class RecipeTablets {
         return get().artifactRecipes().contains(recipeNameKey);
     }
 
+    public static boolean isSecret(String recipeNameKey) {
+        return get().secretRecipes().contains(recipeNameKey);
+    }
+
     public static boolean requiresDiscovery(String recipeNameKey) {
         Config config = get();
         return config.gatedRecipes().contains(recipeNameKey)
             || config.siteRecipes().contains(recipeNameKey)
-            || config.artifactRecipes().contains(recipeNameKey);
+            || config.artifactRecipes().contains(recipeNameKey)
+            || config.secretRecipes().contains(recipeNameKey);
     }
 
     public static void validate(Set<String> knownRecipeKeys, Set<String> artifactRecipeKeys) {
@@ -101,6 +107,7 @@ public final class RecipeTablets {
         Set<String> unknownGates = new LinkedHashSet<>(config.gatedRecipes());
         unknownGates.addAll(config.siteRecipes());
         unknownGates.addAll(config.artifactRecipes());
+        unknownGates.addAll(config.secretRecipes());
         unknownGates.removeAll(knownRecipeKeys);
         if (!unknownGates.isEmpty()) {
             Hexwright.LOGGER.warn(
@@ -149,10 +156,11 @@ public final class RecipeTablets {
             }
             Config parsed = parse(GSON.fromJson(reader, Document.class));
             HexwrightDebug.log(HexwrightDebug.CONTENT,
-                "Loaded recipe tablet config from {}: {} gated, {} site, {} artifact recipe(s), "
+                "Loaded recipe tablet config from {}: {} gated, {} site, {} artifact, {} secret recipe(s), "
                     + "{} ruined tablet tier(s), {} artifact tablet tier(s)",
                 source, parsed.gatedRecipes().size(), parsed.siteRecipes().size(),
-                parsed.artifactRecipes().size(), parsed.ruinedDrops().size(), parsed.artifactDrops().size()
+                parsed.artifactRecipes().size(), parsed.secretRecipes().size(), parsed.ruinedDrops().size(),
+                parsed.artifactDrops().size()
             );
             return parsed;
         } catch (Throwable t) {
@@ -177,13 +185,18 @@ public final class RecipeTablets {
         Set<String> gated = names(document.recipes);
         Set<String> sites = names(document.site_recipes);
         Set<String> artifacts = names(document.artifact_recipes);
+        Set<String> secrets = names(document.secret_recipes);
+        gated.removeAll(secrets);
+        artifacts.removeAll(secrets);
         sites.removeAll(gated);
         sites.removeAll(artifacts);
+        sites.removeAll(secrets);
 
         return new Config(
             Collections.unmodifiableSet(gated),
             Collections.unmodifiableSet(sites),
             Collections.unmodifiableSet(artifacts),
+            Collections.unmodifiableSet(secrets),
             parseDrops(document.ruined_tablet_loot, "Ruined Tablet"),
             parseDrops(document.artifact_tablet_loot, "Artifact Ruined Tablet")
         );
@@ -249,13 +262,14 @@ public final class RecipeTablets {
     }
 
     private static Config empty() {
-        return new Config(Set.of(), Set.of(), Set.of(), List.of(), List.of());
+        return new Config(Set.of(), Set.of(), Set.of(), Set.of(), List.of(), List.of());
     }
 
     private static final class Document {
         List<String> recipes;
         List<String> site_recipes;
         List<String> artifact_recipes;
+        List<String> secret_recipes;
         List<LootTier> ruined_tablet_loot;
         List<LootTier> artifact_tablet_loot;
     }

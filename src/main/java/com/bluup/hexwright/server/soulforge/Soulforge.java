@@ -3,8 +3,7 @@ package com.bluup.hexwright.server.soulforge;
 import at.petrak.hexcasting.common.lib.HexAttributes;
 import com.bluup.hexwright.HexwrightDebug;
 import com.bluup.hexwright.inits.HexwrightNetworking;
-import com.bluup.hexwright.server.soulforge.SoulforgeLedger.Record;
-import com.bluup.hexwright.server.soulforge.SoulforgeLedger.State;
+import com.bluup.hexwright.server.soulforge.SoulforgeLedger.Bond;
 import com.mojang.authlib.GameProfile;
 import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerEntityEvents;
@@ -51,19 +50,12 @@ public final class Soulforge {
 
     private static final UUID TITHE_ID = UUID.fromString("a41e6c2d-7b39-4f85-9d10-3c8e5f2b6a74");
 
-    public static final int ABANDON_DAYS = 21;
-    private static final long ABANDON_MILLIS = ABANDON_DAYS * 24L * 60L * 60L * 1000L;
-
-    public static final int UNCLAIMED_MINUTES = 60;
-    private static final long UNCLAIMED_MILLIS = UNCLAIMED_MINUTES * 60L * 1000L;
+    public static final int DOOM_MINUTES = 30;
+    private static final long DOOM_MILLIS = DOOM_MINUTES * 60L * 1000L;
 
     private static final int SYNC_INTERVAL_TICKS = 20;
 
     private static final int REMEMBER_INTERVAL_TICKS = 20;
-
-    private static final int ABSENCE_INTERVAL_TICKS = 1200;
-
-    private static final long ABSENCE_STEP_CAP_MILLIS = 120_000L;
 
     private static final int TOGGLE_COOLDOWN_TICKS = 10;
 
@@ -72,7 +64,6 @@ public final class Soulforge {
 
     private static final List<Sighting> SIGHTINGS = new ArrayList<>();
     private static final Map<UUID, Long> LAST_TOGGLE = new HashMap<>();
-    private static long lastAbsenceCheck;
 
     @Nullable
     private static List<SoulforgedItem> soulforged;
@@ -89,7 +80,6 @@ public final class Soulforge {
         ServerLifecycleEvents.SERVER_STOPPED.register(server -> {
             SIGHTINGS.clear();
             LAST_TOGGLE.clear();
-            lastAbsenceCheck = 0L;
         });
         SoulforgeLoot.register();
         SoulforgeCommand.register();
@@ -102,16 +92,18 @@ public final class Soulforge {
         }
         if (now % SYNC_INTERVAL_TICKS == 0) {
             SoulforgeLedger ledger = SoulforgeLedger.get(server);
+            long wall = System.currentTimeMillis();
             for (ServerPlayer player : server.getPlayerList().getPlayers()) {
-                Record record = ledger.ownedBy(player.getUUID());
-                syncCosts(player, record);
-                if (record != null && player.isAlive() && record.item() instanceof SoulforgedItem weapon) {
+                Bond bond = ledger.ownedBy(player.getUUID());
+                if (bond != null && bond.doomAt != 0L && wall >= bond.doomAt) {
+                    crumbleAway(player, ledger, bond);
+                    bond = null;
+                }
+                syncCosts(player, bond);
+                if (bond != null && player.isAlive() && bond.item() instanceof SoulforgedItem weapon) {
                     weapon.bondTick(player);
                 }
             }
-        }
-        if (now % ABSENCE_INTERVAL_TICKS == 0) {
-            age(server);
         }
     }
 
@@ -123,67 +115,88 @@ public final class Soulforge {
     }
 
     private static void settle(MinecraftServer server, long now) {
-        Map<Item, List<Sighting>> byWeapon = new LinkedHashMap<>();
+        SoulforgeLedger ledger = SoulforgeLedger.get(server);
+        long wall = System.currentTimeMillis();
+        Map<Bond, List<Sighting>> bound = new LinkedHashMap<>();
+        Map<ServerPlayer, List<Sighting>> unbound = new LinkedHashMap<>();
         for (Sighting sighting : SIGHTINGS) {
-            if (!sighting.stack.isEmpty() && !sighting.holder.isRemoved()) {
-                byWeapon.computeIfAbsent(sighting.stack.getItem(), item -> new ArrayList<>()).add(sighting);
+            ItemStack stack = sighting.stack;
+            if (stack.isEmpty() || sighting.holder.isRemoved()) {
+                continue;
+            }
+            UUID owner = SoulBond.owner(stack);
+            if (owner != null) {
+                Bond bond = ledger.ownedBy(owner);
+                if (bond == null || !bond.isCurrent(stack)) {
+                    crumble(sighting.holder, stack);
+                } else {
+                    bound.computeIfAbsent(bond, key -> new ArrayList<>()).add(sighting);
+                }
+                continue;
+            }
+            if (SoulBond.isUnissued(stack)) {
+                SoulBond.issue(stack, sighting.holder.getUUID(), sighting.holder.getGameProfile().getName());
+            }
+            if (isDust(ledger, stack, wall)) {
+                crumble(sighting.holder, stack);
+            } else {
+                unbound.computeIfAbsent(sighting.holder, key -> new ArrayList<>()).add(sighting);
             }
         }
         SIGHTINGS.clear();
-        SoulforgeLedger ledger = SoulforgeLedger.get(server);
-        for (Map.Entry<Item, List<Sighting>> entry : byWeapon.entrySet()) {
-            settle(ledger, ledger.record(entry.getKey()), entry.getValue(), now);
+        for (Map.Entry<Bond, List<Sighting>> entry : bound.entrySet()) {
+            settleBound(ledger, entry.getKey(), entry.getValue(), now);
+        }
+        for (Map.Entry<ServerPlayer, List<Sighting>> entry : unbound.entrySet()) {
+            settleUnbound(ledger, entry.getKey(), entry.getValue());
         }
     }
 
-    private static void settle(SoulforgeLedger ledger, Record record, List<Sighting> sightings, long now) {
-        List<Sighting> current = new ArrayList<>();
-        Sighting unissued = null;
-        for (Sighting sighting : sightings) {
-            if (record.isCurrent(sighting.stack)) {
-                current.add(sighting);
-            } else if (SoulBond.generation(sighting.stack) == 0 && record.state == State.POOL
-                && drops(record.item()) && unissued == null) {
-                unissued = sighting;
-            } else {
-                crumble(sighting.holder, sighting.stack);
+    private static boolean isDust(SoulforgeLedger ledger, ItemStack stack, long wall) {
+        long doom = SoulBond.doomAt(stack);
+        if (doom != 0L ? wall >= doom : ledger.isSpent(SoulBond.instance(stack))) {
+            return true;
+        }
+        UUID instance = SoulBond.instance(stack);
+        for (Bond bond : ledger.bonded()) {
+            if (instance != null && instance.equals(bond.instance)) {
+                return true;
             }
         }
-        if (unissued != null) {
-            ledger.release(record, unissued.stack);
-            current.add(unissued);
-        }
-        if (current.isEmpty()) {
-            return;
-        }
-        Sighting keeper = keeper(record, current, now);
+        return false;
+    }
+
+    private static void settleBound(SoulforgeLedger ledger, Bond bond, List<Sighting> current, long now) {
+        Sighting keeper = keeper(bond, current);
         if (current.size() > 1) {
             for (Sighting copy : current) {
                 if (copy != keeper) {
                     crumble(copy.holder, copy.stack);
                 }
             }
-            ledger.restamp(record, keeper.stack);
-            HexwrightDebug.log(HexwrightDebug.SOULFORGE, "[soulforge] {} copies of {} carried at once; kept {}'s",
-                current.size(), record.item, keeper.holder.getScoreboardName());
+            ledger.restamp(bond, keeper.stack);
+            HexwrightDebug.log(HexwrightDebug.SOULFORGE, "[soulforge] {} copies of {}'s {} carried at once; kept {}'s",
+                current.size(), bond.ownerName, bond.item, keeper.holder.getScoreboardName());
         }
-        carried(ledger, record, keeper, now);
+        ServerPlayer holder = keeper.holder;
+        if (!holder.getUUID().equals(bond.owner)) {
+            returnToOwner(holder, keeper.stack, ledger, bond);
+            return;
+        }
+        if (bond.carriedTick != now - 1) {
+            ledger.restamp(bond, keeper.stack);
+        } else if (now % REMEMBER_INTERVAL_TICKS == 0) {
+            ledger.remember(bond, keeper.stack);
+        }
+        bond.carriedTick = now;
     }
 
-    private static Sighting keeper(Record record, List<Sighting> current, long now) {
+    private static Sighting keeper(Bond bond, List<Sighting> current) {
         Sighting best = current.get(0);
         int bestScore = -1;
         for (Sighting sighting : current) {
-            int score = 0;
-            if (sighting.holder.getUUID().equals(record.owner)) {
-                score += 4;
-            }
-            if (sighting.holder.getUUID().equals(record.lastHolder) && record.carriedTick == now - 1) {
-                score += 2;
-            }
-            if (sighting.holder.getMainHandItem() == sighting.stack) {
-                score += 1;
-            }
+            int score = (sighting.holder.getUUID().equals(bond.owner) ? 2 : 0)
+                + (sighting.holder.getMainHandItem() == sighting.stack ? 1 : 0);
             if (score > bestScore) {
                 bestScore = score;
                 best = sighting;
@@ -192,70 +205,53 @@ public final class Soulforge {
         return best;
     }
 
-    private static void carried(SoulforgeLedger ledger, Record record, Sighting sighting, long now) {
-        ServerPlayer holder = sighting.holder;
-        ItemStack stack = sighting.stack;
-        boolean pickedUp = record.carriedTick != now - 1 || !holder.getUUID().equals(record.lastHolder);
-        if (record.state == State.LOOSE) {
-            if (ledger.isBlacklisted(holder.getUUID())) {
-                refuse(ledger, record, holder, stack);
-                return;
-            }
-            Record owned = ledger.ownedBy(holder.getUUID());
-            if (owned == null) {
-                claim(ledger, record, holder, stack);
-            } else if (pickedUp) {
-                ledger.restamp(record, stack);
-                holder.displayClientMessage(cannotKeep(owned, record), true);
-            }
-        } else if (!holder.getUUID().equals(record.owner)) {
-            returnToOwner(holder, stack, ledger, record);
+    private static void settleUnbound(SoulforgeLedger ledger, ServerPlayer holder, List<Sighting> carried) {
+        if (ledger.ownedBy(holder.getUUID()) != null || ledger.isBlacklisted(holder.getUUID())) {
             return;
-        } else if (pickedUp) {
-            ledger.restamp(record, stack);
-        } else if (now % REMEMBER_INTERVAL_TICKS == 0) {
-            ledger.remember(record, stack);
         }
-        record.carriedTick = now;
-        record.lastHolder = holder.getUUID();
+        Sighting chosen = null;
+        int bestScore = -1;
+        for (Sighting sighting : carried) {
+            if (!mayBind(holder, sighting.stack)) {
+                continue;
+            }
+            int score = (SoulBond.isDoomed(sighting.stack) ? 0 : 2)
+                + (holder.getMainHandItem() == sighting.stack ? 1 : 0);
+            if (score > bestScore) {
+                bestScore = score;
+                chosen = sighting;
+            }
+        }
+        if (chosen != null) {
+            claim(ledger, holder, chosen.stack);
+        }
     }
 
-    private static void claim(SoulforgeLedger ledger, Record record, ServerPlayer finder, ItemStack stack) {
-        ledger.bind(record, finder, stack);
+    private static boolean mayBind(ServerPlayer holder, ItemStack stack) {
+        return SoulBond.isDoomed(stack)
+            ? !holder.getUUID().equals(SoulBond.severedBy(stack))
+            : holder.getUUID().equals(SoulBond.issuedTo(stack));
+    }
+
+    private static void claim(SoulforgeLedger ledger, ServerPlayer finder, ItemStack stack) {
+        Bond bond = ledger.bind(finder, stack);
         syncCosts(finder);
         ServerLevel level = finder.serverLevel();
         burst(level, finder, ParticleTypes.SCULK_SOUL, 40);
         play(level, finder, SoundEvents.RESPAWN_ANCHOR_SET_SPAWN, 0.8F);
         play(level, finder, SoundEvents.SOUL_ESCAPE, 1.0F);
-        finder.displayClientMessage(Component.translatable("message.hexwright.soulforge.bound", stack.getHoverName())
-            .withStyle(style -> style.withColor(SoulforgedItem.COLOUR)), false);
-        announce(finder.server, Component.translatable("message.hexwright.soulforge.claimed",
-            finder.getDisplayName(), stack.getHoverName()));
-        HexwrightDebug.log(HexwrightDebug.SOULFORGE, "[soulforge] {} claimed {}", finder.getScoreboardName(), record.item);
-    }
-
-    private static Component cannotKeep(Record owned, Record found) {
-        if (!drops(found.item())) {
-            return Component.translatable("message.hexwright.soulforge.already_bound", owned.item().getDescription())
-                .withStyle(ChatFormatting.RED);
+        if (bond.doomAt != 0L) {
+            finder.displayClientMessage(Component.translatable("message.hexwright.soulforge.bound_doomed",
+                    stack.getHoverName(), minutesUntil(bond.doomAt))
+                .withStyle(style -> style.withColor(SoulforgedItem.COLOUR)), false);
+        } else {
+            finder.displayClientMessage(Component.translatable("message.hexwright.soulforge.bound", stack.getHoverName())
+                .withStyle(style -> style.withColor(SoulforgedItem.COLOUR)), false);
+            announce(finder.server, Component.translatable("message.hexwright.soulforge.claimed",
+                finder.getDisplayName(), stack.getHoverName()));
         }
-        long minutesLeft = Math.max(1L, (UNCLAIMED_MILLIS - found.absentMillis + 59_999L) / 60_000L);
-        return Component.translatable("message.hexwright.soulforge.cannot_keep", owned.item().getDescription(),
-            found.item().getDescription(), minutesLeft).withStyle(ChatFormatting.RED);
-    }
-
-    private static void refuse(SoulforgeLedger ledger, Record record, ServerPlayer holder, ItemStack stack) {
-        Component name = stack.getHoverName();
-        stack.setCount(0);
-        ledger.returnToPool(record);
-        ServerLevel level = holder.serverLevel();
-        burst(level, holder, ParticleTypes.SOUL, 16);
-        play(level, holder, SoundEvents.SOUL_ESCAPE, 0.8F);
-        holder.displayClientMessage(Component.translatable("message.hexwright.soulforge.blacklisted", name)
-            .withStyle(ChatFormatting.GRAY), true);
-        announce(holder.server, returned(record.item(), name));
-        HexwrightDebug.log(HexwrightDebug.SOULFORGE, "[soulforge] {} refused blacklisted {}",
-            record.item, holder.getScoreboardName());
+        HexwrightDebug.log(HexwrightDebug.SOULFORGE, "[soulforge] {} bound {}{}", finder.getScoreboardName(),
+            bond.item, bond.doomAt != 0L ? " (doomed)" : "");
     }
 
     public static boolean mayWield(Player player, ItemStack stack) {
@@ -263,13 +259,33 @@ public final class Soulforge {
             return true;
         }
         if (player instanceof ServerPlayer server && !SoulBond.isBound(stack)) {
-            Record owned = SoulforgeLedger.get(server.server).ownedBy(server.getUUID());
-            if (owned != null) {
-                server.displayClientMessage(Component.translatable("message.hexwright.soulforge.already_bound",
-                    owned.item().getDescription()).withStyle(ChatFormatting.RED), true);
+            Component why = whyNot(server, stack);
+            if (why != null) {
+                server.displayClientMessage(why.copy().withStyle(ChatFormatting.RED), true);
             }
         }
         return false;
+    }
+
+    @Nullable
+    private static Component whyNot(ServerPlayer player, ItemStack stack) {
+        SoulforgeLedger ledger = SoulforgeLedger.get(player.server);
+        if (ledger.isBlacklisted(player.getUUID())) {
+            return Component.translatable("message.hexwright.soulforge.barred");
+        }
+        if (SoulBond.isDoomed(stack) && player.getUUID().equals(SoulBond.severedBy(stack))) {
+            return Component.translatable("message.hexwright.soulforge.severed_by_you", stack.getHoverName(),
+                Component.keybind("key.hexwright.soulforge"), minutesUntil(SoulBond.doomAt(stack)));
+        }
+        Bond owned = ledger.ownedBy(player.getUUID());
+        if (owned != null) {
+            return Component.translatable("message.hexwright.soulforge.already_bound", owned.item().getDescription());
+        }
+        if (!SoulBond.isDoomed(stack) && !player.getUUID().equals(SoulBond.issuedTo(stack))) {
+            return Component.translatable("message.hexwright.soulforge.forged_for", stack.getHoverName(),
+                SoulBond.issuedToName(stack));
+        }
+        return null;
     }
 
     public static boolean ownsOne(ServerPlayer player) {
@@ -277,8 +293,8 @@ public final class Soulforge {
     }
 
     public static boolean owns(ServerPlayer player, Item item) {
-        Record record = SoulforgeLedger.get(player.server).ownedBy(player.getUUID());
-        return record != null && record.item() == item;
+        Bond bond = SoulforgeLedger.get(player.server).ownedBy(player.getUUID());
+        return bond != null && bond.item() == item;
     }
 
 
@@ -294,88 +310,89 @@ public final class Soulforge {
         LAST_TOGGLE.put(player.getUUID(), now);
 
         SoulforgeLedger ledger = SoulforgeLedger.get(player.server);
-        Record record = ledger.ownedBy(player.getUUID());
-        if (record == null) {
-            player.displayClientMessage(Component.translatable("message.hexwright.soulforge.no_bond")
-                .withStyle(ChatFormatting.GRAY), true);
+        Bond bond = ledger.ownedBy(player.getUUID());
+        if (bond == null) {
+            if (!reclaim(player)) {
+                player.displayClientMessage(Component.translatable("message.hexwright.soulforge.no_bond")
+                    .withStyle(ChatFormatting.GRAY), true);
+            }
             return;
         }
-        int slot = find(player.getInventory(), record);
+        int slot = find(player.getInventory(), bond);
         if (slot == player.getInventory().selected) {
-            dismiss(player, ledger, record, slot);
+            dismiss(player, ledger, bond, slot);
         } else {
-            toHand(player, ledger, record, slot);
+            toHand(player, ledger, bond, slot);
         }
     }
 
     public static boolean recall(ServerPlayer player) {
         SoulforgeLedger ledger = SoulforgeLedger.get(player.server);
-        Record record = ledger.ownedBy(player.getUUID());
-        if (record == null) {
-            return false;
+        Bond bond = ledger.ownedBy(player.getUUID());
+        if (bond == null) {
+            return reclaim(player);
         }
-        int slot = find(player.getInventory(), record);
+        int slot = find(player.getInventory(), bond);
         if (slot != player.getInventory().selected) {
-            toHand(player, ledger, record, slot);
+            toHand(player, ledger, bond, slot);
         }
         return true;
     }
 
     public static boolean dismiss(ServerPlayer player) {
         SoulforgeLedger ledger = SoulforgeLedger.get(player.server);
-        Record record = ledger.ownedBy(player.getUUID());
-        if (record == null) {
+        Bond bond = ledger.ownedBy(player.getUUID());
+        if (bond == null) {
             return false;
         }
-        int slot = find(player.getInventory(), record);
+        int slot = find(player.getInventory(), bond);
         if (slot >= 0) {
-            dismiss(player, ledger, record, slot);
-        } else if (!record.dismissed) {
-            ledger.stow(record, null);
-            dismissed(player, record, null);
+            dismiss(player, ledger, bond, slot);
+        } else if (!bond.dismissed) {
+            ledger.stow(bond, null);
+            dismissed(player, bond, null);
         }
         return true;
     }
 
-    private static void toHand(ServerPlayer player, SoulforgeLedger ledger, Record record, int slot) {
+    private static void toHand(ServerPlayer player, SoulforgeLedger ledger, Bond bond, int slot) {
         if (slot >= 0) {
             handOver(player, player.getInventory().removeItemNoUpdate(slot));
-            manifest(player, record, InteractionHand.MAIN_HAND, true);
+            manifest(player, bond, InteractionHand.MAIN_HAND, true);
             return;
         }
-        boolean fromSoul = record.dismissed;
-        handOver(player, ledger.draw(record));
-        record.carriedTick = player.server.getTickCount();
-        record.lastHolder = player.getUUID();
-        manifest(player, record, InteractionHand.MAIN_HAND, true);
+        boolean fromSoul = bond.dismissed;
+        handOver(player, ledger.draw(bond));
+        bond.carriedTick = player.server.getTickCount();
+        manifest(player, bond, InteractionHand.MAIN_HAND, true);
         HexwrightDebug.log(HexwrightDebug.SOULFORGE, "[soulforge] {} recalled {} (generation {}, {})",
-            player.getScoreboardName(), record.item, record.generation, fromSoul ? "from the soul" : "from the world");
+            player.getScoreboardName(), bond.item, bond.generation, fromSoul ? "from the soul" : "from the world");
     }
 
-    private static void dismiss(ServerPlayer player, SoulforgeLedger ledger, Record record, int slot) {
+    private static void dismiss(ServerPlayer player, SoulforgeLedger ledger, Bond bond, int slot) {
         Inventory inventory = player.getInventory();
-        ledger.stow(record, inventory.getItem(slot));
+        ledger.stow(bond, inventory.getItem(slot));
         inventory.setItem(slot, ItemStack.EMPTY);
         InteractionHand hand = slot == inventory.selected ? InteractionHand.MAIN_HAND
             : slot == Inventory.SLOT_OFFHAND ? InteractionHand.OFF_HAND
             : null;
-        dismissed(player, record, hand);
+        dismissed(player, bond, hand);
     }
 
-    private static void dismissed(ServerPlayer player, Record record, @Nullable InteractionHand hand) {
-        manifest(player, record, hand, false);
+    private static void dismissed(ServerPlayer player, Bond bond, @Nullable InteractionHand hand) {
+        manifest(player, bond, hand, false);
         HexwrightDebug.log(HexwrightDebug.SOULFORGE, "[soulforge] {} dismissed their weapon",
             player.getScoreboardName());
     }
 
-    private static void manifest(ServerPlayer player, Record record, @Nullable InteractionHand hand,
+    private static void manifest(ServerPlayer player, Bond bond, @Nullable InteractionHand hand,
                                  boolean arriving) {
-        if (!(record.item() instanceof SoulforgedItem item)) {
+        if (!(bond.item() instanceof SoulforgedItem item)) {
             return;
         }
         ServerLevel level = player.serverLevel();
         if (hand != null) {
-            HexwrightNetworking.sendSoulforgedMaterialise(player, record.item(), hand, arriving);
+            HexwrightNetworking.sendSoulforgedMaterialise(player, bond.item(), hand, arriving);
         } else {
             int colour = item.materialiseColour();
             DustParticleOptions dust = new DustParticleOptions(new Vector3f(FastColor.ARGB32.red(colour) / 255.0F,
@@ -394,19 +411,9 @@ public final class Soulforge {
         }
     }
 
-    private static void takeFrom(@Nullable ServerPlayer player, Record record) {
-        if (player == null) {
-            return;
-        }
-        int slot = find(player.getInventory(), record);
-        if (slot >= 0) {
-            player.getInventory().setItem(slot, ItemStack.EMPTY);
-        }
-    }
-
-    private static int find(Inventory inventory, Record record) {
+    private static int find(Inventory inventory, Bond bond) {
         for (int slot = 0; slot < inventory.getContainerSize(); slot++) {
-            if (record.isCurrent(inventory.getItem(slot))) {
+            if (bond.isCurrent(inventory.getItem(slot))) {
                 return slot;
             }
         }
@@ -416,13 +423,13 @@ public final class Soulforge {
 
     public static void onDied(ServerPlayer player) {
         SoulforgeLedger ledger = SoulforgeLedger.get(player.server);
-        Record record = ledger.ownedBy(player.getUUID());
-        if (record == null) {
+        Bond bond = ledger.ownedBy(player.getUUID());
+        if (bond == null) {
             return;
         }
-        int slot = find(player.getInventory(), record);
+        int slot = find(player.getInventory(), bond);
         if (slot >= 0) {
-            ledger.stow(record, player.getInventory().getItem(slot));
+            ledger.stow(bond, player.getInventory().getItem(slot));
             player.getInventory().setItem(slot, ItemStack.EMPTY);
         }
     }
@@ -432,23 +439,25 @@ public final class Soulforge {
             return false;
         }
         SoulforgeLedger ledger = SoulforgeLedger.get(player.server);
-        Record record = ledger.record(stack.getItem());
-        if (!record.isCurrent(stack)) {
-            if (SoulBond.generation(stack) == 0 && record.state == State.POOL && drops(record.item())) {
-                return false;
+        UUID owner = SoulBond.owner(stack);
+        if (owner == null) {
+            if (!SoulBond.isUnissued(stack) && isDust(ledger, stack, System.currentTimeMillis())) {
+                crumble(player, stack);
+                return true;
             }
+            return false;
+        }
+        Bond bond = ledger.ownedBy(owner);
+        if (bond == null || !bond.isCurrent(stack)) {
             crumble(player, stack);
             return true;
         }
-        if (record.state == State.LOOSE) {
-            return false;
-        }
-        if (player.getUUID().equals(record.owner)) {
-            ledger.stow(record, stack);
+        if (player.getUUID().equals(bond.owner)) {
+            ledger.stow(bond, stack);
             stack.setCount(0);
-            dismissed(player, record, null);
+            dismissed(player, bond, null);
         } else {
-            returnToOwner(player, stack, ledger, record);
+            returnToOwner(player, stack, ledger, bond);
         }
         return true;
     }
@@ -456,19 +465,6 @@ public final class Soulforge {
     private static void onEntityLoad(Entity entity, ServerLevel level) {
         if (entity instanceof ItemEntity item && item.getItem().getItem() instanceof SoulforgedItem) {
             item.setUnlimitedLifetime();
-        }
-    }
-
-    public static void onDestroyed(ItemEntity entity) {
-        if (!(entity.level() instanceof ServerLevel level)) {
-            return;
-        }
-        ItemStack stack = entity.getItem();
-        SoulforgeLedger ledger = SoulforgeLedger.get(level.getServer());
-        Record record = ledger.record(stack.getItem());
-        if (record.state == State.LOOSE && record.isCurrent(stack)) {
-            ledger.returnToPool(record);
-            announce(level.getServer(), returned(record.item(), stack.getHoverName()));
         }
     }
 
@@ -482,141 +478,138 @@ public final class Soulforge {
             .withStyle(ChatFormatting.DARK_GRAY), true);
     }
 
-    private static void returnToOwner(ServerPlayer holder, ItemStack stack, SoulforgeLedger ledger, Record record) {
+    private static void returnToOwner(ServerPlayer holder, ItemStack stack, SoulforgeLedger ledger, Bond bond) {
         Component name = stack.getHoverName();
-        ledger.stow(record, stack);
+        ledger.stow(bond, stack);
         stack.setCount(0);
         ServerLevel level = holder.serverLevel();
         burst(level, holder, ParticleTypes.SOUL, 16);
         play(level, holder, SoundEvents.SOUL_ESCAPE, 0.8F);
-        holder.displayClientMessage(Component.translatable("message.hexwright.soulforge.refused", name, record.ownerName)
+        holder.displayClientMessage(Component.translatable("message.hexwright.soulforge.refused", name, bond.ownerName)
             .withStyle(ChatFormatting.GRAY), true);
-        ServerPlayer owner = record.owner == null ? null : holder.server.getPlayerList().getPlayer(record.owner);
+        ServerPlayer owner = holder.server.getPlayerList().getPlayer(bond.owner);
         if (owner != null) {
             owner.displayClientMessage(Component.translatable("message.hexwright.soulforge.returned", name)
                 .withStyle(style -> style.withColor(SoulforgedItem.COLOUR)), true);
         }
         HexwrightDebug.log(HexwrightDebug.SOULFORGE, "[soulforge] {}'s weapon slipped from {} back to its owner",
-            record.ownerName, holder.getScoreboardName());
+            bond.ownerName, holder.getScoreboardName());
     }
 
 
     @Nullable
-    public static Item unbind(MinecraftServer server, UUID owner) {
+    public static Item unbind(MinecraftServer server, UUID owner, boolean leaveDoomed) {
         SoulforgeLedger ledger = SoulforgeLedger.get(server);
-        Record record = ledger.ownedBy(owner);
-        if (record == null) {
+        Bond bond = ledger.ownedBy(owner);
+        if (bond == null) {
             return null;
         }
+        Item item = bond.item();
+        long doomAt = bond.doomAt != 0L ? bond.doomAt : System.currentTimeMillis() + DOOM_MILLIS;
         ServerPlayer player = server.getPlayerList().getPlayer(owner);
-        takeFrom(player, record);
-        Item item = record.item();
-        ledger.returnToPool(record);
+        if (player != null) {
+            Inventory inventory = player.getInventory();
+            int slot = find(inventory, bond);
+            ItemStack weapon = slot >= 0 ? inventory.removeItemNoUpdate(slot) : ItemStack.EMPTY;
+            if (leaveDoomed) {
+                if (weapon.isEmpty()) {
+                    weapon = ledger.draw(bond);
+                }
+                SoulBond.doom(weapon, owner, doomAt);
+                if (slot >= 0) {
+                    inventory.setItem(slot, weapon);
+                } else if (!inventory.add(weapon)) {
+                    player.drop(weapon, false);
+                }
+            }
+        }
+        ledger.end(bond);
         if (player != null) {
             syncCosts(player, null);
             ServerLevel level = player.serverLevel();
             burst(level, player, ParticleTypes.SOUL, 40);
             play(level, player, SoundEvents.SOUL_ESCAPE, 0.5F);
             play(level, player, SoundEvents.RESPAWN_ANCHOR_DEPLETE.value(), 0.8F);
+            player.displayClientMessage(leaveDoomed
+                ? Component.translatable("message.hexwright.soulforge.severed", item.getDescription(), minutesUntil(doomAt))
+                : Component.translatable("message.hexwright.soulforge.severed_gone", item.getDescription()),
+                false);
         }
-        announce(server, returned(item, item.getDescription()));
-        HexwrightDebug.log(HexwrightDebug.SOULFORGE, "[soulforge] {} unbound from {}", record.item, owner);
+        HexwrightDebug.log(HexwrightDebug.SOULFORGE, "[soulforge] {} unbound from {}{}", item, owner,
+            leaveDoomed && player != null ? ", left doomed" : "");
         return item;
     }
 
-    public static boolean release(MinecraftServer server, Item item) {
-        SoulforgeLedger ledger = SoulforgeLedger.get(server);
-        Record record = ledger.record(item);
-        if (record.state == State.POOL) {
+    private static void crumbleAway(ServerPlayer player, SoulforgeLedger ledger, Bond bond) {
+        Item item = bond.item();
+        int slot = find(player.getInventory(), bond);
+        if (slot >= 0) {
+            player.getInventory().setItem(slot, ItemStack.EMPTY);
+        }
+        ledger.end(bond);
+        syncCosts(player, null);
+        ServerLevel level = player.serverLevel();
+        burst(level, player, ParticleTypes.ASH, 30);
+        play(level, player, SoundEvents.SOUL_SAND_BREAK, 0.6F);
+        player.displayClientMessage(Component.translatable("message.hexwright.soulforge.crumbled_away", item.getDescription())
+            .withStyle(ChatFormatting.GRAY), false);
+        HexwrightDebug.log(HexwrightDebug.SOULFORGE, "[soulforge] {}'s doomed {} crumbled", player.getScoreboardName(), item);
+    }
+
+    public static boolean reclaim(ServerPlayer player) {
+        InteractionHand hand = reclaimableHand(player);
+        if (hand == null) {
             return false;
         }
-        if (record.state == State.BOUND && record.owner != null) {
-            unbind(server, record.owner);
-        } else {
-            ledger.returnToPool(record);
-            announce(server, returned(item, item.getDescription()));
-        }
+        ItemStack stack = player.getItemInHand(hand);
+        SoulBond.lift(stack);
+        Bond bond = SoulforgeLedger.get(player.server).bind(player, stack);
+        syncCosts(player);
+        manifest(player, bond, hand, true);
+        player.displayClientMessage(Component.translatable("message.hexwright.soulforge.reclaimed",
+            stack.getHoverName()).withStyle(style -> style.withColor(SoulforgedItem.COLOUR)), false);
+        HexwrightDebug.log(HexwrightDebug.SOULFORGE, "[soulforge] {} took back their severed {}",
+            player.getScoreboardName(), bond.item);
         return true;
     }
 
-    static boolean inPool(MinecraftServer server, Item item) {
-        return drops(item) && SoulforgeLedger.get(server).record(item).state == State.POOL;
+    public static boolean mayReclaim(ServerPlayer player) {
+        return reclaimableHand(player) != null;
     }
 
-    static boolean releaseFromPool(MinecraftServer server, ItemStack stack) {
-        return drops(stack.getItem()) && issue(server, stack, "dropped from the pool");
-    }
-
-    public static void onGiven(MinecraftServer server, ItemStack stack) {
-        if (!drops(stack.getItem())) {
-            issue(server, stack, "given by command");
+    @Nullable
+    private static InteractionHand reclaimableHand(ServerPlayer player) {
+        SoulforgeLedger ledger = SoulforgeLedger.get(player.server);
+        if (ledger.ownedBy(player.getUUID()) != null || ledger.isBlacklisted(player.getUUID())) {
+            return null;
         }
+        long wall = System.currentTimeMillis();
+        for (InteractionHand hand : InteractionHand.values()) {
+            ItemStack stack = player.getItemInHand(hand);
+            if (stack.getItem() instanceof SoulforgedItem && !SoulBond.isBound(stack)
+                && player.getUUID().equals(SoulBond.severedBy(stack)) && !isDust(ledger, stack, wall)) {
+                return hand;
+            }
+        }
+        return null;
     }
 
-    private static boolean issue(MinecraftServer server, ItemStack stack, String how) {
-        SoulforgeLedger ledger = SoulforgeLedger.get(server);
-        Record record = ledger.record(stack.getItem());
-        if (record.state != State.POOL) {
-            return false;
-        }
-        ledger.release(record, stack);
-        HexwrightDebug.log(HexwrightDebug.SOULFORGE, "[soulforge] {} {}", record.item, how);
-        return true;
+    public static long minutesUntil(long doomAt) {
+        return Math.max(1L, (doomAt - System.currentTimeMillis() + 59_999L) / 60_000L);
     }
 
     static boolean drops(Item item) {
         return !(item instanceof SoulforgedItem forged) || forged.drops();
     }
 
-    private static void age(MinecraftServer server) {
-        long wall = System.currentTimeMillis();
-        long step = lastAbsenceCheck == 0L ? 0L : Math.max(0L, Math.min(ABSENCE_STEP_CAP_MILLIS, wall - lastAbsenceCheck));
-        lastAbsenceCheck = wall;
-        if (step == 0L) {
-            return;
-        }
-        SoulforgeLedger ledger = SoulforgeLedger.get(server);
-        for (Record record : List.copyOf(ledger.records())) {
-            if (!drops(record.item())) {
-                continue;
-            }
-            boolean tended = switch (record.state) {
-                case POOL -> true;
-                case LOOSE -> false;
-                case BOUND -> record.owner != null && server.getPlayerList().getPlayer(record.owner) != null;
-            };
-            ledger.age(record, tended ? -1L : step);
-            long limit = record.state == State.LOOSE ? UNCLAIMED_MILLIS : ABANDON_MILLIS;
-            if (record.absentMillis >= limit) {
-                abandon(server, ledger, record);
-            }
-        }
-    }
-
-    private static void abandon(MinecraftServer server, SoulforgeLedger ledger, Record record) {
-        Item item = record.item();
-        if (record.owner != null) {
-            ledger.noteLapsed(record.owner, record);
-        } else if (record.lastHolder != null) {
-            takeFrom(server.getPlayerList().getPlayer(record.lastHolder), record);
-        }
-        ledger.returnToPool(record);
-        announce(server, returned(item, item.getDescription()));
-        HexwrightDebug.log(HexwrightDebug.SOULFORGE, "[soulforge] {} went untended and returned to the pool", record.item);
-    }
-
     private static void onJoin(ServerPlayer player) {
         SoulforgeLedger ledger = SoulforgeLedger.get(player.server);
-        Record record = ledger.ownedBy(player.getUUID());
-        if (record != null) {
-            ledger.age(record, -1L);
+        Bond bond = ledger.ownedBy(player.getUUID());
+        if (bond != null && bond.doomAt != 0L && System.currentTimeMillis() >= bond.doomAt) {
+            crumbleAway(player, ledger, bond);
+            bond = null;
         }
-        syncCosts(player, record);
-        Item lapsed = ledger.takeLapsed(player.getUUID());
-        if (lapsed != null) {
-            player.displayClientMessage(Component.translatable("message.hexwright.soulforge.lapsed",
-                lapsed.getDescription(), ABANDON_DAYS).withStyle(ChatFormatting.GRAY), false);
-        }
+        syncCosts(player, bond);
     }
 
 
@@ -624,7 +617,7 @@ public final class Soulforge {
         if (!SoulforgeLedger.get(server).addToBlacklist(player.getId(), player.getName())) {
             return false;
         }
-        unbind(server, player.getId());
+        unbind(server, player.getId(), false);
         HexwrightDebug.log(HexwrightDebug.SOULFORGE, "[soulforge] {} blacklisted", player.getName());
         return true;
     }
@@ -640,29 +633,24 @@ public final class Soulforge {
 
     @Nullable
     public static Component describe(MinecraftServer server, UUID owner) {
-        Record record = SoulforgeLedger.get(server).ownedBy(owner);
-        return record == null ? null : describe(record);
+        Bond bond = SoulforgeLedger.get(server).ownedBy(owner);
+        return bond == null ? null : describe(bond);
     }
 
     public static List<Component> describeAll(MinecraftServer server) {
-        SoulforgeLedger ledger = SoulforgeLedger.get(server);
         List<Component> lines = new ArrayList<>();
-        for (SoulforgedItem weapon : soulforged()) {
-            lines.add(describe(ledger.record((Item) weapon)));
+        for (Bond bond : SoulforgeLedger.get(server).bonded()) {
+            lines.add(describe(bond));
         }
         return lines;
     }
 
-    private static Component describe(Record record) {
-        long days = record.absentMillis / (24L * 60L * 60L * 1000L);
-        return switch (record.state) {
-            case POOL -> Component.translatable("message.hexwright.soulforge.info_pool", record.item().getDescription());
-            case LOOSE -> Component.translatable("message.hexwright.soulforge.info_loose",
-                record.item().getDescription(), record.generation, record.absentMillis / 60_000L);
-            case BOUND -> Component.translatable(record.dismissed
-                    ? "message.hexwright.soulforge.info_dismissed" : "message.hexwright.soulforge.info_carried",
-                record.ownerName, record.item().getDescription(), record.generation, days);
-        };
+    private static Component describe(Bond bond) {
+        Component line = Component.translatable(bond.dismissed
+                ? "message.hexwright.soulforge.info_dismissed" : "message.hexwright.soulforge.info_carried",
+            bond.ownerName, bond.item().getDescription(), bond.generation);
+        return bond.doomAt == 0L ? line : line.copy().append(" ").append(
+            Component.translatable("message.hexwright.soulforge.info_doomed", minutesUntil(bond.doomAt)));
     }
 
 
@@ -670,8 +658,8 @@ public final class Soulforge {
         syncCosts(player, SoulforgeLedger.get(player.server).ownedBy(player.getUUID()));
     }
 
-    private static void syncCosts(ServerPlayer player, @Nullable Record record) {
-        Item weapon = record == null ? null : record.item();
+    private static void syncCosts(ServerPlayer player, @Nullable Bond bond) {
+        Item weapon = bond == null ? null : bond.item();
         int tithe = weapon instanceof SoulforgedItem forged ? forged.tithePercent() : 0;
         assertModifier(player, HexAttributes.MEDIA_CONSUMPTION_MODIFIER, new AttributeModifier(TITHE_ID,
             "hexwright_soul_tithe", tithe / 100.0D, AttributeModifier.Operation.ADDITION), tithe > 0);
@@ -709,11 +697,6 @@ public final class Soulforge {
         return soulforged;
     }
 
-
-    private static Component returned(Item item, Component name) {
-        return Component.translatable(drops(item) ? "message.hexwright.soulforge.returned_to_world"
-            : "message.hexwright.soulforge.faded", name);
-    }
 
     private static void announce(MinecraftServer server, Component message) {
         server.getPlayerList().broadcastSystemMessage(message.copy().withStyle(style -> style.withColor(SoulforgedItem.COLOUR)),

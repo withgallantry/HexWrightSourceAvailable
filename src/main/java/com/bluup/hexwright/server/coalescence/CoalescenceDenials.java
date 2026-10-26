@@ -1,6 +1,7 @@
 package com.bluup.hexwright.server.coalescence;
 
 import com.bluup.hexwright.Hexwright;
+import com.bluup.hexwright.server.dungeon.AncientTabletItem;
 import com.bluup.hexwright.server.accessory.WornAccessories;
 import com.bluup.hexwright.server.block.WorktableRecipes;
 import net.minecraft.core.registries.Registries;
@@ -29,7 +30,8 @@ public final class CoalescenceDenials {
         }
         return item.builtInRegistryHolder().is(NOT_COALESCABLE)
             || forgeOutputs().contains(item)
-            || WornAccessories.isAccessory(item);
+            || WornAccessories.isAccessory(item)
+            || item instanceof AncientTabletItem;
     }
 
     public static boolean isVoided(Item item) {

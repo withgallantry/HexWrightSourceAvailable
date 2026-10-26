@@ -6,7 +6,7 @@ import net.minecraft.world.InteractionHand;
 
 public final class TalismanCastEnv extends PocketCasterCastEnv {
 
-    public TalismanCastEnv(ServerPlayer wearer, InteractionHand hand) {
-        super(wearer, hand);
+    public TalismanCastEnv(ServerPlayer wearer, InteractionHand hand, boolean deliberate) {
+        super(wearer, hand, deliberate);
     }
 }

@@ -6,10 +6,12 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.LevelAccessor;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.EntityBlock;
 import net.minecraft.world.level.block.HorizontalDirectionalBlock;
+import net.minecraft.world.level.block.LiquidBlockContainer;
 import net.minecraft.world.level.block.Mirror;
 import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.Rotation;
@@ -18,6 +20,8 @@ import net.minecraft.world.level.block.entity.BlockEntityTicker;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
+import net.minecraft.world.level.material.Fluid;
+import net.minecraft.world.level.material.FluidState;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
@@ -25,12 +29,12 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.Set;
 
-public class TravelStoneBlock extends Block implements EntityBlock {
+public class TravelStoneBlock extends Block implements EntityBlock, LiquidBlockContainer {
 
     private static final VoxelShape OUTLINE = box(2.0, 0.0, 2.0, 14.0, 16.0, 14.0);
 
-    static boolean placeParts(ServerLevel level, BlockPos pos, Direction facing) {
-        Set<BlockPos> reach = TravelStoneCollision.reach(facing);
+    static boolean placeParts(ServerLevel level, BlockPos pos, Direction facing, TravelStoneCollision collision) {
+        Set<BlockPos> reach = collision.reach(facing);
         for (BlockPos offset : reach) {
             if (!TravelStoneCollision.chunkReady(level, pos.offset(offset))) {
                 return false;
@@ -53,7 +57,7 @@ public class TravelStoneBlock extends Block implements EntityBlock {
     @SuppressWarnings("deprecation")
     public void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean moved) {
         if (!state.is(newState.getBlock())) {
-            for (BlockPos offset : TravelStoneCollision.reach(state.getValue(HorizontalDirectionalBlock.FACING))) {
+            for (BlockPos offset : collision().reach(state.getValue(HorizontalDirectionalBlock.FACING))) {
                 BlockPos at = pos.offset(offset);
                 if (level.getBlockEntity(at) instanceof TravelStonePartBlockEntity part && part.stone().equals(pos)) {
                     level.setBlock(at, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
@@ -66,6 +70,10 @@ public class TravelStoneBlock extends Block implements EntityBlock {
     public TravelStoneBlock(Properties properties) {
         super(properties);
         registerDefaultState(getStateDefinition().any().setValue(HorizontalDirectionalBlock.FACING, Direction.NORTH));
+    }
+
+    public TravelStoneCollision collision() {
+        return TravelStoneCollision.TRAVEL_STONE;
     }
 
     @Override
@@ -87,13 +95,29 @@ public class TravelStoneBlock extends Block implements EntityBlock {
     @Override
     public VoxelShape getCollisionShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
         return level.getBlockEntity(pos) instanceof TravelStoneBlockEntity stone
-            ? TravelStoneCollision.cell(stone.front(), stone.phase(), BlockPos.ZERO)
+            ? collision().cell(stone.front(), stone.phase(), BlockPos.ZERO)
             : Shapes.empty();
     }
 
     @Override
     public RenderShape getRenderShape(BlockState state) {
         return RenderShape.INVISIBLE;
+    }
+
+    @Override
+    public boolean canPlaceLiquid(BlockGetter level, BlockPos pos, BlockState state, Fluid fluid) {
+        return false;
+    }
+
+    @Override
+    public boolean placeLiquid(LevelAccessor level, BlockPos pos, BlockState state, FluidState fluidState) {
+        return false;
+    }
+
+    @Override
+    @SuppressWarnings("deprecation")
+    public boolean canBeReplaced(BlockState state, Fluid fluid) {
+        return false;
     }
 
     @Override
@@ -115,13 +139,13 @@ public class TravelStoneBlock extends Block implements EntityBlock {
     @Override
     public <T extends BlockEntity> @Nullable BlockEntityTicker<T> getTicker(Level level, BlockState state,
                                                                            BlockEntityType<T> type) {
-        if (level.isClientSide || type != InstancedDungeons.TRAVEL_STONE_BLOCK_ENTITY) {
+        if (level.isClientSide) {
             return null;
         }
-        BlockEntityTicker<TravelStoneBlockEntity> ticker =
-            (tickLevel, pos, tickState, stone) -> stone.serverTick((ServerLevel) tickLevel);
-        @SuppressWarnings("unchecked")
-        BlockEntityTicker<T> cast = (BlockEntityTicker<T>) ticker;
-        return cast;
+        return (tickLevel, pos, tickState, entity) -> {
+            if (entity instanceof TravelStoneBlockEntity stone) {
+                stone.serverTick((ServerLevel) tickLevel);
+            }
+        };
     }
 }

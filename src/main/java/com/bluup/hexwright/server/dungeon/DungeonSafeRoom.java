@@ -99,9 +99,9 @@ public record DungeonSafeRoom(BlockPos shaft, boolean door) {
         return new Vec3(minX() + CENTRE + 0.5, floorY() + 1, minZ() + ARRIVAL_K + 0.5);
     }
 
-    public PortalWindow window() {
+    public PortalWindow window(double sill) {
         double diameter = TravelStones.WINDOW_DIAMETER;
-        Vec3 origin = new Vec3(minX() + CENTRE + 0.5 - diameter / 2.0, daisTopY() + TravelStones.WINDOW_SILL,
+        Vec3 origin = new Vec3(minX() + CENTRE + 0.5 - diameter / 2.0, daisTopY() + sill,
             minZ() + CENTRE + 0.5);
         return new PortalWindow(origin, new Vec3(diameter, 0.0, 0.0), new Vec3(0.0, diameter, 0.0), true);
     }

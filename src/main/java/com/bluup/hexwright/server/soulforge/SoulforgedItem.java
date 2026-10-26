@@ -42,8 +42,17 @@ public interface SoulforgedItem {
             tooltip.add(Component.translatable("tooltip.hexwright.soulforged.bound",
                     Component.literal(SoulBond.ownerName(stack)).withStyle(style -> style.withColor(COLOUR)))
                 .withStyle(ChatFormatting.GRAY));
+        } else if (SoulBond.issuedTo(stack) != null) {
+            tooltip.add(Component.translatable("tooltip.hexwright.soulforged.forged_for",
+                    Component.literal(SoulBond.issuedToName(stack)).withStyle(style -> style.withColor(COLOUR)))
+                .withStyle(ChatFormatting.GRAY));
         } else {
             tooltip.add(Component.translatable("tooltip.hexwright.soulforged.unbound").withStyle(ChatFormatting.GRAY));
+        }
+        long doomAt = SoulBond.doomAt(stack);
+        if (doomAt != 0L) {
+            tooltip.add(Component.translatable("tooltip.hexwright.soulforged.doomed", Soulforge.minutesUntil(doomAt))
+                .withStyle(ChatFormatting.RED));
         }
     }
 

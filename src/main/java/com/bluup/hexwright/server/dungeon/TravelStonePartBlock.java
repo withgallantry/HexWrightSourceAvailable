@@ -1,19 +1,24 @@
 package com.bluup.hexwright.server.dungeon;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.LevelAccessor;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.EntityBlock;
+import net.minecraft.world.level.block.LiquidBlockContainer;
 import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.material.Fluid;
+import net.minecraft.world.level.material.FluidState;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
-public class TravelStonePartBlock extends Block implements EntityBlock {
+public class TravelStonePartBlock extends Block implements EntityBlock, LiquidBlockContainer {
 
     public TravelStonePartBlock(Properties properties) {
         super(properties);
@@ -28,7 +33,7 @@ public class TravelStonePartBlock extends Block implements EntityBlock {
             return Shapes.empty();
         }
         return level.getBlockEntity(stonePos) instanceof TravelStoneBlockEntity stone
-            ? TravelStoneCollision.cell(stone.front(), stone.phase(), pos.subtract(stonePos))
+            ? stone.collision().cell(stone.front(), stone.phase(), pos.subtract(stonePos))
             : Shapes.empty();
     }
 
@@ -48,18 +53,35 @@ public class TravelStonePartBlock extends Block implements EntityBlock {
     }
 
     @Override
-    @SuppressWarnings("deprecation")
-    public void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean moved) {
-        if (!state.is(newState.getBlock()) && level.getBlockEntity(pos) instanceof TravelStonePartBlockEntity part
+    public void playerWillDestroy(Level level, BlockPos pos, BlockState state, Player player) {
+        if (!level.isClientSide && level.getBlockEntity(pos) instanceof TravelStonePartBlockEntity part
             && level.getBlockState(part.stone()).getBlock() instanceof TravelStoneBlock) {
             level.destroyBlock(part.stone(), false);
         }
-        super.onRemove(state, level, pos, newState, moved);
+        super.playerWillDestroy(level, pos, state, player);
+    }
+
+    @Override
+    public boolean canPlaceLiquid(BlockGetter level, BlockPos pos, BlockState state, Fluid fluid) {
+        return false;
+    }
+
+    @Override
+    public boolean placeLiquid(LevelAccessor level, BlockPos pos, BlockState state, FluidState fluidState) {
+        return false;
+    }
+
+    @Override
+    @SuppressWarnings("deprecation")
+    public boolean canBeReplaced(BlockState state, Fluid fluid) {
+        return false;
     }
 
     @Override
     public ItemStack getCloneItemStack(BlockGetter level, BlockPos pos, BlockState state) {
-        return new ItemStack(InstancedDungeons.TRAVEL_STONE);
+        return level.getBlockEntity(pos) instanceof TravelStonePartBlockEntity part
+            ? new ItemStack(level.getBlockState(part.stone()).getBlock())
+            : ItemStack.EMPTY;
     }
 
     @Override

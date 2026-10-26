@@ -52,7 +52,7 @@ public class DragonbornBroadswordItem extends SoulforgedBladeItem {
         boolean hurt = super.hurtEnemy(stack, target, attacker);
         if (!attacker.level().isClientSide() && attacker instanceof Player wielder
             && SoulBond.isOwnedBy(stack, wielder) && target.isAlive()) {
-            kindle(target, IGNITE_SECONDS);
+            target.setSecondsOnFire(IGNITE_SECONDS);
         }
         return hurt;
     }

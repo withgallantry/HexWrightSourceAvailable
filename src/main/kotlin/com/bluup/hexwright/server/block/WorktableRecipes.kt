@@ -4,6 +4,7 @@ import com.bluup.hexwright.common.staff_assembly.calc.IngredientCategory
 import com.bluup.hexwright.server.armour.ArmourGemData
 import com.bluup.hexwright.server.armour.ArmourSet
 import com.bluup.hexwright.server.armour.HexwrightArmour
+import com.bluup.hexwright.server.dungeon.AncientPortalVariant
 import com.bluup.hexwright.server.hexweave.HexLoom
 import com.bluup.hexwright.server.item.ArtifactItem
 import com.bluup.hexwright.server.item.HexwrightItems
@@ -24,6 +25,8 @@ object WorktableRecipes {
     private const val PIPES_PER_CRAFT = 8
 
     const val ARTIFACT_GOLEM_CORES = 2
+
+    private const val ANCIENT_PORTAL_GOLEM_CORES = 5
 
     data class InfusionStep(
         val aspect: IngredientCategory,
@@ -574,6 +577,13 @@ object WorktableRecipes {
     )
 
 
+    val ANCIENT_PORTAL_STEPS = listOf(
+        InfusionStep(IngredientCategory.SPATIAL, 80.0, 60, 0.12f),
+        InfusionStep(IngredientCategory.CRYSTAL, 64.0, 50, 0.10f),
+        InfusionStep(IngredientCategory.ECHO, 56.0, 42, 0.085f),
+        InfusionStep(IngredientCategory.PRESTIGE, 50.0, 34, 0.07f)
+    )
+
     val HEX_LOOM_STEPS = listOf(
         InfusionStep(IngredientCategory.ECHO, 120.0, 60, 0.12f),
         InfusionStep(IngredientCategory.PRESTIGE, 104.0, 50, 0.10f),
@@ -592,6 +602,7 @@ object WorktableRecipes {
         val steps: List<InfusionStep>,
         val graded: Boolean = true,
         private val golemCoreCount: Int? = null,
+        val worldCrystals: Int = 0,
         val assemble: (PocketCasterData.Quality) -> ItemStack
     ) {
         fun preview(): ItemStack = assemble(PocketCasterData.Quality.SOUND)
@@ -966,7 +977,15 @@ object WorktableRecipes {
             FORGE_HAMMER_STEPS,
             graded = false
         ) { ItemStack(HexwrightItems.FORGE_HAMMER) }
-    )
+    ) + AncientPortalVariant.values().map { variant ->
+        WorktableRecipe(
+            variant.recipeKey(),
+            ANCIENT_PORTAL_STEPS,
+            graded = false,
+            golemCoreCount = ANCIENT_PORTAL_GOLEM_CORES,
+            worldCrystals = 1
+        ) { ItemStack(variant.portalItem()) }
+    }
 
     fun allOutputItems(): Set<Item> {
         val items = LinkedHashSet<Item>()

@@ -44,9 +44,10 @@ public class TalismanItem extends Item implements IotaHolderItem, RechargingItem
         if (trigger == null || !TalismanData.isArmed(stack)) {
             return null;
         }
-        long cooldown = TalismanData.cooldownTicks(stack, trigger);
+        long wait = TalismanData.getWait(stack);
+        long total = wait > 0L ? wait : TalismanData.cooldownTicks(stack, trigger);
         long remaining = TalismanData.getNextFire(stack) - holder.level().getGameTime();
-        return Recharge.of(remaining, (int) cooldown, partialTick);
+        return Recharge.of(remaining, (int) total, partialTick);
     }
 
 

@@ -112,6 +112,7 @@ public final class HexwrightNetworking {
     public static final ResourceLocation VEHICLE_DEBUG_S2C = Hexwright.id("vehicle_debug_s2c");
     public static final ResourceLocation PORTAL_SYNC_S2C = Hexwright.id("portal_sync_s2c");
     public static final ResourceLocation VOID_TEAR_S2C = Hexwright.id("void_tear_s2c");
+    public static final ResourceLocation FLOURISH_S2C = Hexwright.id("flourish_s2c");
 
     public static final ResourceLocation BINDSTONE_DISSOLVE_S2C = Hexwright.id("bindstone_dissolve_s2c");
     public static final ResourceLocation CLOAK_FIELDS_S2C = Hexwright.id("cloak_fields_s2c");
@@ -1065,6 +1066,12 @@ public final class HexwrightNetworking {
             client.execute(() -> com.bluup.hexwright.client.portal.ClientVoidTears.add(tear));
         });
 
+        ClientPlayNetworking.registerGlobalReceiver(FLOURISH_S2C, (client, handler, buf, responseSender) -> {
+            com.bluup.hexwright.server.flourish.FlourishCast cast =
+                com.bluup.hexwright.server.flourish.FlourishCast.read(buf);
+            client.execute(() -> com.bluup.hexwright.client.flourish.ClientFlourishes.add(cast));
+        });
+
         ClientPlayNetworking.registerGlobalReceiver(CLOAK_FIELDS_S2C, (client, handler, buf, responseSender) -> {
             List<com.bluup.hexwright.server.cloak.CloakField> fields =
                 buf.readList(com.bluup.hexwright.server.cloak.CloakField::read);
@@ -1215,6 +1222,15 @@ public final class HexwrightNetworking {
             FriendlyByteBuf buf = PacketByteBufs.create();
             tear.write(buf);
             ServerPlayNetworking.send(player, VOID_TEAR_S2C, buf);
+        }
+    }
+
+    public static void sendFlourish(ServerLevel level, com.bluup.hexwright.server.flourish.FlourishCast cast,
+                                    double radius) {
+        for (ServerPlayer player : PlayerLookup.around(level, cast.pos(), radius)) {
+            FriendlyByteBuf buf = PacketByteBufs.create();
+            cast.write(buf);
+            ServerPlayNetworking.send(player, FLOURISH_S2C, buf);
         }
     }
 

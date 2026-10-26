@@ -7,6 +7,6 @@ import net.minecraft.world.InteractionHand;
 public final class ResonantRingCastEnv extends PocketCasterCastEnv {
 
     public ResonantRingCastEnv(ServerPlayer wearer, InteractionHand castingHand) {
-        super(wearer, castingHand);
+        super(wearer, castingHand, false);
     }
 }

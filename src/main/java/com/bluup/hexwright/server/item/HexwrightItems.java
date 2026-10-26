@@ -490,6 +490,22 @@ public final class HexwrightItems {
     public static final Item TRAVELLER_CORE = registerCore(com.bluup.hexwright.server.staff_assembly.StaffCoreItem.Kind.TRAVELLER);
     public static final Item ECHO_CORE = registerCore(com.bluup.hexwright.server.staff_assembly.StaffCoreItem.Kind.BEAM);
 
+    public static final java.util.Map<com.bluup.hexwright.common.flourish.Flourish, Item> FLOURISHES = registerFlourishes();
+
+    private static java.util.Map<com.bluup.hexwright.common.flourish.Flourish, Item> registerFlourishes() {
+        var flourishes = new java.util.EnumMap<com.bluup.hexwright.common.flourish.Flourish, Item>(
+            com.bluup.hexwright.common.flourish.Flourish.class);
+        for (var flourish : com.bluup.hexwright.common.flourish.Flourish.values()) {
+            flourishes.put(flourish, Registry.register(
+                BuiltInRegistries.ITEM,
+                Hexwright.id(flourish.itemId()),
+                new com.bluup.hexwright.server.flourish.FlourishItem(flourish,
+                    new Item.Properties().stacksTo(1).rarity(flourish.rarity()))
+            ));
+        }
+        return java.util.Collections.unmodifiableMap(flourishes);
+    }
+
     public static final Item WITHER_STORM_SPAWN_EGG = Registry.register(
         BuiltInRegistries.ITEM,
         Hexwright.id("wither_storm_spawn_egg"),
@@ -648,6 +664,9 @@ public final class HexwrightItems {
                 com.bluup.hexwright.server.pocketcaster.PocketCasterData.Quality.FINE));
             entries.accept(com.bluup.hexwright.server.staff_assembly.StaffCoreData.create(ECHO_CORE,
                 com.bluup.hexwright.server.pocketcaster.PocketCasterData.Quality.FINE));
+            for (Item flourish : FLOURISHES.values()) {
+                entries.accept(flourish);
+            }
             var showcaseTalisman = com.bluup.hexwright.server.talisman.TalismanData.create(
                 com.bluup.hexwright.server.pocketcaster.PocketCasterData.Quality.FINE);
             com.bluup.hexwright.server.talisman.TalismanData.setTrigger(showcaseTalisman,

@@ -16,7 +16,6 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.level.TicketType;
-import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.item.ItemStack;
@@ -69,36 +68,27 @@ public final class TravelStones {
     }
 
 
-    public static Vec3 windowCenter(BlockPos stone) {
-        return new Vec3(stone.getX() + 0.5, stone.getY() + WINDOW_SILL + WINDOW_DIAMETER / 2.0, stone.getZ() + 0.5);
+    public static Vec3 windowCenter(BlockPos stone, double sill) {
+        return new Vec3(stone.getX() + 0.5, stone.getY() + sill + WINDOW_DIAMETER / 2.0, stone.getZ() + 0.5);
     }
 
-    public static PortalWindow stoneWindow(BlockPos stone, Direction front) {
+    public static PortalWindow stoneWindow(Vec3 center, Direction front) {
         Direction across = front.getCounterClockWise();
         Vec3 u = new Vec3(across.getStepX(), 0.0, across.getStepZ()).scale(WINDOW_DIAMETER);
         Vec3 v = new Vec3(0.0, WINDOW_DIAMETER, 0.0);
-        Vec3 origin = windowCenter(stone).subtract(u.scale(0.5)).subtract(v.scale(0.5));
+        Vec3 origin = center.subtract(u.scale(0.5)).subtract(v.scale(0.5));
         return new PortalWindow(origin, u, v, true);
     }
 
 
-    public static InteractionResult useKey(ServerLevel level, BlockPos altar, ServerPlayer player, ItemStack key,
-                                           DungeonInstance.Kind kind) {
-        if (altarBusy(level, altar)) {
+    public static InteractionResult useKey(ServerLevel level, BlockPos altar, TravelStoneBlockEntity stone,
+                                           ServerPlayer player, ItemStack key, DungeonInstance.Kind kind) {
+        if (altarBusy(level, altar) || stone.isOpen(level.getServer())) {
             player.displayClientMessage(Component.translatable("message.hexwright.travel_stone.busy"), true);
             return InteractionResult.FAIL;
         }
-        TravelStoneBlockEntity stone = nearestStone(level, altar);
-        if (stone == null) {
-            player.displayClientMessage(Component.translatable("message.hexwright.travel_stone.no_stone"), true);
-            return InteractionResult.FAIL;
-        }
-        if (stone.isOpen(level.getServer())) {
-            player.displayClientMessage(Component.translatable("message.hexwright.travel_stone.busy"), true);
-            return InteractionResult.FAIL;
-        }
-        DungeonInstance instance = DungeonInstances.openAtStone(level, stone.getBlockPos(), stone.front(),
-            player.getUUID(), kind, message -> player.displayClientMessage(message, true));
+        DungeonInstance instance = DungeonInstances.openAtStone(level, stone, player.getUUID(), kind,
+            message -> player.displayClientMessage(message, true));
         if (instance == null) {
             return InteractionResult.FAIL;
         }
@@ -109,9 +99,6 @@ public final class TravelStones {
         if (!player.getAbilities().instabuild) {
             key.shrink(1);
         }
-        Vec3 center = windowCenter(stone.getBlockPos());
-        level.playSound(null, center.x, center.y, center.z, TravelStoneSounds.OPENING.get(), SoundSource.BLOCKS,
-            2.0F, 1.0F);
         player.displayClientMessage(Component.translatable("message.hexwright.dungeon.stone_forming")
             .withStyle(ChatFormatting.DARK_PURPLE), true);
         return InteractionResult.CONSUME;
@@ -146,7 +133,7 @@ public final class TravelStones {
         return level.getBlockEntity(altar) instanceof CrystalAltarBlockEntity entity && entity.lit();
     }
 
-    private static @Nullable TravelStoneBlockEntity nearestStone(ServerLevel level, BlockPos altar) {
+    static @Nullable TravelStoneBlockEntity nearestStone(ServerLevel level, BlockPos altar) {
         TravelStoneBlockEntity nearest = null;
         double best = Double.MAX_VALUE;
         int minChunkX = (altar.getX() - ALTAR_REACH) >> 4;
@@ -156,7 +143,8 @@ public final class TravelStones {
         for (int chunkX = minChunkX; chunkX <= maxChunkX; chunkX++) {
             for (int chunkZ = minChunkZ; chunkZ <= maxChunkZ; chunkZ++) {
                 for (BlockEntity entity : level.getChunk(chunkX, chunkZ).getBlockEntities().values()) {
-                    if (!(entity instanceof TravelStoneBlockEntity stone)) {
+                    if (entity.getType() != InstancedDungeons.TRAVEL_STONE_BLOCK_ENTITY
+                        || !(entity instanceof TravelStoneBlockEntity stone)) {
                         continue;
                     }
                     BlockPos pos = stone.getBlockPos();
@@ -228,9 +216,9 @@ public final class TravelStones {
         if (outside == null || entrance.stone() == null) {
             return;
         }
-        PortalWindow stoneWindow = stoneWindow(entrance.stone(), entrance.facing().getOpposite());
+        PortalWindow stoneWindow = stoneWindow(entrance.center(), entrance.facing().getOpposite());
         DungeonSafeRoom room = instance.safeRoom();
-        PortalWindow roomWindow = room.window();
+        PortalWindow roomWindow = room.window(entrance.center().y - entrance.stone().getY() - WINDOW_DIAMETER / 2.0);
         ChunkPos stoneChunk = new ChunkPos(entrance.stone());
         BoundingBox box = room.box();
         ChunkPos roomChunk = new ChunkPos(box.getCenter());

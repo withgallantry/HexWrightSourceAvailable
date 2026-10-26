@@ -5,6 +5,7 @@ import com.bluup.hexwright.client.ldlib.widget.ArtifactSheenWidget
 import com.bluup.hexwright.client.ldlib.widget.RuneTextWidget
 import com.bluup.hexwright.client.ldlib.widget.StaffItemDisplayWidget
 import com.bluup.hexwright.client.progression.ClientRecipeUnlocks
+import com.bluup.hexwright.server.progression.RecipeTablets
 import com.bluup.hexwright.server.block.WorktableRecipes.RECIPES
 import com.lowdragmc.lowdraglib.gui.editor.configurator.IConfigurableWidget
 import com.lowdragmc.lowdraglib.gui.texture.IGuiTexture
@@ -171,7 +172,10 @@ class WorktableRecipeBrowser(
         val category = this.category
         scrollGroup.setScrollYOffset(0)
 
-        val inCategory = RECIPES.indices.filter { category == null || category.lists(RECIPES[it].nameKey) }
+        val inCategory = RECIPES.indices.filter {
+            (category == null || category.lists(RECIPES[it].nameKey))
+                && (isRecipeListed(it) || !RecipeTablets.isSecret(RECIPES[it].nameKey))
+        }
         val order = inCategory.filter { isRecipeListed(it) } + inCategory.filterNot { isRecipeListed(it) }
         val slots = HashMap<Int, Int>(order.size)
         order.forEachIndexed { slot, index -> slots[index] = slot }

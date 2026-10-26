@@ -7,6 +7,6 @@ import net.minecraft.world.InteractionHand;
 public final class WeaponHexCastEnv extends PocketCasterCastEnv {
 
     public WeaponHexCastEnv(ServerPlayer caster, InteractionHand castingHand) {
-        super(caster, castingHand);
+        super(caster, castingHand, true);
     }
 }

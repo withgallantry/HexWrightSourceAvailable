@@ -6,7 +6,7 @@ import net.minecraft.world.InteractionHand;
 
 public final class WovenOrbCastEnv extends PocketCasterCastEnv {
 
-    public WovenOrbCastEnv(ServerPlayer holder, InteractionHand hand) {
-        super(holder, hand);
+    public WovenOrbCastEnv(ServerPlayer holder, InteractionHand hand, boolean deliberate) {
+        super(holder, hand, deliberate);
     }
 }

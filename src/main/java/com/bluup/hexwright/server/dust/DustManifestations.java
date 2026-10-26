@@ -190,7 +190,8 @@ public final class DustManifestations {
             return;
         }
         try {
-            CastingVM vm = new CastingVM(awaiting.image(), new PocketCasterCastEnv(player, InteractionHand.MAIN_HAND));
+            CastingVM vm = new CastingVM(awaiting.image(),
+                new PocketCasterCastEnv(player, InteractionHand.MAIN_HAND, false));
             vm.queueExecuteAndWrapIotas(new ArrayList<>(awaiting.hex()), player.serverLevel());
         } catch (RuntimeException ignored) {
         }

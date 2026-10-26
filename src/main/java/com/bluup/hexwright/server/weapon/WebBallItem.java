@@ -4,8 +4,6 @@ import at.petrak.hexcasting.api.casting.iota.EntityIota;
 import at.petrak.hexcasting.api.casting.iota.Iota;
 import at.petrak.hexcasting.api.casting.iota.IotaType;
 import at.petrak.hexcasting.api.casting.iota.Vec3Iota;
-import at.petrak.hexcasting.api.item.IotaHolderItem;
-import at.petrak.hexcasting.api.utils.NBTHelper;
 import com.bluup.hexwright.server.item.HexwrightItems;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
@@ -29,14 +27,14 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 
-public class WebBallItem extends Item implements IotaHolderItem {
+public class WebBallItem extends Item {
 
     public static final int AMBIT_TICKS = 6000;
 
     private static final double HOLD_MARGIN = 1.0D;
 
-    private static final String TAG_HEX_DATA = "data";
     private static final String ROOT_TAG = "hexwright_web_ball";
+    private static final String TAG_CATCH = "Catch";
     private static final String TAG_UNTIL = "Until";
     private static final String TAG_DIMENSION = "Dimension";
 
@@ -46,15 +44,24 @@ public class WebBallItem extends Item implements IotaHolderItem {
 
     public static ItemStack spin(Iota caught, ServerLevel level) {
         ItemStack ball = new ItemStack(HexwrightItems.WEB_BALL);
-        NBTHelper.put(ball, TAG_HEX_DATA, IotaType.serialize(caught));
         CompoundTag root = ball.getOrCreateTagElement(ROOT_TAG);
+        root.put(TAG_CATCH, IotaType.serialize(caught));
         root.putLong(TAG_UNTIL, level.getGameTime() + AMBIT_TICKS);
         root.putString(TAG_DIMENSION, level.dimension().location().toString());
         return ball;
     }
 
     @Nullable
-    private static AABB holdOf(Iota held) {
+    public static Iota read(ItemStack ball, ServerLevel level) {
+        CompoundTag root = ball.getTagElement(ROOT_TAG);
+        if (root == null || !root.contains(TAG_CATCH) || remaining(ball, level.getGameTime()) <= 0L) {
+            return null;
+        }
+        return IotaType.deserialize(root.getCompound(TAG_CATCH), level);
+    }
+
+    @Nullable
+    private static AABB holdOf(@Nullable Iota held) {
         if (held instanceof EntityIota entity) {
             return entity.getEntity().isAlive() ? entity.getEntity().getBoundingBox().inflate(HOLD_MARGIN) : null;
         }
@@ -75,14 +82,14 @@ public class WebBallItem extends Item implements IotaHolderItem {
         Inventory inventory = carrier.getInventory();
         for (int slot = 0; slot < inventory.getContainerSize(); slot++) {
             ItemStack stack = inventory.getItem(slot);
-            if (!(stack.getItem() instanceof WebBallItem ball) || remaining(stack, level.getGameTime()) <= 0L) {
+            if (!(stack.getItem() instanceof WebBallItem)) {
                 continue;
             }
             CompoundTag root = stack.getTagElement(ROOT_TAG);
-            if (root != null && root.contains(TAG_DIMENSION) && !dimension.equals(root.getString(TAG_DIMENSION))) {
+            if (root == null || !dimension.equals(root.getString(TAG_DIMENSION))) {
                 continue;
             }
-            AABB hold = holdOf(ball.readIota(stack, level));
+            AABB hold = holdOf(read(stack, level));
             if (hold != null && hold.contains(at)) {
                 return true;
             }
@@ -102,26 +109,6 @@ public class WebBallItem extends Item implements IotaHolderItem {
         stack.setCount(0);
     }
 
-
-    @Override
-    public @Nullable CompoundTag readIotaTag(ItemStack stack) {
-        return NBTHelper.getCompound(stack, TAG_HEX_DATA);
-    }
-
-    @Override
-    public boolean writeable(ItemStack stack) {
-        return false;
-    }
-
-    @Override
-    public boolean canWrite(ItemStack stack, @Nullable Iota iota) {
-        return false;
-    }
-
-    @Override
-    public void writeDatum(ItemStack stack, @Nullable Iota iota) {
-    }
-
     @Override
     public void appendHoverText(ItemStack stack, @Nullable Level level, List<Component> tooltip, TooltipFlag flag) {
         if (level != null) {
@@ -130,6 +117,10 @@ public class WebBallItem extends Item implements IotaHolderItem {
                     String.format("%d:%02d", left / 1200, left / 20 % 60))
                 .withStyle(ChatFormatting.GRAY));
         }
-        IotaHolderItem.appendHoverText(this, stack, tooltip, flag);
+        CompoundTag root = stack.getTagElement(ROOT_TAG);
+        if (root != null && root.contains(TAG_CATCH)) {
+            tooltip.add(Component.translatable("hexcasting.spelldata.onitem",
+                IotaType.getDisplay(root.getCompound(TAG_CATCH))));
+        }
     }
 }

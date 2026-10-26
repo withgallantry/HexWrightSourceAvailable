@@ -27,6 +27,7 @@ import net.minecraft.world.item.ItemStack;
 
 import java.util.List;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 
 public final class SoulforgeActions {
 
@@ -50,10 +51,11 @@ public final class SoulforgeActions {
             new ActionRegistryEntry(HexPattern.fromAngles("eeddedadedd", HexDir.EAST), CONTAGION));
     }
 
-    private static final SpellAction CALLING = onBond(CALLING_COST, Soulforge::recall);
-    private static final SpellAction REST = onBond(REST_COST, Soulforge::dismiss);
-    private static final SpellAction SEVERANCE = onBond(SEVERANCE_COST,
-        caster -> Soulforge.unbind(caster.server, caster.getUUID()));
+    private static final SpellAction CALLING = onBond(CALLING_COST,
+        caster -> Soulforge.ownsOne(caster) || Soulforge.mayReclaim(caster), Soulforge::recall);
+    private static final SpellAction REST = onBond(REST_COST, Soulforge::ownsOne, Soulforge::dismiss);
+    private static final SpellAction SEVERANCE = onBond(SEVERANCE_COST, Soulforge::ownsOne,
+        caster -> Soulforge.unbind(caster.server, caster.getUUID(), true));
 
     private static final SpellAction CONTAGION = new HexwrightSpellAction() {
         @Override
@@ -91,7 +93,7 @@ public final class SoulforgeActions {
         }
     };
 
-    private static SpellAction onBond(long cost, Consumer<ServerPlayer> effect) {
+    private static SpellAction onBond(long cost, Predicate<ServerPlayer> allowed, Consumer<ServerPlayer> effect) {
         return new HexwrightSpellAction() {
             @Override
             public int getArgc() {
@@ -104,7 +106,7 @@ public final class SoulforgeActions {
                 if (caster == null) {
                     throw new MishapBadCaster();
                 }
-                if (!Soulforge.ownsOne(caster)) {
+                if (!allowed.test(caster)) {
                     throw new MishapBadLocation(env.mishapSprayPos(), "hexwright_no_soulbond");
                 }
                 return new Result(spell(() -> effect.accept(caster)), cost,

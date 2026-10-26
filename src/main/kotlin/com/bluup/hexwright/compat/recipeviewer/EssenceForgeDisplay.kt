@@ -6,6 +6,7 @@ import com.bluup.hexwright.server.block.WorktableRecipes
 import com.bluup.hexwright.server.crucible.EssencePouchData
 import com.bluup.hexwright.server.item.HexwrightItems
 import com.bluup.hexwright.server.pocketcaster.PocketCasterData
+import com.bluup.hexwright.server.progression.RecipeTablets
 import net.minecraft.network.chat.Component
 import net.minecraft.resources.ResourceLocation
 import net.minecraft.world.item.ItemStack
@@ -20,7 +21,7 @@ data class EssenceForgeDisplay(
     val golemCores: ItemStack
 ) {
     companion object {
-        fun all(): List<EssenceForgeDisplay> = WorktableRecipes.RECIPES.map { recipe ->
+        fun all(): List<EssenceForgeDisplay> = WorktableRecipes.RECIPES.filterNot { RecipeTablets.isSecret(it.nameKey) }.map { recipe ->
             val pouch = ItemStack(HexwrightItems.ENDLESS_POUCH)
             for (step in recipe.steps) {
                 EssencePouchData.add(pouch, step.aspect, step.amount)

@@ -12,6 +12,7 @@ import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.HorizontalDirectionalBlock;
 import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
@@ -32,16 +33,23 @@ public class TravelStoneBlockEntity extends BlockEntity implements GeoBlockEntit
         CLOSING
     }
 
-    static final int OPEN_TICKS = 95;
+    protected record Clips(RawAnimation closedIdle, RawAnimation openedIdle, RawAnimation open, RawAnimation close) {
 
+        protected static Clips of(String closedIdle, String openedIdle, String open, String close) {
+            return new Clips(RawAnimation.begin().thenLoop(closedIdle), RawAnimation.begin().thenLoop(openedIdle),
+                RawAnimation.begin().thenPlay(open).thenLoop(openedIdle),
+                RawAnimation.begin().thenPlay(close).thenLoop(closedIdle));
+        }
+    }
+
+    private static final Clips CLIPS = Clips.of("closed_idle", "opened_idle", "open_portal", "close_portal");
+
+    private static final int OPEN_TICKS = 95;
     private static final int CLOSE_TICKS = 75;
 
-    private static final int IDLE_SOUND_TICKS = 32 * 20;
+    private static final int PART_REPAIR_TICKS = 200;
 
-    private static final RawAnimation CLOSED_IDLE = RawAnimation.begin().thenLoop("closed_idle");
-    private static final RawAnimation OPENED_IDLE = RawAnimation.begin().thenLoop("opened_idle");
-    private static final RawAnimation OPEN = RawAnimation.begin().thenPlay("open_portal").thenLoop("opened_idle");
-    private static final RawAnimation CLOSE = RawAnimation.begin().thenPlay("close_portal").thenLoop("closed_idle");
+    private static final int IDLE_SOUND_TICKS = 32 * 20;
 
     private final AnimatableInstanceCache cache = GeckoLibUtil.createInstanceCache(this);
 
@@ -54,7 +62,48 @@ public class TravelStoneBlockEntity extends BlockEntity implements GeoBlockEntit
     private @Nullable Phase shown;
 
     public TravelStoneBlockEntity(BlockPos pos, BlockState state) {
-        super(InstancedDungeons.TRAVEL_STONE_BLOCK_ENTITY, pos, state);
+        this(InstancedDungeons.TRAVEL_STONE_BLOCK_ENTITY, pos, state);
+    }
+
+    protected TravelStoneBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState state) {
+        super(type, pos, state);
+    }
+
+    public int openTicks() {
+        return OPEN_TICKS;
+    }
+
+    protected int closeTicks() {
+        return CLOSE_TICKS;
+    }
+
+    protected Clips clips() {
+        return CLIPS;
+    }
+
+    protected double windowSill() {
+        return TravelStones.WINDOW_SILL;
+    }
+
+    public Vec3 windowCenter() {
+        return TravelStones.windowCenter(this.worldPosition, windowSill());
+    }
+
+    TravelStoneCollision collision() {
+        return getBlockState().getBlock() instanceof TravelStoneBlock block
+            ? block.collision()
+            : TravelStoneCollision.TRAVEL_STONE;
+    }
+
+    protected void phaseSounds(ServerLevel level, long elapsed) {
+        Vec3 center = windowCenter();
+        if (this.phase == Phase.OPENING && elapsed == 0) {
+            level.playSound(null, center.x, center.y, center.z, TravelStoneSounds.OPENING.get(), SoundSource.BLOCKS,
+                2.0F, 1.0F);
+        } else if (this.phase == Phase.OPEN && elapsed % IDLE_SOUND_TICKS == 0) {
+            level.playSound(null, center.x, center.y, center.z, TravelStoneSounds.IDLE.get(), SoundSource.BLOCKS,
+                1.5F, 1.0F);
+        }
     }
 
     public Phase phase() {
@@ -75,7 +124,8 @@ public class TravelStoneBlockEntity extends BlockEntity implements GeoBlockEntit
     }
 
     void serverTick(ServerLevel level) {
-        if (!this.whole && TravelStoneBlock.placeParts(level, this.worldPosition, front())) {
+        boolean partsDue = !this.whole || level.getGameTime() % PART_REPAIR_TICKS == 0;
+        if (partsDue && TravelStoneBlock.placeParts(level, this.worldPosition, front(), collision()) && !this.whole) {
             this.whole = true;
             setChanged();
         }
@@ -84,7 +134,7 @@ public class TravelStoneBlockEntity extends BlockEntity implements GeoBlockEntit
         Phase next = switch (this.phase) {
             case CLOSED -> target;
             case OPENING, OPEN -> target == Phase.CLOSED ? Phase.CLOSING : target;
-            case CLOSING -> target != Phase.CLOSED || now - this.phaseSince >= CLOSE_TICKS ? target : Phase.CLOSING;
+            case CLOSING -> target != Phase.CLOSED || now - this.phaseSince >= closeTicks() ? target : Phase.CLOSING;
         };
         if (next != this.phase) {
             this.phase = next;
@@ -95,22 +145,19 @@ public class TravelStoneBlockEntity extends BlockEntity implements GeoBlockEntit
             setChanged();
             level.sendBlockUpdated(this.worldPosition, getBlockState(), getBlockState(), Block.UPDATE_CLIENTS);
         }
-        if (this.phase == Phase.OPEN && (now - this.phaseSince) % IDLE_SOUND_TICKS == 0) {
-            Vec3 center = TravelStones.windowCenter(this.worldPosition);
-            level.playSound(null, center.x, center.y, center.z, TravelStoneSounds.IDLE.get(), SoundSource.BLOCKS,
-                1.5F, 1.0F);
-        }
+        phaseSounds(level, now - this.phaseSince);
     }
 
     @Override
     public void registerControllers(AnimatableManager.ControllerRegistrar controllers) {
+        Clips clips = clips();
         controllers.add(new AnimationController<>(this, "stone", 0, state -> {
             if (this.shown != this.phase) {
                 RawAnimation next = switch (this.phase) {
-                    case OPENING -> OPEN;
-                    case CLOSING -> CLOSE;
-                    case OPEN -> this.shown == null ? OPENED_IDLE : OPEN;
-                    case CLOSED -> this.shown == null ? CLOSED_IDLE : CLOSE;
+                    case OPENING -> clips.open();
+                    case CLOSING -> clips.close();
+                    case OPEN -> this.shown == null ? clips.openedIdle() : clips.open();
+                    case CLOSED -> this.shown == null ? clips.closedIdle() : clips.close();
                 };
                 state.getController().setAnimation(next);
                 this.shown = this.phase;

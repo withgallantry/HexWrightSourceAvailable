@@ -12,6 +12,7 @@ import at.petrak.hexcasting.api.casting.iota.Vec3Iota;
 import at.petrak.hexcasting.xplat.IXplatAbstractions;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
@@ -83,8 +84,8 @@ public final class TalismanCasting {
             if (level.getGameTime() < TalismanData.getNextFire(stack)) {
                 continue;
             }
-            TalismanData.setNextFire(stack, level.getGameTime() + TalismanData.cooldownTicks(stack, trigger));
-            fire(player, level, stack, seedFor.apply(stack));
+            TalismanData.startWait(stack, level.getGameTime(), TalismanData.cooldownTicks(stack, trigger));
+            fire(player, level, stack, trigger, seedFor.apply(stack));
             fired++;
         }
         return fired;
@@ -105,14 +106,14 @@ public final class TalismanCasting {
             if (level.getGameTime() < TalismanData.getNextFire(stack)) {
                 continue;
             }
-            TalismanData.setNextFire(stack,
-                level.getGameTime() + TalismanData.cooldownTicks(stack, TalismanData.Trigger.BRINK));
+            TalismanData.startWait(stack, level.getGameTime(),
+                TalismanData.cooldownTicks(stack, TalismanData.Trigger.BRINK));
 
             player.setHealth(REPRIEVE_HEALTH);
             player.clearFire();
             player.invulnerableTime = Math.max(player.invulnerableTime, REPRIEVE_GRACE_TICKS);
 
-            fire(player, level, stack, contextIota(player, stack, source, damage, null));
+            fire(player, level, stack, TalismanData.Trigger.BRINK, contextIota(player, stack, source, damage, null));
 
             if (player.getHealth() <= 0.0f) {
                 return false;
@@ -138,6 +139,24 @@ public final class TalismanCasting {
         }
     }
 
+    public static void jolt(ServerPlayer player, int ticks) {
+        ServerLevel level = player.serverLevel();
+        long now = level.getGameTime();
+        boolean jolted = false;
+        for (ItemStack stack : WornTalismans.getWorn(player)) {
+            if (TalismanData.isArmed(stack) && TalismanData.getNextFire(stack) < now + ticks) {
+                TalismanData.startWait(stack, now, ticks);
+                jolted = true;
+            }
+        }
+        if (!jolted) {
+            return;
+        }
+        level.playSound(null, player.blockPosition(), SoundEvents.AMETHYST_CLUSTER_BREAK, SoundSource.PLAYERS,
+            1.0f, 0.6f);
+        player.displayClientMessage(Component.translatable("message.hexwright.talisman.jolted", ticks / 20), true);
+    }
+
     private static void announceReprieve(ServerPlayer player, ServerLevel level) {
         level.playSound(null, player.blockPosition(), SoundEvents.TOTEM_USE, SoundSource.PLAYERS, 1.0f, 1.0f);
         level.sendParticles(ParticleTypes.TOTEM_OF_UNDYING,
@@ -157,7 +176,8 @@ public final class TalismanCasting {
         return stacks;
     }
 
-    private static void fire(ServerPlayer player, ServerLevel level, ItemStack talisman, Iota seed) {
+    private static void fire(ServerPlayer player, ServerLevel level, ItemStack talisman,
+                             TalismanData.Trigger trigger, Iota seed) {
         ADIotaHolder holder = IXplatAbstractions.INSTANCE.findDataHolder(talisman);
         Iota iota = holder == null ? null : holder.readIota(level);
         List<Iota> hex = StoredHex.decode(iota);
@@ -175,7 +195,8 @@ public final class TalismanCasting {
                 0L,
                 new CompoundTag()
             );
-            CastingVM vm = new CastingVM(seededImage, new TalismanCastEnv(player, InteractionHand.MAIN_HAND));
+            CastingVM vm = new CastingVM(seededImage,
+                new TalismanCastEnv(player, InteractionHand.MAIN_HAND, trigger.deliberate()));
             vm.queueExecuteAndWrapIotas(new ArrayList<>(hex), level);
         } catch (RuntimeException ignored) {
         } finally {

@@ -44,7 +44,7 @@ public final class Inspiration {
             if (victim.level().isClientSide || !victim.getType().is(INSPIRING)) {
                 return;
             }
-            if (!(victim.getKillCredit() instanceof Player)) {
+            if (!(victim.getKillCredit() instanceof Player) || !victim.shouldDropExperience()) {
                 return;
             }
             drop((ServerLevel) victim.level(), victim.position().add(0.0, victim.getBbHeight() * 0.5, 0.0),
