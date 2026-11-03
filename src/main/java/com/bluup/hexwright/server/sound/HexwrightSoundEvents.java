@@ -1,0 +1,203 @@
+package com.bluup.hexwright.server.sound;
+
+import com.bluup.hexwright.Hexwright;
+import net.minecraft.core.Registry;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.sounds.SoundEvent;
+import net.minecraft.sounds.SoundEvents;
+
+public final class HexwrightSoundEvents {
+    private static final ResourceLocation STAFF_CORE_PROJECTILE_FIRE_ID = Hexwright.id("staff_core_projectile_fire");
+    private static final ResourceLocation PORTAL_OPEN_CLOSE_ID = Hexwright.id("portal_open_close");
+    private static final ResourceLocation BINDSTONE_NOTE_ID = Hexwright.id("bindstone_note");
+    private static final ResourceLocation BINDSTONE_CLAIM_ID = Hexwright.id("bindstone_claim");
+    private static final ResourceLocation QUARTZ_GOLEM_ARMSLAM_ID = Hexwright.id("quartz_golem_armslam");
+    private static final ResourceLocation QUARTZ_GOLEM_STOMP_ID = Hexwright.id("quartz_golem_stomp");
+    private static final ResourceLocation QUARTZ_GOLEM_SHARDGRAB_ID = Hexwright.id("quartz_golem_shardgrab");
+    private static final ResourceLocation QUARTZ_GOLEM_SHARDOUT_ID = Hexwright.id("quartz_golem_shardout");
+    private static final ResourceLocation QUARTZ_GOLEM_DEATH_ID = Hexwright.id("quartz_golem_death");
+    private static final ResourceLocation JANUS_OPEN_ID = Hexwright.id("janus_open");
+    private static final ResourceLocation VOID_TEAR_OPEN_ID = Hexwright.id("void_tear_open");
+    private static final ResourceLocation RUINED_PORTAL_TELEPORT_ID = Hexwright.id("ruined_portal_teleport");
+    private static final ResourceLocation RUINED_PORTAL_FLARE_ID = Hexwright.id("ruined_portal_flare");
+    private static final ResourceLocation RESONANCE_TOWER_ACTIVATE_ID = Hexwright.id("resonance_tower_activate");
+    private static final ResourceLocation AREA_CAST_ACTIVATE_ID = Hexwright.id("area_cast_activate");
+    private static final ResourceLocation RECIPE_UNLOCK_ID = Hexwright.id("recipe_unlock");
+    private static final ResourceLocation JOURNAL_CLICK_ID = Hexwright.id("journal_click");
+    private static final ResourceLocation DUST_FORM_ID = Hexwright.id("dust_form");
+    private static final ResourceLocation CLOAK_FIELD_HUM_ID = Hexwright.id("cloak_field_hum");
+    private static final ResourceLocation SOULFORGED_MANIFEST_ID = Hexwright.id("soulforged_manifest");
+
+    private static SoundEvent staffCoreProjectileFire = SoundEvents.BLAZE_SHOOT;
+    private static SoundEvent portalOpenClose = SoundEvents.PORTAL_TRIGGER;
+    private static SoundEvent bindstoneNote = SoundEvents.NOTE_BLOCK_CHIME.value();
+    private static SoundEvent bindstoneClaim = SoundEvents.CONDUIT_DEACTIVATE;
+    private static SoundEvent quartzGolemArmslam = SoundEvents.IRON_GOLEM_ATTACK;
+    private static SoundEvent quartzGolemStomp = SoundEvents.GENERIC_EXPLODE;
+    private static SoundEvent quartzGolemShardgrab = SoundEvents.IRON_GOLEM_ATTACK;
+    private static SoundEvent quartzGolemShardout = SoundEvents.AMETHYST_BLOCK_BREAK;
+    private static SoundEvent quartzGolemDeath = SoundEvents.IRON_GOLEM_DEATH;
+    private static SoundEvent janusOpen = SoundEvents.PORTAL_TRIGGER;
+    private static SoundEvent voidTearOpen = SoundEvents.PORTAL_TRIGGER;
+    private static SoundEvent ruinedPortalTeleport = SoundEvents.PORTAL_TRAVEL;
+    private static SoundEvent ruinedPortalFlare = SoundEvents.PORTAL_TRIGGER;
+    private static SoundEvent resonanceTowerActivate = SoundEvents.BEACON_ACTIVATE;
+    private static SoundEvent areaCastActivate = SoundEvents.AMETHYST_BLOCK_CHIME;
+    private static SoundEvent recipeUnlock = SoundEvents.ENCHANTMENT_TABLE_USE;
+    private static SoundEvent journalClick = SoundEvents.BOOK_PAGE_TURN;
+    private static SoundEvent dustForm = SoundEvents.SAND_BREAK;
+    private static SoundEvent cloakFieldHum = SoundEvents.BEACON_AMBIENT;
+    private static SoundEvent soulforgedManifest = SoundEvents.SOUL_ESCAPE;
+    private static boolean registered;
+
+    private HexwrightSoundEvents() {
+    }
+
+    public static void register() {
+        if (registered) {
+            return;
+        }
+
+        staffCoreProjectileFire = registerOrReuse(STAFF_CORE_PROJECTILE_FIRE_ID, staffCoreProjectileFire);
+        portalOpenClose = registerOrReuse(PORTAL_OPEN_CLOSE_ID, portalOpenClose);
+        bindstoneNote = registerOrReuse(BINDSTONE_NOTE_ID, bindstoneNote);
+        bindstoneClaim = registerOrReuse(BINDSTONE_CLAIM_ID, bindstoneClaim);
+        quartzGolemArmslam = registerOrReuse(QUARTZ_GOLEM_ARMSLAM_ID, quartzGolemArmslam);
+        quartzGolemStomp = registerOrReuse(QUARTZ_GOLEM_STOMP_ID, quartzGolemStomp);
+        quartzGolemShardgrab = registerOrReuse(QUARTZ_GOLEM_SHARDGRAB_ID, quartzGolemShardgrab);
+        quartzGolemShardout = registerOrReuse(QUARTZ_GOLEM_SHARDOUT_ID, quartzGolemShardout);
+        quartzGolemDeath = registerOrReuse(QUARTZ_GOLEM_DEATH_ID, quartzGolemDeath);
+        janusOpen = registerOrReuse(JANUS_OPEN_ID, janusOpen);
+        voidTearOpen = registerOrReuse(VOID_TEAR_OPEN_ID, voidTearOpen);
+        ruinedPortalTeleport = registerOrReuse(RUINED_PORTAL_TELEPORT_ID, ruinedPortalTeleport);
+        ruinedPortalFlare = registerOrReuse(RUINED_PORTAL_FLARE_ID, ruinedPortalFlare);
+        resonanceTowerActivate = registerOrReuse(RESONANCE_TOWER_ACTIVATE_ID, resonanceTowerActivate);
+        areaCastActivate = registerOrReuse(AREA_CAST_ACTIVATE_ID, areaCastActivate);
+        recipeUnlock = registerOrReuse(RECIPE_UNLOCK_ID, recipeUnlock);
+        journalClick = registerOrReuse(JOURNAL_CLICK_ID, journalClick);
+        dustForm = registerOrReuse(DUST_FORM_ID, dustForm);
+        cloakFieldHum = registerOrReuse(CLOAK_FIELD_HUM_ID, cloakFieldHum);
+        soulforgedManifest = registerOrReuse(SOULFORGED_MANIFEST_ID, soulforgedManifest);
+        com.bluup.hexwright.server.boss.ancient.AncientSounds.register();
+        com.bluup.hexwright.server.boss.storm.WitherStormSounds.register();
+        com.bluup.hexwright.server.boss.cog.CogSentinelSounds.register();
+        com.bluup.hexwright.server.boss.corrupt.CorruptExperimentSounds.register();
+        com.bluup.hexwright.server.boss.talus.TalusKnightSounds.register();
+        com.bluup.hexwright.server.boss.tower.TowerSkeletonSounds.register();
+        com.bluup.hexwright.server.boss.magnus.MagnusSounds.register();
+        com.bluup.hexwright.server.dungeon.TravelStoneSounds.register();
+        com.bluup.hexwright.server.weapon.StarfallSounds.register();
+        com.bluup.hexwright.server.weapon.FrostbiteSounds.register();
+        com.bluup.hexwright.server.weapon.KingOfPurgatorySounds.register();
+        com.bluup.hexwright.server.weapon.SilverStarlightSounds.register();
+        com.bluup.hexwright.server.weapon.AbyssCleaverSounds.register();
+        com.bluup.hexwright.server.weapon.DragonbornSounds.register();
+        com.bluup.hexwright.server.weapon.StillnessSounds.register();
+        com.bluup.hexwright.server.weapon.ShadowMonarchSounds.register();
+        com.bluup.hexwright.server.weapon.PestiferousSounds.register();
+        com.bluup.hexwright.server.weapon.NourishmentSounds.register();
+        com.bluup.hexwright.server.powerorb.PowerOrbSounds.register();
+        com.bluup.hexwright.server.flourish.FlourishSounds.register();
+        com.bluup.hexwright.server.cantillation.CantillationSounds.register();
+        registered = true;
+    }
+
+    private static SoundEvent registerOrReuse(ResourceLocation id, SoundEvent fallback) {
+        SoundEvent existing = BuiltInRegistries.SOUND_EVENT.get(id);
+        if (existing != null) {
+            return existing;
+        }
+
+        try {
+            return Registry.register(
+                BuiltInRegistries.SOUND_EVENT,
+                id,
+                SoundEvent.createVariableRangeEvent(id)
+            );
+        } catch (IllegalStateException ex) {
+            Hexwright.LOGGER.error("Failed to register {} before registry freeze; using fallback sound.", id, ex);
+            return fallback;
+        }
+    }
+
+    public static SoundEvent staffCoreProjectileFire() {
+        return staffCoreProjectileFire;
+    }
+
+    public static SoundEvent portalOpenClose() {
+        return portalOpenClose;
+    }
+
+    public static SoundEvent bindstoneNote() {
+        return bindstoneNote;
+    }
+
+    public static SoundEvent bindstoneClaim() {
+        return bindstoneClaim;
+    }
+
+    public static SoundEvent quartzGolemArmslam() {
+        return quartzGolemArmslam;
+    }
+
+    public static SoundEvent quartzGolemStomp() {
+        return quartzGolemStomp;
+    }
+
+    public static SoundEvent quartzGolemShardgrab() {
+        return quartzGolemShardgrab;
+    }
+
+    public static SoundEvent quartzGolemShardout() {
+        return quartzGolemShardout;
+    }
+
+    public static SoundEvent quartzGolemDeath() {
+        return quartzGolemDeath;
+    }
+
+    public static SoundEvent janusOpen() {
+        return janusOpen;
+    }
+
+    public static SoundEvent voidTearOpen() {
+        return voidTearOpen;
+    }
+
+    public static SoundEvent ruinedPortalFlare() {
+        return ruinedPortalFlare;
+    }
+
+    public static SoundEvent ruinedPortalTeleport() {
+        return ruinedPortalTeleport;
+    }
+
+    public static SoundEvent resonanceTowerActivate() {
+        return resonanceTowerActivate;
+    }
+
+    public static SoundEvent areaCastActivate() {
+        return areaCastActivate;
+    }
+
+    public static SoundEvent recipeUnlock() {
+        return recipeUnlock;
+    }
+
+    public static SoundEvent journalClick() {
+        return journalClick;
+    }
+
+    public static SoundEvent dustForm() {
+        return dustForm;
+    }
+
+    public static SoundEvent cloakFieldHum() {
+        return cloakFieldHum;
+    }
+
+    public static SoundEvent soulforgedManifest() {
+        return soulforgedManifest;
+    }
+}

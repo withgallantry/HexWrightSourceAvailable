@@ -1,0 +1,128 @@
+##############################
+## Java
+##############################
+.mtj.tmp/
+*.class
+*.jar
+*.war
+*.ear
+*.nar
+hs_err_pid*
+replay_pid*
+
+##############################
+## Maven
+##############################
+target/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+pom.xml.bak
+release.properties
+dependency-reduced-pom.xml
+buildNumber.properties
+.mvn/timing.properties
+.mvn/wrapper/maven-wrapper.jar
+
+##############################
+## Gradle
+##############################
+bin/
+build/
+.gradle
+.gradletasknamecache
+gradle-app.setting
+!gradle-wrapper.jar
+
+##############################
+## IntelliJ
+##############################
+out/
+.idea/
+.idea_modules/
+*.iml
+*.ipr
+*.iws
+
+##############################
+## Eclipse
+##############################
+.settings/
+bin/
+tmp/
+.metadata
+.classpath
+.project
+*.tmp
+*.bak
+*.swp
+*~.nib
+local.properties
+.loadpath
+.factorypath
+
+##############################
+## NetBeans
+##############################
+nbproject/private/
+build/
+nbbuild/
+dist/
+nbdist/
+nbactions.xml
+nb-configuration.xml
+
+##############################
+## Visual Studio Code
+##############################
+.vscode/
+*.code-workspace
+
+##############################
+## OS X
+##############################
+.DS_Store
+
+##############################
+## Miscellaneous
+##############################
+*.log
+references/
+
+##############################
+## Python / hexdoc
+##############################
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.egg-info/
+.env
+_site/
+.hexdoc
+.tmp-pipmeta
+.tmp_hexsrc/
+hexpattern_javap.txt
+
+# hexdoc generated export artifacts
+doc/src/hexdoc_hexwright/_export/generated/*
+!doc/src/hexdoc_hexwright/_export/generated/__init__.py
+
+run/
+
+# keep my notes and drafts out of the repo. 
+notes/
+my_draft_notes/
+texture_ref_pics/
+draft_items/
+blockbenchy/
+
+##############################
+## buildSrc source
+##############################
+# The `build/` rules above are unanchored, so they also match the Java package
+# com.bluup.hexwright.build - which silently untracked the whole protected-model
+# encoder. Re-include the package directory; buildSrc/build/ (the real output
+# directory) is still caught by the rules above.
+!buildSrc/src/main/java/com/bluup/hexwright/build/

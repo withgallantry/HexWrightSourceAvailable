@@ -1,0 +1,811 @@
+package com.bluup.hexwright.server.portal;
+
+import com.bluup.hexwright.Hexwright;
+import com.bluup.hexwright.HexwrightDebug;
+import com.bluup.hexwright.inits.HexwrightNetworking;
+import com.bluup.hexwright.server.command.CommandGate;
+import com.bluup.hexwright.server.sound.HexwrightSoundEvents;
+import com.mojang.brigadier.Command;
+import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
+import net.fabricmc.fabric.api.entity.event.v1.ServerEntityWorldChangeEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
+import net.minecraft.commands.Commands;
+import net.minecraft.core.BlockPos;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.Tag;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.game.ClientboundMoveVehiclePacket;
+import net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvent;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.ExperienceOrb;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.RelativeMovement;
+import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.entity.projectile.Projectile;
+import net.minecraft.world.entity.vehicle.AbstractMinecart;
+import net.minecraft.world.entity.vehicle.Boat;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.saveddata.SavedData;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.ArrayList;
+import java.util.EnumSet;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+
+public final class PortalManager extends SavedData {
+
+    private static final String STORAGE_ID = "hexwright_portals";
+
+    public static final int MAX_PAIRS_PER_CASTER = 3;
+
+    private static final double DISMISS_PLANE_TOLERANCE = 1.0;
+
+    private static final int CROSSING_COOLDOWN_TICKS = 3;
+
+    private static final double MAX_CROSSING_DEPTH = 2.5;
+
+    private static final double MAX_CROSSING_STEP = 4.0;
+
+    private static final double CROSSING_MARGIN = 0.3;
+
+    private static final float PORTAL_OPEN_PITCH = 1.0f;
+
+    private static final float PORTAL_CLOSE_PITCH = 0.7f;
+
+    private static final float PORTAL_PITCH_VARIANCE = 0.15f;
+
+    private static final double GATHER_MARGIN = MAX_CROSSING_STEP;
+
+    private static final double REFUSED_STANDOFF = 0.5;
+
+    private static final int LANDING_FREEZE_TICKS = 20;
+
+    private record LandingPin(Vec3 pos, int ticksLeft) {
+    }
+
+    @FunctionalInterface
+    public interface CrossingGuard {
+        boolean mayCross(PortalPair pair, int side, Entity entity);
+    }
+
+    private enum CrossResult {
+        NONE,
+        CROSSED,
+        REFUSED
+    }
+
+    private static final List<CrossingGuard> CROSSING_GUARDS = new ArrayList<>();
+
+    private static final Set<RelativeMovement> RIDER_POSITION_UNCHANGED =
+        EnumSet.of(RelativeMovement.X, RelativeMovement.Y, RelativeMovement.Z);
+
+    public static void addCrossingGuard(CrossingGuard guard) {
+        CROSSING_GUARDS.add(guard);
+    }
+
+    private static boolean mayCross(PortalPair pair, int side, Entity entity) {
+        if (pair.isCrossDimensional() && !everyRiderFoldsThrough(entity)) {
+            return false;
+        }
+        for (CrossingGuard guard : CROSSING_GUARDS) {
+            if (!guard.mayCross(pair, side, entity)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private final List<PortalPair> pairs = new ArrayList<>();
+
+    private final Map<Integer, Integer> crossingCooldowns = new HashMap<>();
+
+    private final Map<Integer, Vec3> lastCenters = new HashMap<>();
+
+    private final Map<UUID, LandingPin> landingFreeze = new HashMap<>();
+
+    public void beginLandingFreeze(UUID uuid, Vec3 pos) {
+        landingFreeze.put(uuid, new LandingPin(pos, LANDING_FREEZE_TICKS));
+    }
+
+    private static final int ARRIVAL_TRACE_TICKS = 60;
+    private final Map<UUID, Integer> arrivalTrace = new HashMap<>();
+
+    private void beginArrivalTrace(UUID uuid) {
+        if (!HexwrightDebug.on(HexwrightDebug.PORTAL)) {
+            return;
+        }
+        arrivalTrace.put(uuid, ARRIVAL_TRACE_TICKS);
+    }
+
+    private void traceArrivals(ServerLevel level) {
+        if (arrivalTrace.isEmpty()) {
+            return;
+        }
+        var iterator = arrivalTrace.entrySet().iterator();
+        while (iterator.hasNext()) {
+            var entry = iterator.next();
+            int left = entry.getValue();
+            Entity entity = level.getEntity(entry.getKey());
+            if (entity == null || left <= 0) {
+                iterator.remove();
+                continue;
+            }
+            entry.setValue(left - 1);
+            HexwrightDebug.log(HexwrightDebug.PORTAL,
+                "[arrival server {}] t={} y={} vy={} onGround={} pinned={}",
+                level.dimension().location(), ARRIVAL_TRACE_TICKS - left,
+                String.format("%.4f", entity.getY()),
+                String.format("%+.4f", entity.getDeltaMovement().y),
+                entity.onGround(), landingFreeze.containsKey(entry.getKey()));
+        }
+    }
+
+    public static PortalManager get(ServerLevel level) {
+        return level.getDataStorage().computeIfAbsent(PortalManager::load, PortalManager::new, STORAGE_ID);
+    }
+
+    public static void register() {
+        ServerTickEvents.END_WORLD_TICK.register(level -> get(level).tick(level));
+        ServerLifecycleEvents.SERVER_STARTED.register(PortalManager::reconcileSeams);
+        ServerPlayConnectionEvents.JOIN.register((handler, sender, server) ->
+            get(handler.player.serverLevel()).syncAllTo(handler.player));
+        ServerEntityWorldChangeEvents.AFTER_PLAYER_CHANGE_WORLD.register((player, origin, destination) ->
+            get(destination).syncAllTo(player));
+        ServerPlayConnectionEvents.DISCONNECT.register((handler, server) ->
+            PortalInteraction.forget(handler.player));
+
+        CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) ->
+            dispatcher.register(Commands.literal("hexwright_portals")
+                .requires(source -> source.hasPermission(2) && CommandGate.creative(source))
+                .then(Commands.literal("clear").executes(context -> {
+                    ServerLevel level = context.getSource().getLevel();
+                    PortalManager manager = get(level);
+                    int removed = manager.pairs.size();
+                    for (PortalPair pair : List.copyOf(manager.pairs)) {
+                        manager.removePair(level, pair.id());
+                    }
+                    context.getSource().sendSuccess(
+                        () -> Component.literal("Removed " + removed + " portal pair(s)"), true);
+                    return Command.SINGLE_SUCCESS;
+                }))));
+    }
+
+
+    public List<PortalPair> pairs() {
+        return pairs;
+    }
+
+    public @Nullable PortalPair byId(UUID id) {
+        for (PortalPair pair : pairs) {
+            if (pair.id().equals(id)) {
+                return pair;
+            }
+        }
+        return null;
+    }
+
+    public @Nullable PortalPair findCoincident(PortalWindow window) {
+        for (PortalPair pair : pairs) {
+            if (pair.isSessionBound()) {
+                continue;
+            }
+            if (pair.window(0).roughlyMatches(window) || pair.window(1).roughlyMatches(window)) {
+                return pair;
+            }
+        }
+        return null;
+    }
+
+    public boolean occupied(PortalWindow window) {
+        for (PortalPair pair : pairs) {
+            if (pair.window(0).roughlyMatches(window) || pair.window(1).roughlyMatches(window)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public static boolean withinRangeThroughPair(ServerLevel level, Vec3 viewer, Vec3 entity, double range) {
+        for (PortalPair pair : get(level).pairs) {
+            if (pair.isCrossDimensional()) {
+                continue;
+            }
+            Vec3 a = pair.window(0).center();
+            Vec3 b = pair.window(1).center();
+            if (horizontalDistance(viewer, a) + horizontalDistance(b, entity) <= range
+                || horizontalDistance(viewer, b) + horizontalDistance(a, entity) <= range) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static double horizontalDistance(Vec3 from, Vec3 to) {
+        double dx = to.x - from.x;
+        double dz = to.z - from.z;
+        return Math.sqrt(dx * dx + dz * dz);
+    }
+
+    public @Nullable PortalPair findContaining(Vec3 point, ResourceKey<Level> dimension) {
+        PortalPair best = null;
+        double bestDistance = Double.MAX_VALUE;
+        for (PortalPair pair : pairs) {
+            if (pair.isSessionBound()) {
+                continue;
+            }
+            for (int side = 0; side < 2; side++) {
+                if (!pair.sideIn(side, dimension)) {
+                    continue;
+                }
+                PortalWindow window = pair.window(side);
+                if (Math.abs(window.signedDistance(point)) > DISMISS_PLANE_TOLERANCE
+                    || !window.containsProjected(point, 0.0)) {
+                    continue;
+                }
+                double distance = window.distanceSqToRect(point);
+                if (distance < bestDistance) {
+                    bestDistance = distance;
+                    best = pair;
+                }
+            }
+        }
+        return best;
+    }
+
+
+    public void addPair(ServerLevel level, PortalPair pair) {
+        addHere(level, pair);
+        ServerLevel far = farEnd(level, pair);
+        if (far != null) {
+            get(far).addHere(far, pair);
+        }
+    }
+
+    private static @Nullable ServerLevel farEnd(ServerLevel level, PortalPair pair) {
+        if (!pair.isCrossDimensionalSeam()) {
+            return null;
+        }
+        ResourceKey<Level> far = pair.sideIn(0, level.dimension()) ? pair.dimension(1) : pair.dimension(0);
+        return level.getServer().getLevel(far);
+    }
+
+    private void addHere(ServerLevel level, PortalPair pair) {
+        List<PortalPair> owned = new ArrayList<>();
+        if (countsTowardCap(pair)) {
+            for (PortalPair existing : pairs) {
+                if (countsTowardCap(existing) && existing.caster().equals(pair.caster())) {
+                    owned.add(existing);
+                }
+            }
+        }
+        while (owned.size() >= MAX_PAIRS_PER_CASTER) {
+            PortalPair oldest = owned.get(0);
+            for (PortalPair candidate : owned) {
+                if (candidate.createdGameTime() < oldest.createdGameTime()) {
+                    oldest = candidate;
+                }
+            }
+            owned.remove(oldest);
+            removePair(level, oldest.id());
+        }
+
+        pairs.add(pair);
+        setDirty();
+        HexwrightNetworking.broadcastPortalAdd(level, pair);
+        SoundEvent openSound = pair.isSessionBound()
+            ? HexwrightSoundEvents.portalOpenClose()
+            : HexwrightSoundEvents.janusOpen();
+        playPortalSound(level, pair, openSound, PORTAL_OPEN_PITCH);
+    }
+
+    private static boolean countsTowardCap(PortalPair pair) {
+        return !pair.isSessionBound() && !pair.isFixed();
+    }
+
+    public void removePair(ServerLevel level, UUID id) {
+        PortalPair pair = removeHere(level, id);
+        ServerLevel far = pair == null ? null : farEnd(level, pair);
+        if (far != null) {
+            get(far).removeHere(far, id);
+        }
+    }
+
+    private @Nullable PortalPair removeHere(ServerLevel level, UUID id) {
+        PortalPair pair = byId(id);
+        if (pair == null) {
+            return null;
+        }
+        pairs.remove(pair);
+        setDirty();
+        PortalInteraction.forgetPair(id);
+        HexwrightNetworking.broadcastPortalRemove(level, id);
+        playPortalSound(level, pair, HexwrightSoundEvents.portalOpenClose(), PORTAL_CLOSE_PITCH);
+        return pair;
+    }
+
+    private static void reconcileSeams(MinecraftServer server) {
+        for (ServerLevel level : server.getAllLevels()) {
+            PortalManager manager = get(level);
+            for (PortalPair pair : List.copyOf(manager.pairs)) {
+                if (!pair.isCrossDimensionalSeam()) {
+                    continue;
+                }
+                ServerLevel far = farEnd(level, pair);
+                if (far == null) {
+                    Hexwright.LOGGER.warn("Dropping portal pair {} from {}: its other end's dimension no longer exists",
+                        pair.id(), level.dimension().location());
+                    manager.pairs.remove(pair);
+                    manager.setDirty();
+                    continue;
+                }
+                PortalManager farManager = get(far);
+                if (farManager.byId(pair.id()) == null) {
+                    Hexwright.LOGGER.warn("Restoring portal pair {} to {}: it was saved in {} only",
+                        pair.id(), far.dimension().location(), level.dimension().location());
+                    farManager.pairs.add(pair);
+                    farManager.setDirty();
+                }
+            }
+        }
+    }
+
+    private static void playPortalSound(ServerLevel level, PortalPair pair, SoundEvent sound, float basePitch) {
+        for (int side = 0; side < 2; side++) {
+            if (!pair.sideIn(side, level.dimension())) {
+                continue;
+            }
+            Vec3 pos = pair.window(side).center();
+            float pitch = basePitch + (level.random.nextFloat() - 0.5f) * PORTAL_PITCH_VARIANCE;
+            level.playSound(null, pos.x, pos.y, pos.z,
+                sound, SoundSource.BLOCKS, 1.0f, pitch);
+        }
+    }
+
+    public void syncAllTo(ServerPlayer player) {
+        HexwrightNetworking.sendPortalSync(player, pairs);
+    }
+
+
+    private void tick(ServerLevel level) {
+        traceArrivals(level);
+        if (!landingFreeze.isEmpty()) {
+            var iterator = landingFreeze.entrySet().iterator();
+            while (iterator.hasNext()) {
+                var entry = iterator.next();
+                Entity entity = level.getEntity(entry.getKey());
+                LandingPin pin = entry.getValue();
+                if (entity == null || entity.isRemoved()) {
+                    iterator.remove();
+                    continue;
+                }
+                entity.setPos(pin.pos().x, pin.pos().y, pin.pos().z);
+                entity.setDeltaMovement(Vec3.ZERO);
+                entity.fallDistance = 0.0f;
+                if (pin.ticksLeft() <= 1) {
+                    iterator.remove();
+                } else {
+                    entry.setValue(new LandingPin(pin.pos(), pin.ticksLeft() - 1));
+                }
+            }
+        }
+
+        long gameTime = level.getGameTime();
+        for (PortalPair pair : List.copyOf(pairs)) {
+            if (pair.isExpired(gameTime)) {
+                removePair(level, pair.id());
+            }
+        }
+
+        if (pairs.isEmpty()) {
+            crossingCooldowns.clear();
+            lastCenters.clear();
+            return;
+        }
+        crossingCooldowns.replaceAll((id, ticks) -> ticks - 1);
+        crossingCooldowns.values().removeIf(ticks -> ticks <= 0);
+
+        Map<Integer, Entity> candidates = new HashMap<>();
+        for (PortalPair pair : pairs) {
+            for (int side = 0; side < 2; side++) {
+                if (!pair.sideIn(side, level.dimension())) {
+                    continue;
+                }
+                AABB tracked = pair.window(side).bounds(GATHER_MARGIN).inflate(GATHER_MARGIN);
+                for (Entity entity : level.getEntities((Entity) null, tracked,
+                    e -> foldsThrough(e) && !e.isPassenger() && !e.isRemoved())) {
+                    candidates.put(entity.getId(), entity);
+                }
+            }
+        }
+
+        for (Entity entity : candidates.values()) {
+            boolean held = holdOut(level, entity, gameTime);
+            Vec3 now = center(entity);
+            Vec3 prev = held ? now : lastCenters.get(entity.getId());
+            if (prev != null && prev.distanceToSqr(now) > MAX_CROSSING_STEP * MAX_CROSSING_STEP) {
+                prev = null;
+            }
+            if (prev != null && !crossingCooldowns.containsKey(entity.getId())) {
+                for (PortalPair pair : pairs) {
+                    if (!pair.isOpen(gameTime)) {
+                        continue;
+                    }
+                    CrossResult result = CrossResult.NONE;
+                    for (int side = 0; side < 2 && result == CrossResult.NONE; side++) {
+                        if (!pair.sideIn(side, level.dimension())) {
+                            continue;
+                        }
+                        result = tryCross(pair, side, entity, prev, now);
+                    }
+                    if (result != CrossResult.NONE) {
+                        if (result == CrossResult.CROSSED) {
+                            crossingCooldowns.put(entity.getId(), CROSSING_COOLDOWN_TICKS);
+                        }
+                        now = center(entity);
+                        break;
+                    }
+                }
+            }
+            lastCenters.put(entity.getId(), now);
+        }
+
+        lastCenters.keySet().retainAll(candidates.keySet());
+    }
+
+    private static Vec3 center(Entity entity) {
+        return entity.position().add(0.0, entity.getBbHeight() * 0.5, 0.0);
+    }
+
+    public static boolean foldsThrough(Entity entity) {
+        return entity instanceof LivingEntity
+            || entity instanceof AbstractMinecart
+            || entity instanceof Boat
+            || entity instanceof ItemEntity
+            || entity instanceof Projectile
+            || entity instanceof ExperienceOrb;
+    }
+
+    private static boolean everyRiderFoldsThrough(Entity vehicle) {
+        for (Entity rider : vehicle.getIndirectPassengers()) {
+            if (!foldsThrough(rider)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private CrossResult tryCross(PortalPair pair, int side, Entity entity, Vec3 prev, Vec3 now) {
+        PortalWindow window = pair.window(side);
+        if (!stepPierces(window, prev, now, CROSSING_MARGIN)) {
+            return CrossResult.NONE;
+        }
+        double sPrev = window.signedDistance(prev);
+
+        if (!mayCross(pair, side, entity)) {
+            rebound(window, entity, sPrev);
+            return CrossResult.REFUSED;
+        }
+
+        applyTeleport(pair, side, entity, sPrev, false);
+        return CrossResult.CROSSED;
+    }
+
+    private static boolean stepPierces(PortalWindow window, Vec3 prev, Vec3 now, double margin) {
+        double sPrev = window.signedDistance(prev);
+        double sNow = window.signedDistance(now);
+        double depthAllowance = Math.max(MAX_CROSSING_DEPTH, prev.distanceTo(now));
+        if ((sPrev > 0.0) == (sNow > 0.0) || Math.abs(sPrev) > depthAllowance) {
+            return false;
+        }
+        double t = sPrev / (sPrev - sNow);
+        Vec3 pierce = prev.add(now.subtract(prev).scale(t));
+        return window.containsProjected(pierce, margin);
+    }
+
+    private boolean holdOut(ServerLevel level, Entity entity, long gameTime) {
+        boolean moved = false;
+        for (PortalPair pair : pairs) {
+            if (!pair.isOpen(gameTime)) {
+                continue;
+            }
+            for (int side = 0; side < 2; side++) {
+                if (!pair.sideIn(side, level.dimension())) {
+                    continue;
+                }
+                PortalWindow window = pair.window(side);
+                Vec3 center = center(entity);
+                double signed = window.signedDistance(center);
+                if (Math.abs(signed) >= REFUSED_STANDOFF
+                    || !window.containsProjected(center, CROSSING_MARGIN)) {
+                    continue;
+                }
+                if (mayCross(pair, side, entity)) {
+                    continue;
+                }
+                rebound(window, entity, signed);
+                moved = true;
+            }
+        }
+        return moved;
+    }
+
+    private static void rebound(PortalWindow window, Entity entity, double entrySign) {
+        Vec3 outward = window.normal().scale(entrySign >= 0.0 ? 1.0 : -1.0);
+        double depth = window.signedDistance(center(entity)) * (entrySign >= 0.0 ? 1.0 : -1.0);
+        Vec3 newPos = depth >= REFUSED_STANDOFF
+            ? entity.position()
+            : entity.position().add(outward.scale(REFUSED_STANDOFF - depth));
+
+        Vec3 velocity = entity.getDeltaMovement();
+        double inward = velocity.dot(outward);
+        Vec3 newVel = inward < 0.0 ? velocity.subtract(outward.scale(inward)) : velocity;
+
+        if (entity instanceof ServerPlayer player) {
+            player.connection.teleport(newPos.x, newPos.y, newPos.z, player.getYRot(), player.getXRot());
+            player.setDeltaMovement(newVel);
+            player.connection.send(new ClientboundSetEntityMotionPacket(player.getId(), newVel));
+        } else {
+            entity.teleportTo(newPos.x, newPos.y, newPos.z);
+            entity.setDeltaMovement(newVel);
+            entity.hasImpulse = true;
+            resyncDriver(entity);
+        }
+    }
+
+    private void applyTeleport(PortalPair pair, int side, Entity entity, double entrySign, boolean predicted) {
+        PortalTransform transform = pair.transformFrom(side);
+        PortalWindow source = pair.window(side);
+        PortalWindow destination = pair.window(1 - side);
+        Vec3 newPos = exitPosition(transform, source, destination, entity.position(), entrySign);
+        Vec3 newVel = transform.applyDirection(entity.getDeltaMovement());
+        float yawDelta = transform.yawDeltaDegrees();
+        float newYaw = Mth.wrapDegrees(entity.getYRot() + yawDelta);
+
+        if (!(entity.level() instanceof ServerLevel level)) {
+            return;
+        }
+        ServerLevel destLevel = level;
+        var destDim = pair.dimensionOr(1 - side, level.dimension());
+        if (!destDim.equals(level.dimension())) {
+            destLevel = level.getServer().getLevel(destDim);
+            if (destLevel == null) {
+                return;
+            }
+        }
+
+        if (!(Double.isFinite(newPos.x) && Double.isFinite(newPos.y) && Double.isFinite(newPos.z))
+            || !(newPos.y >= destLevel.getMinBuildHeight() && newPos.y <= destLevel.getMaxBuildHeight())) {
+            return;
+        }
+        destLevel.getChunkAt(BlockPos.containing(newPos));
+        if (HexwrightDebug.on(HexwrightDebug.PORTAL)) {
+            HexwrightDebug.log(HexwrightDebug.PORTAL,
+                "[portal] folded {} #{} through pair {} side {}{}: {} -> {}, velocity {} -> {}",
+                entity.getType().toShortString(), entity.getId(), pair.id(), side,
+                predicted ? " (client-predicted)" : "",
+                entity.position(), newPos, entity.getDeltaMovement(), newVel);
+        }
+
+        if (destLevel != level) {
+            applyCrossDimensionalTeleport(destLevel, entity, newPos, newVel, newYaw, yawDelta, false);
+            return;
+        }
+
+        if (entity instanceof ServerPlayer player) {
+            if (predicted) {
+                player.moveTo(newPos.x, newPos.y, newPos.z, newYaw, player.getXRot());
+                foldRotation(player, newYaw, yawDelta);
+                player.setDeltaMovement(newVel);
+                player.connection.teleport(newPos.x, newPos.y, newPos.z,
+                    player.getYRot(), player.getXRot(), RelativeMovement.ALL);
+            } else {
+                player.connection.teleport(newPos.x, newPos.y, newPos.z, newYaw, player.getXRot());
+                foldRotation(player, newYaw, yawDelta);
+                player.setDeltaMovement(newVel);
+                player.connection.send(new ClientboundSetEntityMotionPacket(player.getId(), newVel));
+            }
+        } else {
+            entity.teleportTo(newPos.x, newPos.y, newPos.z);
+            foldRotation(entity, newYaw, yawDelta);
+            entity.setDeltaMovement(newVel);
+            entity.hasImpulse = true;
+            foldRiders(entity, yawDelta);
+        }
+    }
+
+    private static void foldRiders(Entity vehicle, float yawDelta) {
+        resyncDriver(vehicle);
+        for (Entity rider : vehicle.getIndirectPassengers()) {
+            float riderYaw = Mth.wrapDegrees(rider.getYRot() + yawDelta);
+            foldRotation(rider, riderYaw, yawDelta);
+            if (rider instanceof ServerPlayer player) {
+                player.connection.teleport(player.getX(), player.getY(), player.getZ(),
+                    riderYaw, player.getXRot(), RIDER_POSITION_UNCHANGED);
+            }
+        }
+    }
+
+    private static void resyncDriver(Entity vehicle) {
+        if (vehicle.getControllingPassenger() instanceof ServerPlayer driver) {
+            driver.connection.send(new ClientboundMoveVehiclePacket(vehicle));
+        }
+    }
+
+    private static void foldRotation(Entity entity, float newYaw, float yawDelta) {
+        entity.setYRot(newYaw);
+        entity.yRotO = newYaw;
+        if (entity instanceof LivingEntity living) {
+            living.yBodyRot = Mth.wrapDegrees(living.yBodyRot + yawDelta);
+            living.yHeadRot = Mth.wrapDegrees(living.yHeadRot + yawDelta);
+            living.yBodyRotO = living.yBodyRot;
+            living.yHeadRotO = living.yHeadRot;
+        }
+    }
+
+    private static @Nullable Entity applyCrossDimensionalTeleport(ServerLevel destLevel, Entity entity,
+                                                                  Vec3 newPos, Vec3 newVel, float newYaw,
+                                                                  float headDelta, boolean riding) {
+        if (entity.isRemoved()) {
+            return null;
+        }
+        List<Entity> riders = List.copyOf(entity.getPassengers());
+        if (entity instanceof ServerPlayer player) {
+            double sourceY = player.getY();
+            player.teleportTo(destLevel, newPos.x, newPos.y, newPos.z, newYaw, player.getXRot());
+            player.setDeltaMovement(newVel);
+            player.connection.send(new ClientboundSetEntityMotionPacket(player.getId(), newVel));
+            if (!riding) {
+                get(destLevel).beginLandingFreeze(player.getUUID(), newPos);
+            }
+            get(destLevel).beginArrivalTrace(player.getUUID());
+            if (HexwrightDebug.on(HexwrightDebug.PORTAL)) {
+                Hexwright.LOGGER.info("[arrival server] {} exits to {} at y={} (feet), from y={}",
+                    player.getGameProfile().getName(), destLevel.dimension().location(),
+                    String.format("%.4f", newPos.y), String.format("%.4f", sourceY));
+            }
+            carryRiders(destLevel, riders, player, newPos, headDelta);
+            return player;
+        }
+        UUID uuid = entity.getUUID();
+        if (!entity.teleportTo(destLevel, newPos.x, newPos.y, newPos.z,
+            Set.of(), newYaw, entity.getXRot())) {
+            return null;
+        }
+        Entity moved = destLevel.getEntity(uuid);
+        if (moved != null) {
+            foldRotation(moved, newYaw, headDelta);
+            moved.setDeltaMovement(newVel);
+            moved.hasImpulse = true;
+            carryRiders(destLevel, riders, moved, newPos, headDelta);
+        }
+        return moved;
+    }
+
+    private static void carryRiders(ServerLevel destLevel, List<Entity> riders, Entity vehicle,
+                                    Vec3 seat, float yawDelta) {
+        for (Entity rider : riders) {
+            Entity carried = applyCrossDimensionalTeleport(destLevel, rider, seat, vehicle.getDeltaMovement(),
+                Mth.wrapDegrees(rider.getYRot() + yawDelta), yawDelta, true);
+            if (carried != null) {
+                carried.startRiding(vehicle, true);
+            }
+        }
+    }
+
+    public static Vec3 exitPosition(PortalTransform transform, PortalWindow source, PortalWindow destination,
+                                    Vec3 pos, double entrySign) {
+        Vec3 onPlane = pos.subtract(source.normal().scale(source.signedDistance(pos)));
+        double clearance = (entrySign >= 0.0 ? 1.0 : -1.0) * PortalPair.EXIT_CLEARANCE;
+        return liftOntoSill(destination, transform.apply(onPlane).add(destination.normal().scale(clearance)));
+    }
+
+    public static Vec3 liftOntoSill(PortalWindow window, Vec3 feet) {
+        if (window.vHat().y < 0.99) {
+            return feet;
+        }
+        double below = window.origin().y - feet.y;
+        return below > 0.0 ? feet.add(0.0, below, 0.0) : feet;
+    }
+
+
+    private static final double CLIENT_CROSSING_MARGIN = 0.75;
+
+    public static void clientCross(ServerPlayer player, UUID pairId, int side) {
+        if ((side != 0 && side != 1) || player.isSpectator() || player.isPassenger()) {
+            return;
+        }
+        ServerLevel level = player.serverLevel();
+        PortalManager manager = get(level);
+        PortalPair pair = manager.byId(pairId);
+        if (pair == null || !pair.isOpen(level.getGameTime())) {
+            return;
+        }
+        if (pair.isCrossDimensional() || !pair.sideIn(side, level.dimension())) {
+            return;
+        }
+        if (manager.crossingCooldowns.containsKey(player.getId())) {
+            return;
+        }
+        PortalWindow window = pair.window(side);
+        Vec3 now = center(player);
+        Vec3 prev = manager.lastCenters.get(player.getId());
+        if (!clientCrossingPlausible(window, prev, now)) {
+            return;
+        }
+        double entrySign = clientEntrySign(window, prev, now);
+        if (!mayCross(pair, side, player)) {
+            rebound(window, player, entrySign);
+            return;
+        }
+        manager.applyTeleport(pair, side, player, entrySign, true);
+        manager.crossingCooldowns.put(player.getId(), CROSSING_COOLDOWN_TICKS);
+        manager.lastCenters.put(player.getId(), center(player));
+    }
+
+    private static boolean clientCrossingPlausible(PortalWindow window, @Nullable Vec3 prev, Vec3 now) {
+        if (Math.abs(window.signedDistance(now)) <= MAX_CROSSING_DEPTH
+            && window.containsProjected(now, CLIENT_CROSSING_MARGIN)) {
+            return true;
+        }
+        return prev != null && stepPierces(window, prev, now, CLIENT_CROSSING_MARGIN);
+    }
+
+    private static double clientEntrySign(PortalWindow window, @Nullable Vec3 prev, Vec3 now) {
+        if (prev == null) {
+            return window.signedDistance(now);
+        }
+        double before = window.signedDistance(prev);
+        return Math.abs(before) > MAX_CROSSING_STEP ? window.signedDistance(now) : before;
+    }
+
+
+    private PortalManager() {
+    }
+
+    private static PortalManager load(CompoundTag tag) {
+        PortalManager manager = new PortalManager();
+        ListTag entries = tag.getList("Pairs", Tag.TAG_COMPOUND);
+        for (int i = 0; i < entries.size(); i++) {
+            try {
+                PortalPair pair = PortalPair.load(entries.getCompound(i));
+                if (pair.isValid()) {
+                    manager.pairs.add(pair);
+                } else {
+                    Hexwright.LOGGER.warn("Dropping degenerate portal pair {} from save", pair.id());
+                }
+            } catch (RuntimeException e) {
+                Hexwright.LOGGER.warn("Dropping malformed portal pair from save", e);
+            }
+        }
+        return manager;
+    }
+
+    @Override
+    public CompoundTag save(CompoundTag tag) {
+        ListTag entries = new ListTag();
+        for (PortalPair pair : pairs) {
+            if (pair.isSessionBound()) {
+                continue;
+            }
+            entries.add(pair.save());
+        }
+        tag.put("Pairs", entries);
+        return tag;
+    }
+}

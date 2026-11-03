@@ -1,0 +1,89 @@
+package com.bluup.hexwright.server.remnant;
+
+import com.bluup.hexwright.common.remnant.Remnant;
+import com.bluup.hexwright.common.remnant.RemnantType;
+import com.bluup.hexwright.server.fluid.TankRemnants;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.effect.MobEffect;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.entity.player.Player;
+
+public final class RemnantDrinking {
+
+    private static final int TICKS_PER_DRAM = 6;
+
+    private static final int MIN_DURATION_TICKS = 100;
+
+    private static final double DRAMS_PER_HALF_HEART = 20.0;
+
+    private static final double DRAMS_PER_FOOD_POINT = 20.0;
+
+    private static final float REPAST_SATURATION_MODIFIER = 0.8f;
+
+    private static final double AMPLIFIER_STEP = 200.0;
+
+    private static final int MAX_AMPLIFIER = 2;
+
+    private RemnantDrinking() {
+    }
+
+    public static int durationTicks(Remnant remnant) {
+        return Math.max(MIN_DURATION_TICKS, (int) (remnant.drams() * TICKS_PER_DRAM));
+    }
+
+    public static int amplifier(Remnant remnant) {
+        return Math.min(MAX_AMPLIFIER, (int) (remnant.drams() / AMPLIFIER_STEP));
+    }
+
+    public static float healing(Remnant remnant) {
+        return (float) (remnant.drams() / DRAMS_PER_HALF_HEART);
+    }
+
+    public static int feeding(Remnant remnant) {
+        return Math.max(1, (int) (remnant.drams() / DRAMS_PER_FOOD_POINT));
+    }
+
+    public static void drink(Player player, Remnant remnant) {
+        RemnantType type = remnant.type();
+
+        if (type == RemnantType.VITALITY) {
+            player.heal(healing(remnant));
+            return;
+        }
+
+        if (type == RemnantType.REPAST) {
+            player.getFoodData().eat(feeding(remnant), REPAST_SATURATION_MODIFIER);
+        }
+
+        MobEffect effect = type.effect();
+        if (effect != null) {
+            player.addEffect(new MobEffectInstance(effect, durationTicks(remnant), amplifier(remnant)));
+            return;
+        }
+
+        if (player instanceof ServerPlayer serverPlayer) {
+            RemnantBuffs.grant(serverPlayer, type, durationTicks(remnant), remnant.drams());
+        }
+    }
+
+    public static void drink(Player player, TankRemnants blend) {
+        for (Remnant part : blend.contents()) {
+            drink(player, part);
+        }
+    }
+
+    public static MutableComponent describe(Remnant remnant) {
+        if (remnant.type() == RemnantType.VITALITY) {
+            return Component.translatable("tooltip.hexwright.remnant.instant",
+                String.format("%.1f", healing(remnant) / 2.0f));
+        }
+        if (remnant.type() == RemnantType.REPAST) {
+            return Component.translatable("tooltip.hexwright.remnant.repast",
+                String.format("%.1f", feeding(remnant) / 2.0f), durationTicks(remnant) / 20);
+        }
+        return Component.translatable("tooltip.hexwright.remnant.duration",
+            durationTicks(remnant) / 20, amplifier(remnant) + 1);
+    }
+}

@@ -1,0 +1,108 @@
+package com.bluup.hexwright.compat.recipeviewer
+
+import com.bluup.hexwright.common.staff_assembly.calc.IngredientCategory
+import com.bluup.hexwright.server.block.WorktableRecipes
+import com.bluup.hexwright.server.item.EndlessPouchItem
+import com.mojang.blaze3d.systems.RenderSystem
+import net.minecraft.ChatFormatting
+import net.minecraft.client.Minecraft
+import net.minecraft.client.gui.Font
+import net.minecraft.client.gui.GuiGraphics
+import net.minecraft.network.chat.Component
+
+object EssenceForgePanel {
+
+    const val WIDTH = 160
+
+    private const val NAME_Y = 0
+
+    const val SLOT_Y = 16
+    const val POUCH_X = 2
+    private const val SLOT_SIZE = 18
+
+    const val GOLEM_CORES_X = POUCH_X + SLOT_SIZE
+    const val SLOT_BACKGROUND_INSET = 1
+
+    const val ARROW_Y = SLOT_Y
+
+    private const val ARROW_X = 26
+    private const val OUTPUT_X = 58
+    private const val HINT_X = 84
+
+    private const val COST_LINE = 11
+    private const val ICON_SIZE = 8
+
+    private const val SECTION_GAP = 5
+    private const val LABEL_GAP = 3
+    private const val BOTTOM_PADDING = 2
+
+    private const val TITLE_COLOR = 0x404040
+    private const val LABEL_COLOR = 0x666666
+    private const val VALUE_COLOR = 0x404040
+
+    private val COST_LABEL: Component = Component.translatable("gui.hexwright.recipe.essence_required")
+    private val GRADE_HINT: Component = Component.translatable("gui.hexwright.recipe.grade_hint")
+
+    private val font: Font get() = Minecraft.getInstance().font
+
+    val height: Int
+        get() = WorktableRecipes.RECIPES.maxOf { costY(shift(it.golemCores > 0)) + it.steps.size * COST_LINE } +
+            BOTTOM_PADDING
+
+    fun arrowX(display: EssenceForgeDisplay): Int = ARROW_X + shift(display)
+
+    fun outputX(display: EssenceForgeDisplay): Int = OUTPUT_X + shift(display)
+
+    private fun shift(display: EssenceForgeDisplay): Int = shift(!display.golemCores.isEmpty)
+
+    private fun shift(hasGolemCores: Boolean): Int = if (hasGolemCores) SLOT_SIZE else 0
+
+    private fun costLabelY(shift: Int): Int = maxOf(
+        SLOT_Y - SLOT_BACKGROUND_INSET + SLOT_SIZE,
+        SLOT_Y + font.split(GRADE_HINT, WIDTH - HINT_X - shift).size * font.lineHeight
+    ) + SECTION_GAP
+
+    private fun costY(shift: Int): Int = costLabelY(shift) + font.lineHeight + LABEL_GAP
+
+    fun draw(graphics: GuiGraphics, display: EssenceForgeDisplay) {
+        val font = this.font
+        val shift = shift(display)
+
+        graphics.drawString(font, display.name.copy().withStyle(ChatFormatting.BOLD), 0, NAME_Y, TITLE_COLOR, false)
+
+        if (display.graded) {
+            var hintY = SLOT_Y
+            for (line in font.split(GRADE_HINT, WIDTH - HINT_X - shift)) {
+                graphics.drawString(font, line, HINT_X + shift, hintY, LABEL_COLOR, false)
+                hintY += font.lineHeight
+            }
+        }
+
+        graphics.drawString(font, COST_LABEL, 0, costLabelY(shift), LABEL_COLOR, false)
+
+        var y = costY(shift)
+        for (step in display.steps) {
+            drawAspectIcon(graphics, step.aspect, 1, y)
+            val line = Component.translatable(
+                "gui.hexwright.recipe.essence_line",
+                EndlessPouchItem.aspectName(step.aspect),
+                EndlessPouchItem.formatAmount(step.amount)
+            )
+            graphics.drawString(font, line, ICON_SIZE + 4, y, VALUE_COLOR, false)
+            y += COST_LINE
+        }
+    }
+
+    private fun drawAspectIcon(graphics: GuiGraphics, aspect: IngredientCategory, x: Int, y: Int) {
+        RenderSystem.enableBlend()
+        RenderSystem.defaultBlendFunc()
+        RenderSystem.setShaderColor(1f, 1f, 1f, 1f)
+        val pose = graphics.pose()
+        pose.pushPose()
+        pose.translate(x.toFloat(), y.toFloat(), 0f)
+        val scale = ICON_SIZE / 64f
+        pose.scale(scale, scale, 1f)
+        graphics.blit(EndlessPouchItem.aspectIcon(aspect), 0, 0, 0f, 0f, 64, 64, 64, 64)
+        pose.popPose()
+    }
+}
