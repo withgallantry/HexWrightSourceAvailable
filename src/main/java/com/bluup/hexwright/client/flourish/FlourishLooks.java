@@ -79,6 +79,24 @@ final class FlourishLooks {
             case TESSERACT -> new Tesseract(centre, Mth.clamp(extent * 1.4, 0.8, 4.0));
             case OUROBOROS -> new Ouroboros(floorBelow(level, centre, extent), Mth.clamp(extent * 1.6, 1.0, 6.0));
             case RIFT -> new Rift(centre.add(0.0, extent * 0.3 + 0.6, 0.0), Mth.clamp(extent * 1.5, 1.0, 4.5));
+            case SINGULARITY -> new Singularity(centre.add(0.0, extent * 0.3 + 0.6, 0.0), Mth.clamp(extent * 1.7, 1.0, 5.0));
+            case EFFIGY -> new Effigy(centre.add(0.0, extent * 0.4 + 1.0, 0.0), Mth.clamp(extent * 1.3, 0.8, 3.5));
+            case AURORA -> new Aurora(centre.add(0.0, extent * 0.5 + 1.6, 0.0), Mth.clamp(extent * 1.5, 1.0, 5.5),
+                Mth.clamp(0.6 + extent * 0.25, 0.7, 1.6));
+            case PRISM -> new Prism(centre.add(0.0, extent * 0.3 + 0.5, 0.0), Mth.clamp(extent * 1.4, 0.8, 4.0));
+            case ROSE_WINDOW -> {
+                double radius = Mth.clamp(extent * 1.6, 1.0, 6.0);
+                yield new RoseWindow(standClear(level, centre, radius), facing, radius);
+            }
+            case WILDFLOWER -> Plant.of(FlourishPen.WILDFLOWER, floorBelow(level, centre, extent), extent);
+            case DANDELION -> Plant.of(FlourishPen.DANDELION, floorBelow(level, centre, extent), extent);
+            case WORLD_TREE -> Plant.of(FlourishPen.WORLD_TREE, floorBelow(level, centre, extent), extent);
+            case MYCELIUM -> new Mycelium(floorBelow(level, centre, extent), Mth.clamp(extent * 2.0, 1.2, 7.0));
+            case BRIAR -> {
+                double halfHeight = Mth.clamp(0.5 + extent * 0.3, 0.6, 1.8);
+                yield new Briar(floorBelow(level, centre, extent).add(0.0, halfHeight, 0.0),
+                    Mth.clamp(extent * 1.1, 0.7, 4.5), halfHeight);
+            }
         };
     }
 
@@ -750,6 +768,153 @@ final class FlourishLooks {
         @Override
         public void draw(FlourishPen pen, float progress) {
             pen.billboard(FlourishPen.RIFT, centre, radius, progress);
+        }
+    }
+
+    private record Singularity(Vec3 centre, double radius) implements FlourishLook {
+        @Override
+        public int lifetimeTicks() {
+            return 44;
+        }
+
+        @Override
+        public void begin(ClientLevel level, IntUnaryOperator colour) {
+            Random random = new Random();
+            for (int i = 0; i < 16; i++) {
+                double a = random.nextDouble() * Mth.TWO_PI;
+                Vec3 out = new Vec3(Math.cos(a), (random.nextDouble() - 0.5) * 0.4, Math.sin(a)).scale(radius);
+                Vec3 swept = new Vec3(-Math.sin(a), 0.0, Math.cos(a)).scale(radius * 0.05);
+                mote(level, colour.applyAsInt(i & 3), centre.add(out),
+                    -out.x * 0.07 + swept.x, -out.y * 0.07, -out.z * 0.07 + swept.z);
+            }
+        }
+
+        @Override
+        public void draw(FlourishPen pen, float progress) {
+            pen.billboard(FlourishPen.SINGULARITY, centre, radius, progress);
+        }
+    }
+
+    private record Effigy(Vec3 centre, double radius) implements FlourishLook {
+        @Override
+        public int lifetimeTicks() {
+            return 44;
+        }
+
+        @Override
+        public void begin(ClientLevel level, IntUnaryOperator colour) {
+            Random random = new Random();
+            for (int i = 0; i < 10; i++) {
+                Vec3 at = centre.add((random.nextDouble() - 0.5) * radius * 0.8, (random.nextDouble() - 0.3) * radius,
+                    (random.nextDouble() - 0.5) * radius * 0.8);
+                mote(level, colour.applyAsInt(i & 3), at, 0.0, 0.05 + random.nextDouble() * 0.05, 0.0);
+            }
+        }
+
+        @Override
+        public void draw(FlourishPen pen, float progress) {
+            pen.billboard(FlourishPen.EFFIGY, centre, radius, progress);
+        }
+    }
+
+    private record Aurora(Vec3 centre, double radius, double halfHeight) implements FlourishLook {
+        @Override
+        public int lifetimeTicks() {
+            return 48;
+        }
+
+        @Override
+        public void draw(FlourishPen pen, float progress) {
+            pen.band(FlourishPen.AURORA, centre, radius, halfHeight, progress);
+        }
+    }
+
+    private record Prism(Vec3 centre, double radius) implements FlourishLook {
+        @Override
+        public int lifetimeTicks() {
+            return 36;
+        }
+
+        @Override
+        public void draw(FlourishPen pen, float progress) {
+            pen.billboard(FlourishPen.PRISM, centre, radius, progress);
+        }
+    }
+
+    private record RoseWindow(Vec3 centre, Vec3 facing, double radius) implements FlourishLook {
+        @Override
+        public int lifetimeTicks() {
+            return 44;
+        }
+
+        @Override
+        public void draw(FlourishPen pen, float progress) {
+            pen.disc(FlourishPen.ROSE_WINDOW, centre, facing, radius, progress);
+        }
+    }
+
+    private record Plant(int style, Vec3 floor, double height) implements FlourishLook {
+        static Plant of(int style, Vec3 floor, double extent) {
+            return new Plant(style, floor, plantHeight(style, extent));
+        }
+
+        @Override
+        public int lifetimeTicks() {
+            return style == FlourishPen.WORLD_TREE ? 52 : style == FlourishPen.WILDFLOWER ? 48 : 44;
+        }
+
+        @Override
+        public void draw(FlourishPen pen, float progress) {
+            plant(pen, style, floor, height, progress);
+        }
+    }
+
+    static double plantHeight(int style, double extent) {
+        return switch (style) {
+            case FlourishPen.WORLD_TREE -> Mth.clamp(extent * 1.8, 1.6, 6.0);
+            case FlourishPen.DANDELION -> Mth.clamp(extent * 1.0, 0.8, 2.5);
+            default -> Mth.clamp(extent * 1.2, 1.0, 3.0);
+        };
+    }
+
+    static void plant(FlourishPen pen, int style, Vec3 floor, double height, float progress) {
+        double halfBreadth = height * (style == FlourishPen.DANDELION ? 0.95 : style == FlourishPen.WORLD_TREE ? 0.6 : 0.5);
+        double margin = height * (style == FlourishPen.DANDELION ? 0.45 : 0.05);
+        pen.axial(style, floor, floor.add(0.0, height, 0.0), height, halfBreadth, margin, progress);
+    }
+
+    private record Mycelium(Vec3 floor, double radius) implements FlourishLook {
+        @Override
+        public int lifetimeTicks() {
+            return 40;
+        }
+
+        @Override
+        public void begin(ClientLevel level, IntUnaryOperator colour) {
+            Random random = new Random();
+            for (int i = 0; i < 8; i++) {
+                double a = random.nextDouble() * Mth.TWO_PI;
+                double out = radius * (0.6 + random.nextDouble() * 0.3);
+                mote(level, colour.applyAsInt(i & 3), floor.add(Math.cos(a) * out, 0.1, Math.sin(a) * out),
+                    0.0, 0.02 + random.nextDouble() * 0.02, 0.0);
+            }
+        }
+
+        @Override
+        public void draw(FlourishPen pen, float progress) {
+            pen.disc(FlourishPen.MYCELIUM, floor, FlourishPen.UP, radius, progress);
+        }
+    }
+
+    private record Briar(Vec3 centre, double radius, double halfHeight) implements FlourishLook {
+        @Override
+        public int lifetimeTicks() {
+            return 44;
+        }
+
+        @Override
+        public void draw(FlourishPen pen, float progress) {
+            pen.band(FlourishPen.BRIAR, centre, radius, halfHeight, progress);
         }
     }
 

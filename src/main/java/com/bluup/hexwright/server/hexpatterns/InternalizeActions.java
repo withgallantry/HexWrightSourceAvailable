@@ -35,15 +35,12 @@ public final class InternalizeActions {
     }
 
     public static void register() {
-        register("internalize_flourish", "awddwqawqwawqeee",
-            internalize(FlourishState::get, "hexwright.flourish"));
-        register("internalize_cantillation", "awddwqawqwawqeqeq",
-            internalize(CantillationState::get, "hexwright.cantillation"));
-    }
-
-    private static void register(String id, String signature, SpellAction action) {
-        Registry.register(IXplatAbstractions.INSTANCE.getActionRegistry(), Hexwright.id(id),
-            new ActionRegistryEntry(HexPattern.fromAngles(signature, HexDir.EAST), action));
+        Registry.register(IXplatAbstractions.INSTANCE.getActionRegistry(), Hexwright.id("internalize_flourish"),
+            new ActionRegistryEntry(HexPattern.fromAngles("awddwqawqwawqedqdqdqd", HexDir.EAST),
+                internalize(FlourishState::get, "hexwright.flourish")));
+        Registry.register(IXplatAbstractions.INSTANCE.getActionRegistry(), Hexwright.id("internalize_cantillation"),
+            new ActionRegistryEntry(HexPattern.fromAngles("awddwqawqwawqedwewweewwewd", HexDir.EAST),
+                internalize(CantillationState::get, "hexwright.cantillation")));
     }
 
     private static SpellAction internalize(Function<MinecraftServer, ? extends WornItemState> slot, String itemKey) {

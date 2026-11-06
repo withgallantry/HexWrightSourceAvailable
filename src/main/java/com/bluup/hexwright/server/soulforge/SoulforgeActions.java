@@ -70,7 +70,7 @@ public final class SoulforgeActions {
         LivingEntity source = OperatorUtils.getLivingEntityButNotArmorStand(args, 0, 1);
         env.assertEntityInRange(source);
         ItemStack blade = heldPestiferous(env, caster);
-        MobEffectInstance status = PestiferousItem.strongestCapturable(source);
+        MobEffectInstance status = PestiferousItem.strongest(source);
         if (status == null) {
             throw MishapBadEntity.of(source, "hexwright.afflicted");
         }
@@ -82,8 +82,8 @@ public final class SoulforgeActions {
         LivingEntity source = OperatorUtils.getLivingEntityButNotArmorStand(args, 0, 2);
         env.assertEntityInRange(source);
         MobEffect effect = EphemeraStatus.statusOf(args.get(1));
-        if (effect == null || !PestiferousItem.capturable(effect)) {
-            throw MishapInvalidIota.of(args.get(1), 0, "hexwright.capturable_status");
+        if (effect == null) {
+            throw MishapInvalidIota.of(args.get(1), 0, "hexwright.known_status");
         }
         ItemStack blade = heldPestiferous(env, caster);
         MobEffectInstance status = source.getEffect(effect);

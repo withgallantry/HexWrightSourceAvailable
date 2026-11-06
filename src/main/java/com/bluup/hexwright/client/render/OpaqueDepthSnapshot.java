@@ -4,20 +4,25 @@ import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.pipeline.TextureTarget;
 import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 import net.minecraft.client.Minecraft;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL30;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public final class SolidDepthSnapshot {
-    private static final Logger LOGGER = LoggerFactory.getLogger("hexwright-solid-depth");
+public final class OpaqueDepthSnapshot {
+    private static final Logger LOGGER = LoggerFactory.getLogger("hexwright-opaque-depth");
 
     private static TextureTarget target;
     private static boolean broken;
     private static boolean valid;
 
-    private SolidDepthSnapshot() {
+    private OpaqueDepthSnapshot() {
+    }
+
+    public static void register() {
+        WorldRenderEvents.START.register(context -> valid = false);
     }
 
     public static int depthTextureId() {
@@ -61,8 +66,8 @@ public final class SolidDepthSnapshot {
 
         if (failed) {
             broken = true;
-            LOGGER.warn("Solid depth blit failed (incompatible main depth attachment?); "
-                + "effects masking against opaque terrain are disabled for this session");
+            LOGGER.warn("Opaque depth blit failed (incompatible main depth attachment?); "
+                + "effects drawn past translucent terrain stop at it instead for this session");
             return false;
         }
 

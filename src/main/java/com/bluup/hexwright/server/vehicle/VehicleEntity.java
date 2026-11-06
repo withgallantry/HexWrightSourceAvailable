@@ -8,6 +8,7 @@ import at.petrak.hexcasting.api.utils.MediaHelper;
 import at.petrak.hexcasting.xplat.IXplatAbstractions;
 import com.bluup.hexwright.inits.HexwrightNetworking;
 import com.bluup.hexwright.server.bindstone.BindstoneRegistry;
+import com.bluup.hexwright.server.hexahedron.HexahedronWard;
 import com.bluup.hexwright.server.worldgen.AreaWard;
 import com.bluup.hexwright.mixin.LivingEntityJumpingAccessor;
 import com.bluup.hexwright.server.pocketcaster.PocketCasterData;
@@ -548,6 +549,8 @@ public abstract class VehicleEntity extends Entity {
             wardStall = "message.hexwright.vehicle.stalled_bindstone";
         } else if (AreaWard.sealed(this.level(), this.blockPosition())) {
             wardStall = "message.hexwright.vehicle.stalled_dungeon";
+        } else if (HexahedronWard.covers(this.level(), this.position())) {
+            wardStall = "message.hexwright.vehicle.stalled_hexahedron";
         }
         if (wardStall != null) {
             if (!isStalled()) {

@@ -2,6 +2,9 @@ package com.bluup.hexwright.server.item;
 
 import com.bluup.hexwright.Hexwright;
 import com.bluup.hexwright.server.block.DungeonPropItems;
+import com.bluup.hexwright.server.cantillation.CantillationItem;
+import com.bluup.hexwright.server.flourish.FlourishItem;
+import com.bluup.hexwright.server.malediction.MaledictionPieceItem;
 import net.fabricmc.fabric.api.itemgroup.v1.FabricItemGroup;
 import net.fabricmc.fabric.api.itemgroup.v1.ItemGroupEvents;
 import net.minecraft.core.Registry;
@@ -65,6 +68,9 @@ public final class HexwrightCreativeTab {
                 for (Item item : BuiltInRegistries.ITEM) {
                     if (!listed.contains(item)
                         && !DungeonPropItems.isFurniture(item)
+                        && !(item instanceof FlourishItem)
+                        && !(item instanceof CantillationItem)
+                        && !(item instanceof MaledictionPieceItem)
                         && Hexwright.MOD_ID.equals(BuiltInRegistries.ITEM.getKey(item).getNamespace())) {
                         stacks.add(new ItemStack(item));
                     }

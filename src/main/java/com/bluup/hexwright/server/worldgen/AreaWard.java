@@ -309,14 +309,14 @@ public final class AreaWard {
     private static void tick(MinecraftServer server) {
         for (ServerPlayer player : server.getPlayerList().getPlayers()) {
             if (!player.isSpectator() && !player.isCreative()
-                && sealed(player.level(), player.blockPosition())) {
-                ground(player);
+                && sealed(player.level(), player.blockPosition()) && ground(player)) {
+                player.displayClientMessage(Component.translatable("message.hexwright.dungeon.grounded"), true);
             }
             lower(player);
         }
     }
 
-    private static void ground(ServerPlayer player) {
+    public static boolean ground(ServerPlayer player) {
         boolean taken = false;
         if (player.isFallFlying()) {
             ((EntitySharedFlagAccessor) player).hexwright$setSharedFlag(FLAG_FALL_FLYING, false);
@@ -329,8 +329,8 @@ public final class AreaWard {
         }
         if (taken) {
             LOWERING.add(player.getUUID());
-            player.displayClientMessage(Component.translatable("message.hexwright.dungeon.grounded"), true);
         }
+        return taken;
     }
 
     private static void lower(ServerPlayer player) {

@@ -7,7 +7,6 @@ import org.jetbrains.annotations.Nullable;
 import java.util.Locale;
 
 public enum WorkbenchCaption {
-    MOTIF,
     LAYER,
     FLOURISH,
     RING,
@@ -23,7 +22,6 @@ public enum WorkbenchCaption {
         FlourishFigure.Ring ring = draft.ring(draft.selectedRing());
         Component ringNumber = Component.literal(WorkbenchTabWidget.NUMERALS[draft.selectedRing()]);
         return switch (this) {
-            case MOTIF -> Component.translatable(key(), layer);
             case LAYER -> Component.translatable(key(), layer,
                 Component.translatable(draft.selectedLayer().motif().translationKey()));
             case FLOURISH, RINGS -> Component.translatable(key());

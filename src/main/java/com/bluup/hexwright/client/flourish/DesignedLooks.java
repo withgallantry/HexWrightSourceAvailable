@@ -112,6 +112,16 @@ final class DesignedLooks {
             case RIFT -> FlourishPen.RIFT;
             case BLADE -> FlourishPen.BLADE;
             case CHAINS -> FlourishPen.CHAINS;
+            case SINGULARITY -> FlourishPen.SINGULARITY;
+            case EFFIGY -> FlourishPen.EFFIGY;
+            case AURORA -> FlourishPen.AURORA;
+            case PRISM -> FlourishPen.PRISM;
+            case ROSE_WINDOW -> FlourishPen.ROSE_WINDOW;
+            case WILDFLOWER -> FlourishPen.WILDFLOWER;
+            case DANDELION -> FlourishPen.DANDELION;
+            case MYCELIUM -> FlourishPen.MYCELIUM;
+            case BRIAR -> FlourishPen.BRIAR;
+            case WORLD_TREE -> FlourishPen.WORLD_TREE;
         };
     }
 
@@ -130,9 +140,11 @@ final class DesignedLooks {
             case RIPPLE, PETALS, WARD -> 30;
             case SEAL -> 32;
             case GEARS, EYE, FLAME, WEB -> 34;
-            case ORBIT, DARK_SUN, GLYPHS, CHAINS, RIFT -> 36;
-            case SIGIL, WINGS, STREAK, FROST, MOTH, BLADE, TESSERACT -> 40;
-            case CONSTELLATION, SERPENT -> 44;
+            case ORBIT, DARK_SUN, GLYPHS, CHAINS, RIFT, PRISM -> 36;
+            case SIGIL, WINGS, STREAK, FROST, MOTH, BLADE, TESSERACT, MYCELIUM -> 40;
+            case CONSTELLATION, SERPENT, SINGULARITY, EFFIGY, ROSE_WINDOW, DANDELION, BRIAR -> 44;
+            case AURORA, WILDFLOWER -> 48;
+            case WORLD_TREE -> 52;
             case MAZE -> 46;
         };
     }
@@ -287,6 +299,12 @@ final class DesignedLooks {
         FlourishMotif motif = layer.motif();
         double extent = stage.extent();
         double scale = layer.scale();
+        if (motif.grows()) {
+            int style = style(motif);
+            Vec3 floor = stage.floor();
+            double height = FlourishLooks.plantHeight(style, extent) * scale;
+            return (pen, progress) -> FlourishLooks.plant(pen, style, floor, height, progress);
+        }
         Strand strand = strand(motif, extent, scale);
         int style = style(motif);
         return switch (layer.placement()) {
@@ -364,6 +382,7 @@ final class DesignedLooks {
         double halfHeight = switch (layer.motif()) {
             case GLYPHS -> 0.22 * Math.sqrt(scale);
             case CHAINS -> 0.4 * Math.sqrt(scale);
+            case BRIAR -> Mth.clamp(0.5 + extent * 0.3, 0.6, 1.8) * scale;
             default -> Mth.clamp(0.45 + extent * 0.35, 0.6, 2.0) * scale;
         };
         Vec3 centre = layer.placement() == FlourishMotif.Placement.FOOT

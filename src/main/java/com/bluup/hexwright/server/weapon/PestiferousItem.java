@@ -81,14 +81,9 @@ public class PestiferousItem extends SoulforgedBladeItem {
     }
 
 
-    public static boolean capturable(MobEffect effect) {
-        return !effect.isInstantenous();
-    }
-
     @Nullable
-    public static MobEffectInstance strongestCapturable(LivingEntity source) {
+    public static MobEffectInstance strongest(LivingEntity source) {
         return source.getActiveEffects().stream()
-            .filter(instance -> capturable(instance.getEffect()))
             .max(Comparator.comparingInt(MobEffectInstance::getAmplifier)
                 .thenComparingInt(instance -> instance.isInfiniteDuration() ? -1 : instance.getDuration()))
             .orElse(null);
@@ -134,7 +129,7 @@ public class PestiferousItem extends SoulforgedBladeItem {
         for (Tag entry : tag.getList(CARRIED_TAG, Tag.TAG_COMPOUND)) {
             CompoundTag status = (CompoundTag) entry;
             MobEffect effect = BuiltInRegistries.MOB_EFFECT.get(ResourceLocation.tryParse(status.getString(EFFECT_KEY)));
-            if (effect != null && capturable(effect)) {
+            if (effect != null) {
                 carried.add(new MobEffectInstance(effect, ticks, Math.min(status.getInt(AMPLIFIER_KEY), MAX_AMPLIFIER)));
             }
         }
@@ -146,8 +141,11 @@ public class PestiferousItem extends SoulforgedBladeItem {
             return;
         }
         for (MobEffectInstance status : carried(blade, ticks)) {
-            if (status.getEffect() == HexwrightEffects.SILENCED) {
+            MobEffect effect = status.getEffect();
+            if (effect == HexwrightEffects.SILENCED) {
                 Silence.strike(victim, source, ticks);
+            } else if (effect.isInstantenous()) {
+                effect.applyInstantenousEffect(source, source, victim, status.getAmplifier(), 1.0);
             } else {
                 victim.addEffect(status, source);
             }

@@ -29,23 +29,40 @@ public final class FlourishWorkbenchWindow {
 
     private static final int FRAME_RAIL = 10;
     private static final int MARGIN = 14;
-    private static final int HEIGHT = 340;
 
     private static final int LEFT_W = 250;
-    private static final int TAB_W = 61;
-    private static final int RING_TAB_W = 40;
-    private static final int TAB_H = 22;
+    private static final int TAB_H = 20;
+    private static final int TAB_GAP = 2;
+    private static final int SHEET_Y = TAB_H;
+    private static final int SHEET_PAD = 4;
+    private static final int SHEET_INNER_W = LEFT_W - 2 * SHEET_PAD;
+    private static final int TAB_W = tabWidth(FlourishDesign.MAX_LAYERS);
+    private static final int RING_TAB_W = tabWidth(FlourishFigure.MAX_RINGS);
     private static final int ROW_H = 18;
     private static final int ROW_GAP = 3;
     private static final int SECTION_GAP = 6;
     private static final int CAPTION_H = 12;
     private static final int LINK_W = 72;
-    private static final int OPTION_W = (LEFT_W - 2) / 2;
-    private static final int TAB_CAPTION_Y = TAB_H + 3;
+    private static final int OPTION_W = (SHEET_INNER_W - 2) / 2;
+    private static final int TAB_CAPTION_Y = SHEET_Y + SHEET_PAD;
     private static final int ROWS_Y = TAB_CAPTION_Y + CAPTION_H + 3;
-    private static final int CONTROLS_H = ROWS_Y + 4 * ROW_H + 3 * ROW_GAP;
-    private static final int CONTROLS_Y = HEIGHT - MARGIN - CONTROLS_H;
-    private static final int PREVIEW_H = CONTROLS_Y - 4 - MARGIN;
+    private static final int FIELD_GAP = 5;
+    private static final int SEGMENTS_H = 25;
+    private static final int SLIDER_H = 23;
+    private static final int SWATCHES_H = 37;
+    private static final int DELAY_Y = ROWS_Y + SEGMENTS_H + FIELD_GAP;
+    private static final int SHADES_Y = DELAY_Y + SLIDER_H + FIELD_GAP;
+    private static final int PLACEMENT_Y = SHADES_Y + SWATCHES_H + FIELD_GAP;
+    private static final int LAYER_SHEET_END = PLACEMENT_Y + ROW_H + SHEET_PAD;
+    private static final int FLOURISH_Y = LAYER_SHEET_END + SECTION_GAP;
+    private static final int RING_GAP = 12;
+    private static final int RING_COLUMN_GAP = 10;
+    private static final int RING_COLUMN_W = (SHEET_INNER_W - RING_COLUMN_GAP) / 2;
+    private static final int RING_ROWS_Y = ROWS_Y + 4;
+    private static final int LISTS_Y = RING_ROWS_Y + 2 * (SLIDER_H + RING_GAP);
+    private static final int HUE_Y = LISTS_Y + ROW_H + RING_GAP;
+    private static final int RING_SHEET_END = HUE_Y + SWATCHES_H + SHEET_PAD;
+    private static final int CONTROLS_H = FLOURISH_Y + CAPTION_H + 3 + ROW_H;
 
     private static final int COLUMN_X = MARGIN + LEFT_W + 8;
     private static final int COLUMN_W = 182;
@@ -54,31 +71,35 @@ public final class FlourishWorkbenchWindow {
     private static final int TITLE_Y = MARGIN;
     private static final int TITLE_H = 21;
     private static final int CELL = 22;
+    private static final int CELL_GAP = 2;
     private static final int SHAPES_H = 2 * CELL;
+    private static final int MOTIF_ROWS = 6;
     private static final int PICKER_PAGE_Y = TITLE_Y + TITLE_H + 3;
-    private static final int PICKER_Y = CAPTION_H + 3;
-    private static final int PICKER_PAGE_H = PICKER_Y + SHAPES_H + SECTION_GAP + CAPTION_H + 3 + 2 * ROW_H + ROW_GAP;
+    private static final int PICKER_PAGE_H = MOTIF_ROWS * (CELL + CELL_GAP) - CELL_GAP;
     private static final int RIGHT_OPTION_W = (COLUMN_W - 2) / 2;
-    private static final int SLOT_Y = PICKER_PAGE_Y + PICKER_PAGE_H + 4;
+    private static final int BACK_W = 130;
+    private static final int BACK_H = 16;
+    private static final int SHAPE_CAPTION_Y = BACK_H + 4;
+    private static final int SHAPES_Y = SHAPE_CAPTION_Y + CAPTION_H + 3;
+    private static final int RINGS_CAPTION_Y = SHAPES_Y + SHAPES_H + SECTION_GAP;
+    private static final int FIGURE_LISTS_Y = RINGS_CAPTION_Y + CAPTION_H + 3;
+    private static final int TEMPO_Y = FIGURE_LISTS_Y + ROW_H + ROW_GAP;
+    private static final int EDITOR_PAGE_H = TEMPO_Y + SLIDER_H;
+    private static final int STATUS_Y = PICKER_PAGE_Y + EDITOR_PAGE_H + 4;
+    private static final int STATUS_H = 28;
+    private static final int SLOT_Y = STATUS_Y + STATUS_H + 3;
     private static final int SLOT_FRAME = 36;
-    private static final int TOOLTIPS_Y = SLOT_Y + SLOT_FRAME + 3;
-    private static final int STATUS_Y = TOOLTIPS_Y + 12;
-    private static final int INVENTORY_Y = HEIGHT - MARGIN - 82;
+    private static final int INVENTORY_GAP = 10;
+    private static final int INVENTORY_Y = SLOT_Y + SLOT_FRAME + INVENTORY_GAP;
+    private static final int HEIGHT = INVENTORY_Y + 82 + MARGIN;
+    private static final int CONTROLS_Y = HEIGHT - MARGIN - CONTROLS_H;
+    private static final int PREVIEW_H = CONTROLS_Y - 4 - MARGIN;
 
     private static final int TITLE_COLOUR = 0xFFABAAAB;
 
-    private static final WorkbenchOption[][] LAYER_ROWS = {
-        {WorkbenchOption.PLACEMENT, WorkbenchOption.SIZE},
-        {WorkbenchOption.DELAY, WorkbenchOption.SHADE},
-    };
-    private static final WorkbenchOption[][] FLOURISH_ROWS = {
-        {WorkbenchOption.CHIME, WorkbenchOption.MOTES},
-    };
-    private static final WorkbenchOption[][] RING_ROWS = {
-        {WorkbenchOption.COUNT, WorkbenchOption.FORM},
-        {WorkbenchOption.RADIUS, WorkbenchOption.WEIGHT},
-        {WorkbenchOption.SPIN, WorkbenchOption.TURN},
-        {WorkbenchOption.HUE},
+    private static final WorkbenchOption[][] RING_SLIDERS = {
+        {WorkbenchOption.RADIUS, WorkbenchOption.SPIN},
+        {WorkbenchOption.WEIGHT, WorkbenchOption.COUNT},
     };
 
     private FlourishWorkbenchWindow() {
@@ -135,21 +156,46 @@ public final class FlourishWorkbenchWindow {
         root.addWidget(place(new FlourishPreviewWidget(), MARGIN, MARGIN, LEFT_W, PREVIEW_H));
 
         WidgetGroup layers = WorkbenchPageGroup.of(WorkbenchPage.LAYERS, MARGIN, CONTROLS_Y, LEFT_W, CONTROLS_H);
+        layers.addWidget(new ImageWidget(0, SHEET_Y, LEFT_W, LAYER_SHEET_END - SHEET_Y, WorkbenchArt.sheet()));
         for (int i = 0; i < FlourishDesign.MAX_LAYERS; i++) {
-            layers.addWidget(place(LayerTabWidget.of(i + 1), i * (TAB_W + 2), 0, TAB_W, TAB_H));
+            layers.addWidget(place(LayerTabWidget.of(i + 1), SHEET_PAD + i * (TAB_W + TAB_GAP), 0, TAB_W, TAB_H));
         }
-        addSection(layers, WorkbenchCaption.LAYER, WorkbenchAction.REMOVE_LAYER, LEFT_W, TAB_CAPTION_Y);
-        int flourishY = addRows(layers, LAYER_ROWS, OPTION_W, ROWS_Y) + SECTION_GAP;
-        addSection(layers, WorkbenchCaption.FLOURISH, WorkbenchAction.RESET, LEFT_W, flourishY);
-        addRows(layers, FLOURISH_ROWS, OPTION_W, flourishY + CAPTION_H + 3);
+        addSection(layers, WorkbenchCaption.LAYER, WorkbenchAction.REMOVE_LAYER, SHEET_PAD, SHEET_INNER_W, TAB_CAPTION_Y);
+        layers.addWidget(place(WorkbenchSegmentsWidget.of(WorkbenchOption.SIZE), SHEET_PAD, ROWS_Y, SHEET_INNER_W,
+            SEGMENTS_H));
+        layers.addWidget(place(WorkbenchSliderWidget.of(WorkbenchOption.DELAY), SHEET_PAD, DELAY_Y, SHEET_INNER_W,
+            SLIDER_H));
+        layers.addWidget(place(WorkbenchSwatchesWidget.of(WorkbenchOption.SHADE), SHEET_PAD, SHADES_Y, SHEET_INNER_W,
+            SWATCHES_H));
+        layers.addWidget(place(WorkbenchDropdownWidget.up(WorkbenchOption.PLACEMENT), SHEET_PAD, PLACEMENT_Y,
+            SHEET_INNER_W, ROW_H));
+        addSection(layers, WorkbenchCaption.FLOURISH, WorkbenchAction.RESET, SHEET_PAD, SHEET_INNER_W, FLOURISH_Y);
+        layers.addWidget(place(WorkbenchDropdownWidget.up(WorkbenchOption.CHIME), SHEET_PAD, FLOURISH_Y + CAPTION_H + 3,
+            OPTION_W, ROW_H));
+        layers.addWidget(place(WorkbenchDropdownWidget.up(WorkbenchOption.MOTES), SHEET_PAD + OPTION_W + 2,
+            FLOURISH_Y + CAPTION_H + 3, OPTION_W, ROW_H));
         root.addWidget(layers);
 
         WidgetGroup rings = WorkbenchPageGroup.of(WorkbenchPage.FIGURE, MARGIN, CONTROLS_Y, LEFT_W, CONTROLS_H);
+        rings.addWidget(new ImageWidget(0, SHEET_Y, LEFT_W, RING_SHEET_END - SHEET_Y, WorkbenchArt.sheet()));
         for (int i = 0; i < FlourishFigure.MAX_RINGS; i++) {
-            rings.addWidget(place(RingTabWidget.of(i + 1), i * (RING_TAB_W + 2), 0, RING_TAB_W, TAB_H));
+            rings.addWidget(place(RingTabWidget.of(i + 1), SHEET_PAD + i * (RING_TAB_W + TAB_GAP), 0, RING_TAB_W,
+                TAB_H));
         }
-        addSection(rings, WorkbenchCaption.RING, WorkbenchAction.REMOVE_RING, LEFT_W, TAB_CAPTION_Y);
-        addRows(rings, RING_ROWS, OPTION_W, ROWS_Y);
+        addSection(rings, WorkbenchCaption.RING, WorkbenchAction.REMOVE_RING, SHEET_PAD, SHEET_INNER_W, TAB_CAPTION_Y);
+        for (int row = 0; row < RING_SLIDERS.length; row++) {
+            for (int column = 0; column < 2; column++) {
+                rings.addWidget(place(WorkbenchSliderWidget.of(RING_SLIDERS[row][column]),
+                    SHEET_PAD + column * (RING_COLUMN_W + RING_COLUMN_GAP), RING_ROWS_Y + row * (SLIDER_H + RING_GAP),
+                    RING_COLUMN_W, SLIDER_H));
+            }
+        }
+        rings.addWidget(place(WorkbenchSwatchesWidget.of(WorkbenchOption.HUE), SHEET_PAD, HUE_Y, SHEET_INNER_W,
+            SWATCHES_H));
+        rings.addWidget(place(WorkbenchDropdownWidget.of(WorkbenchOption.FORM), SHEET_PAD, LISTS_Y, RING_COLUMN_W,
+            ROW_H));
+        rings.addWidget(place(WorkbenchDropdownWidget.of(WorkbenchOption.TURN), SHEET_PAD + RING_COLUMN_W + RING_COLUMN_GAP,
+            LISTS_Y, RING_COLUMN_W, ROW_H));
         root.addWidget(rings);
 
         root.addWidget(new ImageWidget(COLUMN_X, TITLE_Y, COLUMN_W, TITLE_H, new ResourceTexture("ldlib:textures/title.png")));
@@ -158,34 +204,39 @@ public final class FlourishWorkbenchWindow {
 
         WidgetGroup motifs = WorkbenchPageGroup.of(WorkbenchPage.LAYERS, COLUMN_X, PICKER_PAGE_Y, COLUMN_W,
             PICKER_PAGE_H);
-        motifs.addWidget(place(WorkbenchCaptionWidget.of(WorkbenchCaption.MOTIF), 0, 0, COLUMN_W, CAPTION_H));
         MotifPickerWidget motifPicker = new MotifPickerWidget();
         motifPicker.cellSize(CELL);
-        motifs.addWidget(place(motifPicker, 0, PICKER_Y, COLUMN_W, PICKER_PAGE_H - PICKER_Y));
+        motifPicker.cellGap(CELL_GAP);
+        motifs.addWidget(place(motifPicker, 0, 0, COLUMN_W, PICKER_PAGE_H));
         root.addWidget(motifs);
 
         WidgetGroup shapes = WorkbenchPageGroup.of(WorkbenchPage.FIGURE, COLUMN_X, PICKER_PAGE_Y, COLUMN_W,
-            PICKER_PAGE_H);
-        addSection(shapes, WorkbenchCaption.SHAPE, WorkbenchAction.BACK, COLUMN_W, 0);
+            EDITOR_PAGE_H);
+        shapes.addWidget(place(WorkbenchActionWidget.of(WorkbenchAction.BACK), 0, 0, BACK_W, BACK_H));
+        shapes.addWidget(place(WorkbenchCaptionWidget.of(WorkbenchCaption.SHAPE), 0, SHAPE_CAPTION_Y, COLUMN_W,
+            CAPTION_H));
         ShapePickerWidget shapePicker = new ShapePickerWidget();
         shapePicker.cellSize(CELL);
-        shapes.addWidget(place(shapePicker, 0, PICKER_Y, COLUMN_W, SHAPES_H));
-        int ringsY = PICKER_Y + SHAPES_H + SECTION_GAP;
-        shapes.addWidget(place(WorkbenchCaptionWidget.of(WorkbenchCaption.RINGS), 0, ringsY, COLUMN_W, CAPTION_H));
-        addRows(shapes, new WorkbenchOption[][]{
-            {WorkbenchOption.ENTRANCE, WorkbenchOption.EXIT},
-            {WorkbenchOption.TEMPO},
-        }, RIGHT_OPTION_W, ringsY + CAPTION_H + 3);
+        shapePicker.cellGap(CELL_GAP);
+        shapes.addWidget(place(shapePicker, 0, SHAPES_Y, COLUMN_W, SHAPES_H + CELL_GAP));
+        shapes.addWidget(place(WorkbenchCaptionWidget.of(WorkbenchCaption.RINGS), 0, RINGS_CAPTION_Y, COLUMN_W,
+            CAPTION_H));
+        shapes.addWidget(place(WorkbenchSliderWidget.of(WorkbenchOption.TEMPO), 0, TEMPO_Y, COLUMN_W, SLIDER_H));
+        shapes.addWidget(place(WorkbenchDropdownWidget.up(WorkbenchOption.ENTRANCE), 0, FIGURE_LISTS_Y, RIGHT_OPTION_W,
+            ROW_H));
+        shapes.addWidget(place(WorkbenchDropdownWidget.up(WorkbenchOption.EXIT), RIGHT_OPTION_W + 2, FIGURE_LISTS_Y,
+            RIGHT_OPTION_W, ROW_H));
         root.addWidget(shapes);
 
         WidgetGroup blankFrame = new WidgetGroup(COLUMN_X, SLOT_Y, SLOT_FRAME, SLOT_FRAME);
         blankFrame.setBackground(new ResourceTexture("ldlib:textures/menu/item_input.png"));
         blankFrame.addWidget(placeholderSlot(9, 9, BLANK_SLOT_ID));
         root.addWidget(blankFrame);
-        root.addWidget(place(WorkbenchActionWidget.of(WorkbenchAction.INSCRIBE), COLUMN_X + SLOT_FRAME + 6,
-            SLOT_Y + (SLOT_FRAME - 20) / 2, COLUMN_W - SLOT_FRAME - 6, 20));
-        root.addWidget(place(new WorkbenchTooltipsWidget(), COLUMN_X, TOOLTIPS_Y, COLUMN_W, 10));
-        root.addWidget(place(new WorkbenchStatusWidget(), COLUMN_X, STATUS_Y, COLUMN_W, 30));
+        root.addWidget(place(WorkbenchActionWidget.of(WorkbenchAction.INSCRIBE), COLUMN_X + SLOT_FRAME + 6, SLOT_Y + 2,
+            COLUMN_W - SLOT_FRAME - 6, 20));
+        root.addWidget(place(new WorkbenchTooltipsWidget(), COLUMN_X + SLOT_FRAME + 6, SLOT_Y + SLOT_FRAME - 10,
+            COLUMN_W - SLOT_FRAME - 6, 10));
+        root.addWidget(place(new WorkbenchStatusWidget(), COLUMN_X, STATUS_Y, COLUMN_W, STATUS_H));
 
         WidgetGroup inventory = new WidgetGroup(COLUMN_X + (COLUMN_W - 168) / 2, INVENTORY_Y, 168, 82);
         inventory.setBackground(new ResourceTexture("ldlib:textures/menu/inv_main.png"));
@@ -197,20 +248,14 @@ public final class FlourishWorkbenchWindow {
         return root;
     }
 
-    private static void addSection(WidgetGroup page, WorkbenchCaption caption, WorkbenchAction action, int width, int y) {
-        page.addWidget(place(WorkbenchCaptionWidget.of(caption), 0, y, width - LINK_W - 4, CAPTION_H));
-        page.addWidget(place(WorkbenchActionWidget.link(action), width - LINK_W, y, LINK_W, CAPTION_H));
+    private static int tabWidth(int count) {
+        return (SHEET_INNER_W - (count - 1) * TAB_GAP) / count;
     }
 
-    private static int addRows(WidgetGroup page, WorkbenchOption[][] rows, int optionWidth, int y) {
-        for (int row = 0; row < rows.length; row++) {
-            for (int column = 0; column < rows[row].length; column++) {
-                page.addWidget(place(WorkbenchOptionWidget.of(rows[row][column]), column * (optionWidth + 2), y,
-                    optionWidth, ROW_H));
-            }
-            y += ROW_H + ROW_GAP;
-        }
-        return y - ROW_GAP;
+    private static void addSection(WidgetGroup page, WorkbenchCaption caption, WorkbenchAction action, int x, int width,
+                                   int y) {
+        page.addWidget(place(WorkbenchCaptionWidget.of(caption), x, y, width - LINK_W - 4, CAPTION_H));
+        page.addWidget(place(WorkbenchActionWidget.link(action), x + width - LINK_W, y, LINK_W, CAPTION_H));
     }
 
     private static Widget place(Widget widget, int x, int y, int width, int height) {

@@ -40,18 +40,24 @@ public final class ClientFlourishes {
 
     private static final int[] FALLBACK = {0xFF9E61FF, 0xFFD99EFF, 0xFF7A4DEB, 0xFFF2CCFF};
 
+    @FunctionalInterface
+    public interface Palette {
+        int colour(int index, float time);
+    }
+
     static final class Live {
-        final FlourishCast cast;
+        final Vec3 pos;
+        final int seed;
         final FlourishLook look;
         final long startNanos;
-        @Nullable
-        final ColorProvider colours;
+        final Palette palette;
 
-        private Live(FlourishCast cast, FlourishLook look, long startNanos, @Nullable ColorProvider colours) {
-            this.cast = cast;
+        private Live(Vec3 pos, int seed, FlourishLook look, long startNanos, Palette palette) {
+            this.pos = pos;
+            this.seed = seed;
             this.look = look;
             this.startNanos = startNanos;
-            this.colours = colours;
+            this.palette = palette;
         }
 
         float ticks(long now) {
@@ -59,11 +65,11 @@ public final class ClientFlourishes {
         }
 
         float seed() {
-            return (cast.seed() >>> 16 & 0xFFFF) / 65535.0f * 64.0f;
+            return (seed >>> 16 & 0xFFFF) / 65535.0f * 64.0f;
         }
 
         int colour(int index, float time) {
-            return ClientFlourishes.colour(colours, index, time);
+            return palette.colour(index, time);
         }
     }
 
@@ -88,34 +94,42 @@ public final class ClientFlourishes {
         if (level == null) {
             return;
         }
-        if (level != boundLevel) {
-            boundLevel = level;
-            LIVE.clear();
-        }
         Flourish chime = cast.chime();
         if (chime != null) {
             level.playLocalSound(cast.pos().x, cast.pos().y, cast.pos().z, FlourishSounds.get(chime),
                 SoundSource.PLAYERS, SOUND_VOLUME, 0.94f + level.random.nextFloat() * 0.12f, false);
         }
         ColorProvider colours = resolve(cast.pigment());
-        float time = ClientTickCounter.getTotal();
-        IntUnaryOperator colour = index -> colour(colours, index, time);
+        Palette palette = (index, time) -> colour(colours, index, time);
         if (FlourishShaders.shader() == null) {
-            spray(level, cast, colour);
+            float time = ClientTickCounter.getTotal();
+            spray(level, cast, index -> palette.colour(index, time));
             return;
         }
-        FlourishLook look = FlourishLooks.create(cast, level);
-        look.begin(level, colour);
+        play(cast.pos(), cast.seed(), FlourishLooks.create(cast, level), palette);
+    }
+
+    public static void play(Vec3 pos, int seed, FlourishLook look, Palette palette) {
+        ClientLevel level = Minecraft.getInstance().level;
+        if (level == null || FlourishShaders.shader() == null) {
+            return;
+        }
+        if (level != boundLevel) {
+            boundLevel = level;
+            LIVE.clear();
+        }
+        float time = ClientTickCounter.getTotal();
+        look.begin(level, index -> palette.colour(index, time));
         if (LIVE.size() >= MAX_LIVE) {
             LIVE.remove(0);
         }
-        LIVE.add(new Live(cast, look, System.nanoTime(), colours));
+        LIVE.add(new Live(pos, seed, look, System.nanoTime(), palette));
     }
 
     static List<Live> live() {
         if (!LIVE.isEmpty()) {
             long now = System.nanoTime();
-            LIVE.removeIf(live -> live.ticks(now) >= live.look.lifetimeTicks());
+            LIVE.removeIf(live -> live.ticks(now) >= live.look.lifetimeTicks() || live.look.finished());
         }
         return LIVE;
     }

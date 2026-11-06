@@ -4,7 +4,7 @@ import net.minecraft.client.multiplayer.ClientLevel;
 
 import java.util.function.IntUnaryOperator;
 
-interface FlourishLook {
+public interface FlourishLook {
 
     int lifetimeTicks();
 
@@ -12,4 +12,8 @@ interface FlourishLook {
     }
 
     void draw(FlourishPen pen, float progress);
+
+    default boolean finished() {
+        return false;
+    }
 }

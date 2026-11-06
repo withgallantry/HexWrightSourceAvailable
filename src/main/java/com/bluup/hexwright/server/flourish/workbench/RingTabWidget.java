@@ -11,6 +11,7 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @LDLRegister(name = "flourish_ring", group = WorkbenchWidget.EDITOR_GROUP)
@@ -21,7 +22,7 @@ public class RingTabWidget extends WorkbenchTabWidget {
     private int ring = 1;
 
     public RingTabWidget() {
-        super(40, 22);
+        super(38, 20);
     }
 
     static RingTabWidget of(int ring) {
@@ -92,12 +93,13 @@ public class RingTabWidget extends WorkbenchTabWidget {
     @Override
     protected List<Component> tooltip() {
         FlourishFigure.Ring shown = draft().ring(index());
-        return List.of(
+        List<Component> lines = new ArrayList<>(List.of(
             Component.translatable("gui.hexwright.flourish_workbench.ring", NUMERALS[index()],
                 Component.translatable(shown.shape().translationKey())),
-            FlourishDraft.count(shown).copy().withStyle(ChatFormatting.GRAY),
-            Component.translatable(canRemove()
-                ? "gui.hexwright.flourish_workbench.ring.hint"
-                : "gui.hexwright.flourish_workbench.ring.hint_last").withStyle(ChatFormatting.DARK_GRAY));
+            FlourishDraft.count(shown).copy().withStyle(ChatFormatting.GRAY)));
+        if (canRemove()) {
+            lines.add(Component.translatable("gui.hexwright.flourish_workbench.ring.hint").withStyle(ChatFormatting.DARK_GRAY));
+        }
+        return lines;
     }
 }

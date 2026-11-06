@@ -14,11 +14,13 @@ import org.jetbrains.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.stream.Stream;
 
 @LDLRegister(name = "flourish_motifs", group = WorkbenchWidget.EDITOR_GROUP)
 public class MotifPickerWidget extends WorkbenchPickerWidget<FlourishMotif> {
 
-    private static final List<FlourishMotif> MOTIFS = List.of(FlourishMotif.values());
+    private static final List<FlourishMotif> MOTIFS = Stream.concat(Stream.of(FlourishMotif.FIGURE),
+        Stream.of(FlourishMotif.values()).filter(motif -> motif != FlourishMotif.FIGURE)).toList();
 
     public MotifPickerWidget() {
         super(182, 78);

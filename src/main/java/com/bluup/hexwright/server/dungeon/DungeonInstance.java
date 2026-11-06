@@ -81,6 +81,7 @@ public final class DungeonInstance {
     private final Kind kind;
     private final int cell;
     private final long seed;
+    private final boolean keystoneStudy;
     private final UUID opener;
     private final Entrance entrance;
     private final BoundingBox extent;
@@ -96,12 +97,13 @@ public final class DungeonInstance {
     private final Map<UUID, Long> offlineSince = new HashMap<>();
     private final Map<UUID, Integer> flourishes = new HashMap<>();
 
-    DungeonInstance(int id, Kind kind, int cell, long seed, UUID opener, Entrance entrance, BoundingBox extent,
-                    long startChunk, BlockPos shaftFoot, BlockPos safeRoomAt, State state) {
+    DungeonInstance(int id, Kind kind, int cell, long seed, boolean keystoneStudy, UUID opener, Entrance entrance,
+                    BoundingBox extent, long startChunk, BlockPos shaftFoot, BlockPos safeRoomAt, State state) {
         this.id = id;
         this.kind = kind;
         this.cell = cell;
         this.seed = seed;
+        this.keystoneStudy = keystoneStudy;
         this.opener = opener;
         this.entrance = entrance;
         this.extent = extent;
@@ -125,6 +127,10 @@ public final class DungeonInstance {
 
     public long seed() {
         return this.seed;
+    }
+
+    public boolean keystoneStudy() {
+        return this.keystoneStudy;
     }
 
     public UUID opener() {
@@ -229,6 +235,7 @@ public final class DungeonInstance {
         tag.putString("Kind", this.kind.name());
         tag.putInt("Cell", this.cell);
         tag.putLong("Seed", this.seed);
+        tag.putBoolean("KeystoneStudy", this.keystoneStudy);
         tag.putUUID("Opener", this.opener);
         CompoundTag entrance = new CompoundTag();
         this.entrance.save(entrance);
@@ -280,7 +287,7 @@ public final class DungeonInstance {
         BlockPos safeRoomAt = tag.contains("SafeRoom") ? BlockPos.of(tag.getLong("SafeRoom"))
             : new BlockPos(shaftFoot.getX(), tag.getInt("Lid"), shaftFoot.getZ());
         DungeonInstance instance = new DungeonInstance(tag.getInt("Id"), kind, tag.getInt("Cell"), tag.getLong("Seed"),
-            tag.getUUID("Opener"), entrance,
+            tag.getBoolean("KeystoneStudy"), tag.getUUID("Opener"), entrance,
             new BoundingBox(extent[0], extent[1], extent[2], extent[3], extent[4], extent[5]),
             tag.getLong("StartChunk"), shaftFoot, safeRoomAt, state);
         instance.openRift(tag.getLong("RiftOpensAt"), tag.getLong("RiftClosesAt"));

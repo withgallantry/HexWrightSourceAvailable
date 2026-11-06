@@ -8,6 +8,7 @@ import at.petrak.hexcasting.api.casting.mishaps.MishapBadLocation;
 import at.petrak.hexcasting.api.casting.mishaps.MishapInvalidIota;
 import com.bluup.hexwright.common.malediction.MaledictionFinish;
 import com.bluup.hexwright.common.malediction.MaledictionForm;
+import com.bluup.hexwright.common.malediction.MaledictionSigil;
 import com.bluup.hexwright.server.path.Path;
 import com.bluup.hexwright.server.path.PathActions;
 import com.bluup.hexwright.server.path.PathIota;
@@ -47,6 +48,7 @@ public final class MaledictionCasting {
     private static final int SEEKER_TICKS = 200;
     private static final double LANCE_RANGE = 32.0;
     private static final int LANCE_PIERCE = 4;
+    private static final double LANCE_CIRCLE_OUT = 1.3;
     private static final double GRASP_REACH = 3.5;
     private static final int VOLLEY_BOLTS = 5;
     private static final double VOLLEY_SPREAD = Math.toRadians(7.5);
@@ -75,7 +77,7 @@ public final class MaledictionCasting {
                 Vec3 eye = caster.getEyePosition();
                 Vec3 direction = direction(eye, aim, caster);
                 yield (level, who) -> {
-                    MaledictionProjectile.straight(level, who, finish, damage, who.getEyePosition(), direction,
+                    MaledictionProjectile.straight(level, who, form, finish, damage, who.getEyePosition(), direction,
                         BOLT_SPEED, BOLT_RANGE);
                     MaledictionFx.sound(level, eye, SoundEvents.ILLUSIONER_CAST_SPELL, 0.6F, 1.6F);
                 };
@@ -97,6 +99,8 @@ public final class MaledictionCasting {
                 }
                 yield (level, who) -> {
                     MaledictionStrike.strike(who, prey, damage, finish, null, who.getEyePosition());
+                    MaledictionFx.sigil(level, MaledictionSigil.Kind.BIND, finish, prey.position(), prey.position(),
+                        prey.getBbWidth(), prey);
                     MaledictionFx.sound(level, prey.position(), SoundEvents.EVOKER_FANGS_ATTACK, 0.8F, 1.2F);
                 };
             }
@@ -135,7 +139,7 @@ public final class MaledictionCasting {
                 Polyline line = path(form, target, reverseIdx, env);
                 double burst = form == MaledictionForm.THROW ? MaledictionProjectile.THROW_BURST : 0.0;
                 yield (level, who) -> {
-                    MaledictionProjectile.along(level, who, finish, damage, line, PATH_SPEED, burst);
+                    MaledictionProjectile.along(level, who, form, finish, damage, line, PATH_SPEED, burst);
                     MaledictionFx.sound(level, line.at(0.0), SoundEvents.ILLUSIONER_CAST_SPELL, 0.6F, 1.4F);
                 };
             }
@@ -253,7 +257,8 @@ public final class MaledictionCasting {
         for (int i = 0; i < VOLLEY_BOLTS; i++) {
             double angle = (i - (VOLLEY_BOLTS - 1) / 2.0) * VOLLEY_SPREAD;
             Vec3 heading = direction.scale(Math.cos(angle)).add(across.scale(Math.sin(angle)));
-            MaledictionProjectile.straight(level, caster, finish, damage, eye, heading, BOLT_SPEED, VOLLEY_RANGE);
+            MaledictionProjectile.straight(level, caster, MaledictionForm.VOLLEY, finish, damage, eye, heading, BOLT_SPEED,
+                VOLLEY_RANGE);
         }
         MaledictionFx.sound(level, eye, SoundEvents.ILLUSIONER_CAST_SPELL, 0.7F, 1.9F);
     }
@@ -276,7 +281,7 @@ public final class MaledictionCasting {
         for (int i = 0; i < Math.min(LANCE_PIERCE, struck.size()); i++) {
             MaledictionStrike.strike(caster, struck.get(i), damage, finish, null, from);
         }
-        MaledictionFx.line(level, from.add(direction.scale(0.5)), end, finish);
+        MaledictionFx.sigil(level, MaledictionSigil.Kind.LANCE, finish, from.add(direction.scale(LANCE_CIRCLE_OUT)), end, 0.0F, null);
         MaledictionFx.sound(level, from, SoundEvents.TRIDENT_THROW, 0.8F, 1.5F);
     }
 
@@ -288,7 +293,7 @@ public final class MaledictionCasting {
         float blow = damage;
         for (int jump = 0; jump <= CHAIN_JUMPS && current != null; jump++) {
             Vec3 to = current.getBoundingBox().getCenter();
-            MaledictionFx.line(level, from, to, finish);
+            MaledictionFx.sigil(level, MaledictionSigil.Kind.LIGHTNING, finish, from, to, 0.0F, null);
             MaledictionStrike.strike(caster, current, blow, finish, null, from);
             hit.add(current);
             from = to;

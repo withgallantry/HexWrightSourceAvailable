@@ -134,7 +134,8 @@ public final class FlourishWorkbenchSelfTest {
             for (Map.Entry<Class<? extends Widget>, Integer> piece : Map.<Class<? extends Widget>, Integer>ofEntries(
                 Map.entry(FlourishPreviewWidget.class, 1), Map.entry(MotifPickerWidget.class, 1),
                 Map.entry(LayerTabWidget.class, FlourishDesign.MAX_LAYERS),
-                Map.entry(WorkbenchOptionWidget.class, WorkbenchOption.values().length),
+                Map.entry(WorkbenchSegmentsWidget.class, 1), Map.entry(WorkbenchSliderWidget.class, 6),
+                Map.entry(WorkbenchSwatchesWidget.class, 2), Map.entry(WorkbenchDropdownWidget.class, 7),
                 Map.entry(WorkbenchActionWidget.class, WorkbenchAction.values().length),
                 Map.entry(WorkbenchStatusWidget.class, 1), Map.entry(WorkbenchTooltipsWidget.class, 1),
                 Map.entry(WorkbenchCaptionWidget.class, WorkbenchCaption.values().length),

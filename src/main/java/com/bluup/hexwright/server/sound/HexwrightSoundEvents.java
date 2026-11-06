@@ -100,6 +100,8 @@ public final class HexwrightSoundEvents {
         com.bluup.hexwright.server.powerorb.PowerOrbSounds.register();
         com.bluup.hexwright.server.flourish.FlourishSounds.register();
         com.bluup.hexwright.server.cantillation.CantillationSounds.register();
+        com.bluup.hexwright.server.hexahedron.HexahedronSounds.register();
+        com.bluup.hexwright.server.inversion.InversionSounds.register();
         registered = true;
     }
 

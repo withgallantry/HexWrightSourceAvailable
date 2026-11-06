@@ -41,8 +41,6 @@ public final class ChestCastEnv extends CastingEnvironment {
 
     private @Nullable ItemStack docked;
 
-    private @Nullable ItemStack dockedAsRead;
-
     public ChestCastEnv(ServerPlayer opener, InteractionHand castingHand, HeldSlot heldSlot) {
         super(opener.serverLevel());
         this.opener = opener;
@@ -56,18 +54,13 @@ public final class ChestCastEnv extends CastingEnvironment {
 
     private ItemStack docked() {
         if (docked == null) {
-            dockedAsRead = heldSlot.get().copy();
-            docked = dockedAsRead.copy();
+            docked = heldSlot.get().copy();
         }
         return docked;
     }
 
     public void commitHeldSlot() {
-        if (docked == null) {
-            return;
-        }
-        ItemStack current = heldSlot.get();
-        if (ItemStack.matches(current, docked) || !ItemStack.matches(current, dockedAsRead)) {
+        if (docked == null || ItemStack.matches(heldSlot.get(), docked)) {
             return;
         }
         heldSlot.set(docked);

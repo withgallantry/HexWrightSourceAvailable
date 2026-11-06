@@ -52,7 +52,7 @@ public final class FlourishRenderer {
         RenderSystem.applyModelViewMatrix();
 
         for (ClientFlourishes.Live flourish : live) {
-            if (flourish.cast.pos().distanceToSqr(cameraPos) > ClientFlourishes.MAX_DRAW_DISTANCE_SQ) {
+            if (flourish.pos.distanceToSqr(cameraPos) > ClientFlourishes.MAX_DRAW_DISTANCE_SQ) {
                 continue;
             }
             float ticks = flourish.ticks(now);

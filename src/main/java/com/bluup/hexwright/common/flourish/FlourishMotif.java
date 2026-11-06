@@ -18,6 +18,8 @@ public enum FlourishMotif {
     FROST("frost", Kind.DISC, Flourish.RIME),
     MAZE("maze", Kind.DISC, Flourish.LABYRINTH),
     SERPENT("serpent", Kind.DISC, Flourish.OUROBOROS),
+    ROSE_WINDOW("rose_window", Kind.DISC, Flourish.ROSE_WINDOW),
+    MYCELIUM("mycelium", Kind.DISC, Flourish.MYCELIUM),
     STAR("star", Kind.FACING, Flourish.NOVA),
     EYE("eye", Kind.FACING, Flourish.WATCHER),
     SHARD("shard", Kind.FACING, Flourish.GEODE),
@@ -29,14 +31,22 @@ public enum FlourishMotif {
     CONSTELLATION("constellation", Kind.FACING, Flourish.CONSTELLATION),
     TESSERACT("tesseract", Kind.FACING, Flourish.TESSERACT),
     RIFT("rift", Kind.FACING, Flourish.RIFT),
+    SINGULARITY("singularity", Kind.FACING, Flourish.SINGULARITY),
+    EFFIGY("effigy", Kind.FACING, Flourish.EFFIGY),
+    PRISM("prism", Kind.FACING, Flourish.PRISM),
     THREAD("thread", Kind.AXIAL, Flourish.THREAD),
     BEAM("beam", Kind.AXIAL, Flourish.PILLAR),
     STREAK("streak", Kind.AXIAL, Flourish.STARFALL),
     LIGHTNING("lightning", Kind.AXIAL, Flourish.TEMPEST),
     BLADE("blade", Kind.AXIAL, Flourish.ARSENAL),
+    WILDFLOWER("wildflower", Kind.AXIAL, Flourish.WILDFLOWER),
+    DANDELION("dandelion", Kind.AXIAL, Flourish.DANDELION),
+    WORLD_TREE("world_tree", Kind.AXIAL, Flourish.WORLD_TREE),
     GLYPHS("glyphs", Kind.BAND, Flourish.CROWN),
     FLAME("flame", Kind.BAND, Flourish.PYRE),
     CHAINS("chains", Kind.BAND, Flourish.FETTERS),
+    AURORA("aurora", Kind.BAND, Flourish.AURORA),
+    BRIAR("briar", Kind.BAND, Flourish.BRIAR),
     FIGURE("figure", Kind.DISC, null);
 
     public enum Kind {
@@ -128,11 +138,18 @@ public enum FlourishMotif {
         if (this == STREAK || this == BLADE) {
             return new ArrayList<>(List.of(Placement.SKYFALL, Placement.FROM_HAND, Placement.BURST));
         }
+        if (grows()) {
+            return new ArrayList<>(List.of(Placement.RISING));
+        }
         List<Placement> placements = kind.placements();
         if (this == FIGURE) {
             placements.addAll(Kind.FACING.placements());
         }
         return placements;
+    }
+
+    public boolean grows() {
+        return this == WILDFLOWER || this == DANDELION || this == WORLD_TREE;
     }
 
     public Placement defaultPlacement() {

@@ -129,6 +129,7 @@ public final class DungeonModules {
     public static final Module FLOURISH_STUDY = room("flourish_study", WEST);
     public static final Module MALEDICTION_STUDY = room("malediction_study", WEST);
     public static final Module STASIS_VAULT = room("stasis_vault", WEST);
+    public static final Module KEYSTONE_STUDY = room("keystone_study", WEST);
 
     public static final List<Module> BOTTOM_STAIRS = List.of(
         stairs("stairsdown", EAST | WEST),

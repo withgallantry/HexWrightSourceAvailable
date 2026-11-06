@@ -158,6 +158,7 @@ public final class HexwrightClient implements ClientModInitializer {
         com.bluup.hexwright.client.dust.DustClient.register();
         com.bluup.hexwright.client.region.RegionProjectionClient.register();
         com.bluup.hexwright.client.malediction.MaledictionWarnings.register();
+        com.bluup.hexwright.client.malediction.MaledictionSigils.register();
         ManifoldVaultRenderer.register();
         ReliquaryMirrorRenderer.register();
         com.bluup.hexwright.client.talisman.TalismanItemRenderer.register();
@@ -165,6 +166,7 @@ public final class HexwrightClient implements ClientModInitializer {
         com.bluup.hexwright.client.block.RuinedPortalFrameRenderer.register();
         com.bluup.hexwright.client.block.VaultPlinthRenderer.register();
         com.bluup.hexwright.client.boss.storm.StasisContainmentRenderer.register();
+        com.bluup.hexwright.client.maintenance.MaintenanceCrystalRenderer.register();
         com.bluup.hexwright.client.block.DungeonPropRenderer.register();
         com.bluup.hexwright.client.block.PlacedBottleRenderer.register();
         com.bluup.hexwright.client.block.WeaponRackRenderer.register();
@@ -196,7 +198,8 @@ public final class HexwrightClient implements ClientModInitializer {
         com.bluup.hexwright.client.portal.ClientVoidTears.register();
         com.bluup.hexwright.client.flourish.FlourishShaders.register();
         com.bluup.hexwright.client.weapon.BloodSmokeShaders.register();
-        com.bluup.hexwright.client.malediction.MaledictionWarningShaders.register();
+        com.bluup.hexwright.client.region.RegionVeil.register();
+        com.bluup.hexwright.client.render.OpaqueDepthSnapshot.register();
         com.bluup.hexwright.client.flourish.FlourishRenderer.register();
         com.bluup.hexwright.client.flourish.ClientFlourishes.register();
         com.bluup.hexwright.client.cantillation.ClientCantillations.register();
@@ -212,6 +215,18 @@ public final class HexwrightClient implements ClientModInitializer {
         com.bluup.hexwright.client.cloak.ClientCloakFields.register();
         com.bluup.hexwright.client.cloak.CloakFieldHum.register();
         com.bluup.hexwright.client.cloak.CloakFieldRipples.register();
+        com.bluup.hexwright.client.hexahedron.HexahedronShaders.register();
+        com.bluup.hexwright.client.hexahedron.HexahedronRenderer.register();
+        com.bluup.hexwright.client.hexahedron.ClientHexahedra.register();
+        com.bluup.hexwright.client.hexahedron.HexahedronHum.register();
+        com.bluup.hexwright.client.sky.Overcast.register();
+        com.bluup.hexwright.client.inversion.InvertedBlockColors.register();
+        com.bluup.hexwright.client.inversion.InversionShaders.register();
+        com.bluup.hexwright.client.inversion.InversionSkyRenderer.register();
+        com.bluup.hexwright.client.inversion.ClientInversions.register();
+        com.bluup.hexwright.client.inversion.InversionDread.register();
+        com.bluup.hexwright.client.boss.arbiter.ArbiterCubeRenderer.register();
+        com.bluup.hexwright.client.hexahedron.RiftAnchorRenderer.register();
         net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents.BLOCK_OUTLINE.register((context, outline) ->
             !com.bluup.hexwright.server.cloak.CloakFieldShell.isBarrier(outline.blockState()));
         com.bluup.hexwright.client.portal.PortalCrossingPredictor.register();
@@ -321,6 +336,10 @@ public final class HexwrightClient implements ClientModInitializer {
             com.bluup.hexwright.client.boss.talus.TalusGroundCrackRenderer::new);
         EntityRendererRegistry.register(com.bluup.hexwright.server.boss.HexwrightBossEntities.TALUS_ROCK,
             com.bluup.hexwright.client.boss.talus.TalusRockRenderer::new);
+        EntityRendererRegistry.register(com.bluup.hexwright.server.boss.HexwrightBossEntities.ARBITER,
+            com.bluup.hexwright.client.boss.arbiter.ArbiterRenderer::new);
+        EntityRendererRegistry.register(com.bluup.hexwright.server.boss.HexwrightBossEntities.ARBITER_SHARD,
+            com.bluup.hexwright.client.boss.arbiter.ArbiterShardRenderer::new);
         EntityRendererRegistry.register(com.bluup.hexwright.server.boss.HexwrightBossEntities.TOWER_SKELETON,
             com.bluup.hexwright.client.boss.tower.TowerSkeletonRenderer::new);
         EntityRendererRegistry.register(com.bluup.hexwright.server.boss.HexwrightBossEntities.TOWER_SKELETON_MINION,

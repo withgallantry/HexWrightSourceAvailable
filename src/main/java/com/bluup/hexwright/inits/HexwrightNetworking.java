@@ -119,10 +119,14 @@ public final class HexwrightNetworking {
     public static final ResourceLocation BINDSTONE_DISSOLVE_S2C = Hexwright.id("bindstone_dissolve_s2c");
     public static final ResourceLocation CLOAK_FIELDS_S2C = Hexwright.id("cloak_fields_s2c");
     public static final ResourceLocation CLOAK_RIPPLE_S2C = Hexwright.id("cloak_ripple_s2c");
+    public static final ResourceLocation HEXAHEDRA_S2C = Hexwright.id("hexahedra_s2c");
+    public static final ResourceLocation INVERSIONS_S2C = Hexwright.id("inversions_s2c");
+    public static final ResourceLocation ARBITER_LASER_S2C = Hexwright.id("arbiter_laser_s2c");
     public static final ResourceLocation DUST_S2C = Hexwright.id("dust_s2c");
     public static final ResourceLocation REGION_PROJECTION_S2C = Hexwright.id("region_projection_s2c");
     public static final ResourceLocation MALEDICTION_WARNING_S2C = Hexwright.id("malediction_warning_s2c");
     public static final ResourceLocation MALEDICTION_LANDING_S2C = Hexwright.id("malediction_landing_s2c");
+    public static final ResourceLocation MALEDICTION_SIGIL_S2C = Hexwright.id("malediction_sigil_s2c");
     public static final ResourceLocation PORTAL_USE_C2S = Hexwright.id("portal_use_c2s");
     public static final ResourceLocation PORTAL_ATTACK_C2S = Hexwright.id("portal_attack_c2s");
     public static final ResourceLocation PORTAL_CROSS_C2S = Hexwright.id("portal_cross_c2s");
@@ -1083,6 +1087,12 @@ public final class HexwrightNetworking {
                 com.bluup.hexwright.client.malediction.MaledictionWarnings.landed(id, landed, nextTicks));
         });
 
+        ClientPlayNetworking.registerGlobalReceiver(MALEDICTION_SIGIL_S2C, (client, handler, buf, responseSender) -> {
+            com.bluup.hexwright.common.malediction.MaledictionSigil sigil =
+                com.bluup.hexwright.common.malediction.MaledictionSigil.read(buf);
+            client.execute(() -> com.bluup.hexwright.client.malediction.MaledictionSigils.show(sigil));
+        });
+
         ClientPlayNetworking.registerGlobalReceiver(BINDSTONE_DISSOLVE_S2C, (client, handler, buf, responseSender) -> {
             BlockPos origin = buf.readBlockPos();
             int ticks = buf.readVarInt();
@@ -1124,6 +1134,24 @@ public final class HexwrightNetworking {
             UUID fieldId = buf.readUUID();
             Vec3 point = new Vec3(buf.readDouble(), buf.readDouble(), buf.readDouble());
             client.execute(() -> com.bluup.hexwright.client.cloak.CloakFieldRipples.add(fieldId, point));
+        });
+
+        ClientPlayNetworking.registerGlobalReceiver(HEXAHEDRA_S2C, (client, handler, buf, responseSender) -> {
+            List<com.bluup.hexwright.server.hexahedron.Hexahedron> hexahedra =
+                buf.readList(com.bluup.hexwright.server.hexahedron.Hexahedron::read);
+            client.execute(() -> com.bluup.hexwright.client.hexahedron.ClientHexahedra.set(hexahedra));
+        });
+
+        ClientPlayNetworking.registerGlobalReceiver(INVERSIONS_S2C, (client, handler, buf, responseSender) -> {
+            List<com.bluup.hexwright.server.inversion.Inversion> inversions =
+                buf.readList(com.bluup.hexwright.server.inversion.Inversion::read);
+            client.execute(() -> com.bluup.hexwright.client.inversion.ClientInversions.set(inversions));
+        });
+
+        ClientPlayNetworking.registerGlobalReceiver(ARBITER_LASER_S2C, (client, handler, buf, responseSender) -> {
+            int arbiter = buf.readVarInt();
+            int[] targets = buf.readVarIntArray();
+            client.execute(() -> com.bluup.hexwright.client.boss.arbiter.ArbiterCubeRenderer.fire(arbiter, targets));
         });
 
 
@@ -1272,6 +1300,16 @@ public final class HexwrightNetworking {
 
     private static final double MALEDICTION_WARNING_RANGE = 96.0;
 
+    public static void sendMaledictionSigil(ServerLevel level, com.bluup.hexwright.common.malediction.MaledictionSigil sigil) {
+        for (ServerPlayer viewer : PlayerLookup.around(level, sigil.from(), MALEDICTION_SIGIL_RANGE)) {
+            FriendlyByteBuf buf = PacketByteBufs.create();
+            sigil.write(buf);
+            ServerPlayNetworking.send(viewer, MALEDICTION_SIGIL_S2C, buf);
+        }
+    }
+
+    private static final double MALEDICTION_SIGIL_RANGE = 64.0;
+
     public static void sendRegionProjection(ServerPlayer viewer, com.bluup.hexwright.server.region.Region region,
                                             FrozenPigment pigment) {
         FriendlyByteBuf buf = PacketByteBufs.create();
@@ -1332,6 +1370,27 @@ public final class HexwrightNetworking {
         FriendlyByteBuf buf = PacketByteBufs.create();
         buf.writeCollection(fields, (out, field) -> field.write(out));
         ServerPlayNetworking.send(player, CLOAK_FIELDS_S2C, buf);
+    }
+
+    public static void sendHexahedra(ServerPlayer player,
+                                     java.util.Collection<com.bluup.hexwright.server.hexahedron.Hexahedron> hexahedra) {
+        FriendlyByteBuf buf = PacketByteBufs.create();
+        buf.writeCollection(hexahedra, (out, hexahedron) -> hexahedron.write(out));
+        ServerPlayNetworking.send(player, HEXAHEDRA_S2C, buf);
+    }
+
+    public static void sendInversions(ServerPlayer player,
+                                      java.util.Collection<com.bluup.hexwright.server.inversion.Inversion> inversions) {
+        FriendlyByteBuf buf = PacketByteBufs.create();
+        buf.writeCollection(inversions, (out, inversion) -> inversion.write(out));
+        ServerPlayNetworking.send(player, INVERSIONS_S2C, buf);
+    }
+
+    public static void sendArbiterLaser(ServerPlayer player, int arbiter, int[] targets) {
+        FriendlyByteBuf buf = PacketByteBufs.create();
+        buf.writeVarInt(arbiter);
+        buf.writeVarIntArray(targets);
+        ServerPlayNetworking.send(player, ARBITER_LASER_S2C, buf);
     }
 
     public static void sendCloakRipple(ServerPlayer player, UUID fieldId, Vec3 point) {

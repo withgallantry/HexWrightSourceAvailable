@@ -2,6 +2,7 @@ package com.bluup.hexwright.server.weapon;
 
 import com.bluup.hexwright.HexwrightDebug;
 import com.bluup.hexwright.inits.HexwrightNetworking;
+import com.bluup.hexwright.server.boss.Bosses;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.minecraft.server.MinecraftServer;
@@ -9,6 +10,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.RandomSource;
+import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.LivingEntity;
@@ -45,6 +47,10 @@ public final class Stillness {
     private static final int AURA_INTERVAL_TICKS = 40;
 
     public static final int SPENT_TICKS = 160;
+    public static final int WEAKENED_TICKS = 60;
+
+    public static final float SPEAR_DAMAGE = 8.0F;
+    private static final double SPEAR_HIT_RADIUS = 2.0D;
 
     private static final List<Zone> ZONES = new ArrayList<>();
 
@@ -96,10 +102,36 @@ public final class Stillness {
         }
         HexwrightNetworking.sendStillnessVfx(level, VFX_ZONE, centre, 0.0F);
         if (!wielder.isRemoved() && wielder.isAlive()) {
-            wielder.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, SPENT_TICKS, 1));
+            impale(level, wielder, spears);
+            wielder.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, WEAKENED_TICKS, 0));
             wielder.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, SPENT_TICKS, 1));
         }
         ZONES.add(new Zone(level, wielder, blade, centre, startTick, level.getServer().getTickCount() + ZONE_TICKS));
+    }
+
+    private static void impale(ServerLevel level, ServerPlayer wielder, Vec3[] spears) {
+        DamageSource source = level.damageSources().playerAttack(wielder);
+        double radiusSq = SPEAR_HIT_RADIUS * SPEAR_HIT_RADIUS;
+        Set<LivingEntity> struck = new HashSet<>();
+        for (Vec3 spear : spears) {
+            for (LivingEntity victim : level.getEntitiesOfClass(LivingEntity.class,
+                new AABB(spear, spear).inflate(SPEAR_HIT_RADIUS, ZONE_CEILING, SPEAR_HIT_RADIUS),
+                candidate -> TeleportStrike.strikeable(wielder, candidate)
+                    && horizontalDistanceSq(candidate.position(), spear) <= radiusSq
+                    && !struck.contains(candidate))) {
+                victim.invulnerableTime = 0;
+                if (victim.hurt(source, Bosses.sparedDamage(victim, SPEAR_DAMAGE))) {
+                    struck.add(victim);
+                }
+            }
+        }
+        HexwrightDebug.log(HexwrightDebug.WEAPON, "[weapon] stillness spears struck {}", struck.size());
+    }
+
+    private static double horizontalDistanceSq(Vec3 a, Vec3 b) {
+        double dx = a.x - b.x;
+        double dz = a.z - b.z;
+        return dx * dx + dz * dz;
     }
 
     private static void tick(MinecraftServer server) {
@@ -181,10 +213,5 @@ public final class Stillness {
                 Math.max(1, AbsolutionItem.LANDED_COOLDOWN_TICKS - elapsed));
         }
 
-        private static double horizontalDistanceSq(Vec3 a, Vec3 b) {
-            double dx = a.x - b.x;
-            double dz = a.z - b.z;
-            return dx * dx + dz * dz;
-        }
     }
 }

@@ -45,11 +45,11 @@ public final class MaledictionActions {
 
     public static void register() {
         Registry.register(IXplatAbstractions.INSTANCE.getActionRegistry(), Hexwright.id("internalize_malediction"),
-            new ActionRegistryEntry(HexPattern.fromAngles("awddwqawqwawdqqq", HexDir.EAST), INTERNALIZE));
+            new ActionRegistryEntry(HexPattern.fromAngles("awddwqawqwawqeqqqq", HexDir.EAST), INTERNALIZE));
         Registry.register(IXplatAbstractions.INSTANCE.getActionRegistry(), Hexwright.id("utter_malediction"),
-            new ActionRegistryEntry(HexPattern.fromAngles("qqqqqwdeddwqa", HexDir.SOUTH_EAST), UTTER));
+            new ActionRegistryEntry(HexPattern.fromAngles("qqwwqqaeeddeeeewe", HexDir.NORTH_EAST), UTTER));
         Registry.register(IXplatAbstractions.INSTANCE.getActionRegistry(), Hexwright.id("malediction_readiness"),
-            new ActionRegistryEntry(HexPattern.fromAngles("qqqqqwdeddwqaw", HexDir.SOUTH_EAST), READINESS));
+            new ActionRegistryEntry(HexPattern.fromAngles("qqwwqqaeeddeeeeweaa", HexDir.NORTH_EAST), READINESS));
     }
 
     private static ServerPlayer caster(CastingEnvironment env) {

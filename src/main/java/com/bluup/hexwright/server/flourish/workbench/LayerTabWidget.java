@@ -11,6 +11,7 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @LDLRegister(name = "flourish_layer", group = WorkbenchWidget.EDITOR_GROUP)
@@ -24,7 +25,7 @@ public class LayerTabWidget extends WorkbenchTabWidget {
     private int layer = 1;
 
     public LayerTabWidget() {
-        super(61, 22);
+        super(59, 20);
     }
 
     static LayerTabWidget of(int layer) {
@@ -155,12 +156,13 @@ public class LayerTabWidget extends WorkbenchTabWidget {
     @Override
     protected List<Component> tooltip() {
         FlourishDesign.Layer shown = draft().layer(index());
-        return List.of(
+        List<Component> lines = new ArrayList<>(List.of(
             Component.translatable("gui.hexwright.flourish_workbench.layer", NUMERALS[index()],
                 Component.translatable(shown.motif().translationKey())),
-            Component.translatable(shown.placement().translationKey()).withStyle(ChatFormatting.GRAY),
-            Component.translatable(canRemove()
-                ? "gui.hexwright.flourish_workbench.layer.hint"
-                : "gui.hexwright.flourish_workbench.layer.hint_last").withStyle(ChatFormatting.DARK_GRAY));
+            Component.translatable(shown.placement().translationKey()).withStyle(ChatFormatting.GRAY)));
+        if (canRemove()) {
+            lines.add(Component.translatable("gui.hexwright.flourish_workbench.layer.hint").withStyle(ChatFormatting.DARK_GRAY));
+        }
+        return lines;
     }
 }

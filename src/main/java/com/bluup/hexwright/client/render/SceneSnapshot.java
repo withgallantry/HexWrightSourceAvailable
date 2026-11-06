@@ -19,7 +19,8 @@ public final class SceneSnapshot {
     public static final int SLOT_SHIELD_CONTACT = 5;
     public static final int SLOT_VOID_TEAR = 6;
     public static final int SLOT_CLOAK_FIELD = 7;
-    private static final int SLOTS = 8;
+    public static final int SLOT_REGION_VEIL = 8;
+    private static final int SLOTS = 9;
 
     private static TextureTarget snapshot;
     private static long frameIndex;
@@ -44,6 +45,16 @@ public final class SceneSnapshot {
 
     public static boolean depthAvailable() {
         return !depthBlitBroken;
+    }
+
+    public static int sceneDepth(int slot) {
+        if (Minecraft.useShaderTransparency()) {
+            RenderTarget translucent = Minecraft.getInstance().levelRenderer.getTranslucentTarget();
+            if (translucent != null && translucent.useDepth) {
+                return translucent.getDepthTextureId();
+            }
+        }
+        return captureDepthOnly(slot) ? depthTextureId() : 0;
     }
 
     public static boolean capture(int slot) {

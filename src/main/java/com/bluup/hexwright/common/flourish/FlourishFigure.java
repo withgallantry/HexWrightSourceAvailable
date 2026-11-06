@@ -131,7 +131,13 @@ public record FlourishFigure(List<Ring> rings, Entrance entrance, Exit exit, int
         public Ring withHue(int hue) {
             return new Ring(shape, count, form, radius, weight, spin, turn, hue);
         }
+
+        public boolean counted() {
+            return shape != Shape.CIRCLE || form == DASHED_CIRCLE;
+        }
     }
+
+    private static final int DASHED_CIRCLE = 2;
 
     public enum Shape {
         CIRCLE("circle", 3, 6),

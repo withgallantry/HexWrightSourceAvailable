@@ -62,11 +62,11 @@ public final class DungeonInstanceRegistry extends SavedData {
         return -1;
     }
 
-    DungeonInstance create(DungeonInstance.Kind kind, int cell, long seed, UUID opener,
+    DungeonInstance create(DungeonInstance.Kind kind, int cell, long seed, boolean keystoneStudy, UUID opener,
                            DungeonInstance.Entrance entrance, BoundingBox extent, long startChunk, BlockPos shaftFoot,
                            BlockPos safeRoomAt) {
-        DungeonInstance instance = new DungeonInstance(this.nextId++, kind, cell, seed, opener, entrance, extent,
-            startChunk, shaftFoot, safeRoomAt, DungeonInstance.State.BUILDING);
+        DungeonInstance instance = new DungeonInstance(this.nextId++, kind, cell, seed, keystoneStudy, opener,
+            entrance, extent, startChunk, shaftFoot, safeRoomAt, DungeonInstance.State.BUILDING);
         this.instances.put(instance.id(), instance);
         setDirty();
         return instance;

@@ -8,7 +8,6 @@ import com.bluup.hexwright.HexwrightDebug;
 import com.bluup.hexwright.client.render.IrisCompat;
 import com.bluup.hexwright.client.render.SceneSnapshot;
 import com.bluup.hexwright.mixin.BlendModeAccessor;
-import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.shaders.BlendMode;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.BufferBuilder;
@@ -199,7 +198,7 @@ public final class StaffCoreSphereVisualClient {
 
         int contactDepth = 0;
         if (ShieldContactShaders.shader() != null && !IrisCompat.isShaderPackActive()) {
-            contactDepth = contactDepthTexture(mc);
+            contactDepth = contactDepthTexture();
         }
 
         Vec3 camera = mc.gameRenderer.getMainCamera().getPosition();
@@ -239,9 +238,6 @@ public final class StaffCoreSphereVisualClient {
         }
 
         drawContactGlow(mc, context, camera, live, contactDepth);
-    }
-
-    public static void captureSolidDepth() {
     }
 
     private static void renderCubeBands(VertexConsumer vc, PoseStack poseStack, LiveCube cube) {
@@ -359,16 +355,8 @@ public final class StaffCoreSphereVisualClient {
         }
     }
 
-    private static int contactDepthTexture(Minecraft mc) {
-        if (Minecraft.useShaderTransparency()) {
-            RenderTarget translucent = mc.levelRenderer.getTranslucentTarget();
-            if (translucent != null && translucent.useDepth) {
-                return translucent.getDepthTextureId();
-            }
-        }
-        return SceneSnapshot.captureDepthOnly(SceneSnapshot.SLOT_SHIELD_CONTACT)
-            ? SceneSnapshot.depthTextureId()
-            : 0;
+    private static int contactDepthTexture() {
+        return SceneSnapshot.sceneDepth(SceneSnapshot.SLOT_SHIELD_CONTACT);
     }
 
     private static double wrapInkOrigin(double cameraComponent) {

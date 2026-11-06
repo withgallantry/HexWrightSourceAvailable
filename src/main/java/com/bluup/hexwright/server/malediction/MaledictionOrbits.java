@@ -1,6 +1,7 @@
 package com.bluup.hexwright.server.malediction;
 
 import com.bluup.hexwright.common.malediction.MaledictionFinish;
+import com.bluup.hexwright.common.malediction.MaledictionSigil;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.minecraft.resources.ResourceKey;
@@ -92,7 +93,7 @@ public final class MaledictionOrbits {
             if (now % DRAW_INTERVAL == 0) {
                 for (int i = 0; i < orbit.motes; i++) {
                     Vec3 mote = mote(center, now, i, orbit.motes);
-                    level.sendParticles(MaledictionFx.dust(orbit.finish, 1.0F), mote.x, mote.y, mote.z, 1, 0.0, 0.0, 0.0, 0.0);
+                    level.sendParticles(MaledictionFx.spark(orbit.finish), mote.x, mote.y, mote.z, 1, 0.0, 0.0, 0.0, 0.0);
                 }
             }
             if (now < orbit.nextStrike) {
@@ -101,7 +102,8 @@ public final class MaledictionOrbits {
             LivingEntity target = nearestHostile(level, caster, anchor, center);
             if (target != null) {
                 Vec3 from = mote(center, now, 0, orbit.motes);
-                MaledictionFx.line(level, from, target.getBoundingBox().getCenter(), orbit.finish);
+                MaledictionFx.sigil(level, MaledictionSigil.Kind.LIGHTNING, orbit.finish, from,
+                    target.getBoundingBox().getCenter(), 0.0F, null);
                 MaledictionStrike.strike(caster, target, orbit.damage, orbit.finish, null, from);
                 orbit.motes--;
                 orbit.nextStrike = now + STRIKE_INTERVAL;

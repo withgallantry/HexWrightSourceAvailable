@@ -2,6 +2,7 @@ package com.bluup.hexwright.server.dungeon;
 
 import com.bluup.hexwright.Hexwright;
 import com.bluup.hexwright.HexwrightDebug;
+import com.bluup.hexwright.server.maintenance.PlanarMaintenance;
 import com.bluup.hexwright.server.combat.SpellCaster;
 import com.bluup.hexwright.server.sound.HexwrightSoundEvents;
 import com.bluup.hexwright.server.vault.VaultDimension;
@@ -190,15 +191,18 @@ public final class DungeonInstances {
             return null;
         }
         long seed = level.getRandom().nextLong();
-        Footprint footprint = footprint(kind, DungeonDimension.level(server), cellOrigin(cell), seed);
+        boolean keystoneStudy = kind == DungeonInstance.Kind.DUNGEON
+            && PlanarMaintenance.rollsStudy(server, level.getRandom());
+        Footprint footprint = footprint(kind, DungeonDimension.level(server), cellOrigin(cell), seed, keystoneStudy);
         if (footprint == null) {
             tell.accept(Component.translatable("message.hexwright.dungeon.failed"));
             return null;
         }
-        DungeonInstance instance = registry.create(kind, cell, seed, opener, entrance, footprint.extent(),
-            footprint.startChunk(), footprint.shaftFoot(), footprint.room().shaft());
-        HexwrightDebug.log(HexwrightDebug.DUNGEON, "[dungeon] instance {} opened in cell {} from {} {}",
-            instance.id(), cell, level.dimension().location(), BlockPos.containing(entrance.center()).toShortString());
+        DungeonInstance instance = registry.create(kind, cell, seed, keystoneStudy, opener, entrance,
+            footprint.extent(), footprint.startChunk(), footprint.shaftFoot(), footprint.room().shaft());
+        HexwrightDebug.log(HexwrightDebug.DUNGEON, "[dungeon] instance {} opened in cell {} from {} {}{}",
+            instance.id(), cell, level.dimension().location(), BlockPos.containing(entrance.center()).toShortString(),
+            keystoneStudy ? ", holding the Keystone Study" : "");
         return instance;
     }
 
@@ -206,10 +210,11 @@ public final class DungeonInstances {
     }
 
     private static @Nullable Footprint footprint(DungeonInstance.Kind kind, ServerLevel dungeons, BlockPos origin,
-                                                 long seed) {
+                                                 long seed, boolean keystoneStudy) {
         return switch (kind) {
             case DUNGEON -> {
-                DungeonInstanceLayout.Plan plan = DungeonInstanceLayout.plan(dungeons, origin.getX(), origin.getZ(), seed);
+                DungeonInstanceLayout.Plan plan =
+                    DungeonInstanceLayout.plan(dungeons, origin.getX(), origin.getZ(), seed, keystoneStudy);
                 if (plan == null) {
                     yield null;
                 }
@@ -377,8 +382,8 @@ public final class DungeonInstances {
         Runnable built = () -> built(server, dungeons, registry, instance);
         return switch (instance.kind()) {
             case DUNGEON -> {
-                DungeonInstanceLayout.Plan plan =
-                    DungeonInstanceLayout.plan(dungeons, origin.getX(), origin.getZ(), instance.seed());
+                DungeonInstanceLayout.Plan plan = DungeonInstanceLayout.plan(dungeons, origin.getX(), origin.getZ(),
+                    instance.seed(), instance.keystoneStudy());
                 yield plan == null ? null
                     : DungeonInstanceJob.build(dungeons, instance, bounds(dungeons, instance), plan, built);
             }
@@ -458,6 +463,7 @@ public final class DungeonInstances {
             DungeonRifts.broadcast(server, instance.entrance().dimension());
         }
         HexwrightDebug.log(HexwrightDebug.DUNGEON, "[dungeon] instance {} torn down: {}", instance.id(), reason);
+        PlanarMaintenance.workshopClosed(server, instance.id());
     }
 
     private static void evacuate(MinecraftServer server, ServerLevel dungeons, DungeonInstance instance) {

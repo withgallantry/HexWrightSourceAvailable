@@ -27,7 +27,7 @@ public enum WorkbenchOption {
     }
 
     public boolean hasTooltip() {
-        return this != DELAY && this != CHIME;
+        return this != DELAY && this != CHIME && this != TEMPO;
     }
 
     private String key() {

@@ -2,6 +2,7 @@ package com.bluup.hexwright.server.malediction;
 
 import com.bluup.hexwright.Hexwright;
 import com.bluup.hexwright.common.malediction.MaledictionFinish;
+import com.bluup.hexwright.common.malediction.MaledictionSigil;
 import com.bluup.hexwright.server.effect.HexwrightEffects;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
@@ -60,7 +61,8 @@ public final class MaledictionDooms {
         DOOMS.add(new Doom(level, target, caster.getUUID(), finish, damage, status,
             level.getGameTime() + DOOM_TICKS,
             target.hasEffect(HexwrightEffects.DOOMED)));
-        MaledictionFx.line(level, caster.getEyePosition(), target.getBoundingBox().getCenter(), finish);
+        MaledictionFx.sigil(level, MaledictionSigil.Kind.DOOM, finish, target.position(), target.position(),
+            clockSize(target), target);
         MaledictionFx.sound(level, target.position(), SoundEvents.BELL_RESONATE, 0.8F, 0.7F);
     }
 
@@ -72,17 +74,27 @@ public final class MaledictionDooms {
         for (Iterator<Doom> it = DOOMS.iterator(); it.hasNext(); ) {
             Doom doom = it.next();
             LivingEntity target = doom.target;
-            if (!target.isAlive() || target.level() != doom.level
-                || doom.shown && !target.hasEffect(HexwrightEffects.DOOMED)) {
+            long left = doom.landAt - doom.level.getGameTime();
+            if (!target.isAlive() || target.level() != doom.level) {
                 it.remove();
-            } else if (doom.level.getGameTime() >= doom.landAt) {
+            } else if (doom.shown && !target.hasEffect(HexwrightEffects.DOOMED)) {
+                it.remove();
+                MaledictionFx.sigil(doom.level, MaledictionSigil.Kind.LIFTED, doom.finish, target.position(),
+                    target.position(), 0.0F, target);
+            } else if (left <= 0) {
                 it.remove();
                 landing.add(doom);
+            } else if (left % 20 == 0) {
+                MaledictionFx.sound(doom.level, target.position(), SoundEvents.NOTE_BLOCK_HAT.value(), 0.8F, 0.7F);
             }
         }
         for (Doom doom : landing) {
             land(server, doom);
         }
+    }
+
+    private static float clockSize(LivingEntity target) {
+        return target.getBbWidth() + 0.6F;
     }
 
     private static void land(MinecraftServer server, Doom doom) {
@@ -101,6 +113,7 @@ public final class MaledictionDooms {
             target.addEffect(new MobEffectInstance(doom.status, AFFLICTION_TICKS, 0), caster);
         }
         MaledictionFx.burst(doom.level, at, doom.finish, 24, target.getBbWidth() * 0.6);
+        MaledictionFx.sigil(doom.level, MaledictionSigil.Kind.TOLL, doom.finish, at, at, clockSize(target), target);
         MaledictionFx.sound(doom.level, at, SoundEvents.BELL_BLOCK, 1.0F, 0.5F);
     }
 }

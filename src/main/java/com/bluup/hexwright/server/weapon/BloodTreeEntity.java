@@ -128,6 +128,8 @@ public class BloodTreeEntity extends Entity implements GeoEntity {
     @Nullable
     private ServerPlayer planter;
 
+    private boolean forPlanterAlone;
+
     @Nullable
     private RawAnimation firstSeen;
 
@@ -137,9 +139,11 @@ public class BloodTreeEntity extends Entity implements GeoEntity {
         this.setNoGravity(true);
     }
 
-    private BloodTreeEntity(ServerLevel level, ServerPlayer planter, Vec3 at, int life, float size, int sacks) {
+    private BloodTreeEntity(ServerLevel level, ServerPlayer planter, boolean forPlanterAlone, Vec3 at, int life,
+                            float size, int sacks) {
         this(HexwrightEntities.BLOOD_TREE, level);
         this.planter = planter;
+        this.forPlanterAlone = forPlanterAlone;
         this.moveTo(at.x, at.y, at.z, planter.getYRot(), 0.0F);
         this.entityData.set(DATA_PLANTED_AT, level.getGameTime());
         this.entityData.set(DATA_LIFE, life);
@@ -156,7 +160,7 @@ public class BloodTreeEntity extends Entity implements GeoEntity {
 
 
     @Nullable
-    static BloodTreeEntity plant(ServerLevel level, ServerPlayer wielder, int blood) {
+    static BloodTreeEntity plant(ServerLevel level, ServerPlayer wielder, int blood, boolean forPlanterAlone) {
         if (blood < NourishmentItem.LITRE || wielder.isRemoved() || !wielder.isAlive() || wielder.level() != level) {
             return null;
         }
@@ -171,7 +175,7 @@ public class BloodTreeEntity extends Entity implements GeoEntity {
         int life = lifeTicks(blood);
         float size = Mth.lerp(fill(blood), SMALLEST_SIZE, LARGEST_SIZE);
         int sacks = Math.min(SACK_COUNT, blood / (LITRES_PER_SACK * NourishmentItem.LITRE));
-        BloodTreeEntity tree = new BloodTreeEntity(level, wielder, at, life, size, sacks);
+        BloodTreeEntity tree = new BloodTreeEntity(level, wielder, forPlanterAlone, at, life, size, sacks);
         level.addFreshEntity(tree);
 
         RandomSource random = level.getRandom();
@@ -183,8 +187,8 @@ public class BloodTreeEntity extends Entity implements GeoEntity {
         level.playSound(null, at.x, at.y + 4.0D, at.z, NourishmentSounds.DARKEN.get(), SoundSource.PLAYERS,
             2.0F, 1.0F);
         HexwrightDebug.log(HexwrightDebug.WEAPON,
-            "[weapon] blood tree from {} at {}: {} ml, {} ticks, size {}, {} sacks",
-            wielder.getScoreboardName(), at, blood, life, size, sacks);
+            "[weapon] blood tree from {} at {}: {} ml, {} ticks, size {}, {} sacks, for planter alone {}",
+            wielder.getScoreboardName(), at, blood, life, size, sacks, forPlanterAlone);
         return tree;
     }
 
@@ -236,7 +240,8 @@ public class BloodTreeEntity extends Entity implements GeoEntity {
             getX() + RADIUS, getY() + ZONE_CEILING, getZ() + RADIUS);
         for (LivingEntity enemy : level.getEntitiesOfClass(LivingEntity.class, ground,
                 candidate -> TeleportStrike.strikeable(planter, candidate) && !Bosses.is(candidate)
-                    && !(candidate instanceof ServerPlayer player && !TeleportStrike.mayTouch(planter, player))
+                    && !(candidate instanceof ServerPlayer player
+                        && (!this.forPlanterAlone || !TeleportStrike.mayTouch(planter, player)))
                     && distanceOutside(candidate.position()) == 0.0D)) {
             enemy.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, SLOW_TICKS, SLOW_AMPLIFIER,
                 true, false, true), planter);
@@ -361,7 +366,8 @@ public class BloodTreeEntity extends Entity implements GeoEntity {
 
     private boolean holds(ServerPlayer player) {
         return !this.isRemoved() && age() < witherAt() && this.entityData.get(DATA_SACKS) != 0
-            && distanceOutside(player.position()) == 0.0D;
+            && distanceOutside(player.position()) == 0.0D
+            && (!this.forPlanterAlone || this.planter != null && this.planter.getUUID().equals(player.getUUID()));
     }
 
     private int nearestSack(Vec3 to) {

@@ -73,7 +73,8 @@ public final class WeaveOverview {
     private static final int PICKER_PAD = 4;
     private static final int PICKER_INSET = 4;
     private static final int PICKER_NAME = 12;
-    private static final int REACH_BUTTON = 18;
+    private static final int NUMBER_BUTTON = 18;
+    private static final int NUMBER_COLUMNS = 8;
 
     private static final int PLANE = 0x322B39;
 
@@ -96,6 +97,7 @@ public final class WeaveOverview {
     private @Nullable Node moving;
     private @Nullable Integer picking;
     private @Nullable Integer reaching;
+    private @Nullable Integer numbering;
     private @Nullable Integer capturing;
     private WeaveTrigger.@Nullable Kind capturingKind;
     private boolean moved;
@@ -196,7 +198,8 @@ public final class WeaveOverview {
     }
 
     public boolean busy() {
-        return linkingFrom != null || moving != null || picking != null || reaching != null || capturing != null;
+        return linkingFrom != null || moving != null || picking != null || reaching != null || numbering != null
+            || capturing != null;
     }
 
     public void cancel() {
@@ -204,6 +207,7 @@ public final class WeaveOverview {
         moving = null;
         picking = null;
         reaching = null;
+        numbering = null;
         capturing = null;
         capturingKind = null;
     }
@@ -235,6 +239,15 @@ public final class WeaveOverview {
         weave.setReach(trigger, reach);
         reaching = null;
         status.accept(Component.translatable("gui.hexwright.hex_loom.trigger_set", trigger, triggerKind(weave, trigger)));
+    }
+
+    private void chooseNumber(int number) {
+        int thread = numbering;
+        numbering = null;
+        if (weave.setNumber(thread, number)) {
+            select(number);
+            status.accept(Component.translatable("gui.hexwright.hex_loom.renumbered", thread, number));
+        }
     }
 
     public void openPicker(int trigger) {
@@ -551,6 +564,9 @@ public final class WeaveOverview {
         if (reaching != null && weave.kind(reaching) == null) {
             reaching = null;
         }
+        if (numbering != null && weave.thread(numbering) == null) {
+            numbering = null;
+        }
         if (capturing != null && weave.kind(capturing) == null) {
             capturing = null;
         }
@@ -572,12 +588,22 @@ public final class WeaveOverview {
             return false;
         }
         if (reaching != null) {
-            ReachBox box = reachBox(Minecraft.getInstance().font);
-            Integer reach = button == 0 ? box.reachAt(x, y) : null;
+            NumberGrid grid = reachGrid(Minecraft.getInstance().font);
+            Integer reach = button == 0 ? grid.numberAt(x, y) : null;
             if (reach != null) {
                 chooseReach(reach);
-            } else if (!box.contains(x, y) || button != 0) {
+            } else if (!grid.contains(x, y) || button != 0) {
                 reaching = null;
+            }
+            return true;
+        }
+        if (numbering != null) {
+            NumberGrid grid = numberGrid(Minecraft.getInstance().font);
+            Integer number = button == 0 ? grid.numberAt(x, y) : null;
+            if (number != null) {
+                chooseNumber(number);
+            } else if (!grid.contains(x, y) || button != 0) {
+                numbering = null;
             }
             return true;
         }
@@ -615,6 +641,13 @@ public final class WeaveOverview {
         }
         pressX = x;
         pressY = y;
+        Integer labelled = labelAt(x, y);
+        if (labelled != null) {
+            select(labelled);
+            lastClicked = null;
+            numbering = labelled;
+            return true;
+        }
         Integer tail = tailAt(x, y);
         Integer lead = tail == null ? leadAt(x, y) : null;
         if (tail != null || lead != null) {
@@ -835,69 +868,112 @@ public final class WeaveOverview {
         return snapped > 0f ? snapped : fit;
     }
 
-    private record ReachBox(int x, int y, int width, int height, int buttonsY) {
+    private record NumberGrid(int x, int y, int width, int height, int buttonsY, int first, int last, int columns) {
         boolean contains(double px, double py) {
             return px >= x && px < x + width && py >= y && py < y + height;
         }
 
-        @Nullable Integer reachAt(double px, double py) {
-            if (py < buttonsY || py >= buttonsY + REACH_BUTTON) {
-                return null;
-            }
-            for (int reach = WeaveTrigger.MIN_REACH; reach <= WeaveTrigger.MAX_REACH; reach++) {
-                int bx = buttonX(reach);
-                if (px >= bx && px < bx + REACH_BUTTON) {
-                    return reach;
+        @Nullable Integer numberAt(double px, double py) {
+            for (int number = first; number <= last; number++) {
+                int bx = buttonX(number);
+                int by = buttonY(number);
+                if (px >= bx && px < bx + NUMBER_BUTTON && py >= by && py < by + NUMBER_BUTTON) {
+                    return number;
                 }
             }
             return null;
         }
 
-        int buttonX(int reach) {
-            int row = (WeaveTrigger.MAX_REACH - WeaveTrigger.MIN_REACH + 1) * (REACH_BUTTON + PICKER_PAD) - PICKER_PAD;
-            return x + (width - row) / 2 + (reach - WeaveTrigger.MIN_REACH) * (REACH_BUTTON + PICKER_PAD);
+        int buttonX(int number) {
+            return x + (width - rowWidth(columns)) / 2 + (number - first) % columns * (NUMBER_BUTTON + PICKER_PAD);
+        }
+
+        int buttonY(int number) {
+            return buttonsY + (number - first) / columns * (NUMBER_BUTTON + PICKER_PAD);
+        }
+
+        int rows() {
+            return (last - first) / columns + 1;
+        }
+
+        static int rowWidth(int columns) {
+            return columns * (NUMBER_BUTTON + PICKER_PAD) - PICKER_PAD;
         }
     }
 
-    private ReachBox reachBox(Font font) {
-        Component title = Component.translatable("gui.hexwright.hex_loom.trigger_reach", reaching);
-        int buttons = (WeaveTrigger.MAX_REACH - WeaveTrigger.MIN_REACH + 1) * (REACH_BUTTON + PICKER_PAD) - PICKER_PAD;
-        int width = Math.max(buttons, font.width(title)) + LoomMenu.CHROME_WIDTH;
-        int height = REACH_BUTTON + PICKER_PAD + font.lineHeight + LoomMenu.CHROME_HEIGHT;
+    private NumberGrid reachGrid(Font font) {
+        int columns = WeaveTrigger.MAX_REACH - WeaveTrigger.MIN_REACH + 1;
+        return numberGrid(font, reachTitle(), reachFootnote(), WeaveTrigger.MIN_REACH, WeaveTrigger.MAX_REACH, columns);
+    }
+
+    private NumberGrid numberGrid(Font font) {
+        int count = weave.threads().size();
+        return numberGrid(font, numberTitle(), numberFootnote(), 1, count, Math.min(count, NUMBER_COLUMNS));
+    }
+
+    private NumberGrid numberGrid(Font font, Component title, Component footnote, int first, int last, int columns) {
+        int rows = (last - first) / columns + 1;
+        int width = Math.max(NumberGrid.rowWidth(columns), Math.max(font.width(title), font.width(footnote)))
+            + LoomMenu.CHROME_WIDTH;
+        int height = rows * (NUMBER_BUTTON + PICKER_PAD) + font.lineHeight + LoomMenu.CHROME_HEIGHT;
         int boxX = Math.round(centreX() - width / 2f);
         int boxY = Math.max(top, Math.round(centreY() - height / 2f));
-        return new ReachBox(boxX, boxY, width, height, LoomMenu.contentY(boxY));
+        return new NumberGrid(boxX, boxY, width, height, LoomMenu.contentY(boxY), first, last, columns);
     }
 
-    private void drawReach(GuiGraphics graphics, int mouseX, int mouseY, LoomPalette palette, LoomMenu.Look look) {
-        if (reaching == null) {
-            return;
-        }
+    private Component reachTitle() {
+        return Component.translatable("gui.hexwright.hex_loom.trigger_reach", reaching);
+    }
+
+    private static Component reachFootnote() {
+        return Component.translatable("gui.hexwright.hex_loom.trigger_reach_unit");
+    }
+
+    private Component numberTitle() {
+        return Component.translatable("gui.hexwright.hex_loom.number", numbering);
+    }
+
+    private static Component numberFootnote() {
+        return Component.translatable("gui.hexwright.hex_loom.number_unit");
+    }
+
+    private void drawNumberGrid(GuiGraphics graphics, int mouseX, int mouseY, LoomPalette palette, LoomMenu.Look look) {
         Font font = Minecraft.getInstance().font;
-        ReachBox box = reachBox(font);
-        Integer hovered = box.reachAt(mouseX, mouseY);
-        int current = weave.reach(reaching);
+        if (reaching != null) {
+            drawNumberGrid(graphics, mouseX, mouseY, palette, look, reachGrid(font), reachTitle(), reachFootnote(),
+                weave.reach(reaching), palette.trigger());
+        } else if (numbering != null) {
+            drawNumberGrid(graphics, mouseX, mouseY, palette, look, numberGrid(font), numberTitle(), numberFootnote(),
+                numbering, palette.selected());
+        }
+    }
+
+    private static void drawNumberGrid(GuiGraphics graphics, int mouseX, int mouseY, LoomPalette palette,
+                                       LoomMenu.Look look, NumberGrid grid, Component title, Component footnote,
+                                       int current, int accent) {
+        Font font = Minecraft.getInstance().font;
+        Integer hovered = grid.numberAt(mouseX, mouseY);
         PoseStack pose = graphics.pose();
         pose.pushPose();
         pose.translate(0, 0, 40);
-        LoomMenu.drawFrame(graphics, look, mouseX, mouseY, box.x(), box.y(), box.width(), box.height(),
-            Component.translatable("gui.hexwright.hex_loom.trigger_reach", reaching), 0xFF000000 | palette.label());
-        for (int reach = WeaveTrigger.MIN_REACH; reach <= WeaveTrigger.MAX_REACH; reach++) {
-            int bx = box.buttonX(reach);
-            boolean chosen = reach == current;
-            LoomMenu.drawRow(graphics, look, mouseX, mouseY, bx, box.buttonsY(), REACH_BUTTON, REACH_BUTTON,
-                Objects.equals(hovered, reach));
+        LoomMenu.drawFrame(graphics, look, mouseX, mouseY, grid.x(), grid.y(), grid.width(), grid.height(),
+            title, 0xFF000000 | palette.label());
+        for (int number = grid.first(); number <= grid.last(); number++) {
+            int bx = grid.buttonX(number);
+            int by = grid.buttonY(number);
+            boolean chosen = number == current;
+            LoomMenu.drawRow(graphics, look, mouseX, mouseY, bx, by, NUMBER_BUTTON, NUMBER_BUTTON,
+                Objects.equals(hovered, number));
             if (chosen) {
-                graphics.renderOutline(bx, box.buttonsY(), REACH_BUTTON, REACH_BUTTON, 0xFF000000 | palette.trigger());
+                graphics.renderOutline(bx, by, NUMBER_BUTTON, NUMBER_BUTTON, 0xFF000000 | accent);
             }
-            String number = String.valueOf(reach);
-            graphics.drawString(font, number, bx + (REACH_BUTTON - font.width(number)) / 2 + 1,
-                box.buttonsY() + (REACH_BUTTON - font.lineHeight) / 2 + 1,
-                chosen ? 0xFF000000 | palette.trigger() : 0xFFFFFFFF);
+            String text = String.valueOf(number);
+            graphics.drawString(font, text, bx + (NUMBER_BUTTON - font.width(text)) / 2 + 1,
+                by + (NUMBER_BUTTON - font.lineHeight) / 2 + 1, chosen ? 0xFF000000 | accent : 0xFFFFFFFF);
         }
-        Component unit = Component.translatable("gui.hexwright.hex_loom.trigger_reach_unit");
-        graphics.drawString(font, unit, box.x() + (box.width() - font.width(unit)) / 2,
-            box.buttonsY() + REACH_BUTTON + PICKER_PAD, 0xA0000000 | palette.label(), false);
+        int footnoteY = grid.buttonsY() + grid.rows() * (NUMBER_BUTTON + PICKER_PAD);
+        graphics.drawString(font, footnote, grid.x() + (grid.width() - font.width(footnote)) / 2, footnoteY,
+            0xA0000000 | palette.label(), false);
         pose.popPose();
     }
 
@@ -943,7 +1019,8 @@ public final class WeaveOverview {
         Set<Integer> reached = reached();
         boolean idle = contains(mouseX, mouseY) && !busy() && !panning;
         Object hoveredLink = idle ? linkAt(mouseX, mouseY) : null;
-        Node hovered = idle && hoveredLink == null ? nodeAt(mouseX, mouseY) : null;
+        Integer hoveredLabel = idle ? labelAt(mouseX, mouseY) : null;
+        Node hovered = idle && hoveredLink == null && hoveredLabel == null ? nodeAt(mouseX, mouseY) : null;
         Integer target = linkingFrom != null && contains(mouseX, mouseY) ? linkTarget(mouseX, mouseY) : null;
         List<ThreadDraft> shown = weave.threads().stream().filter(thread -> shown(thread.id())).toList();
 
@@ -995,9 +1072,9 @@ public final class WeaveOverview {
                 palette);
         }
 
-        drawLabels(graphics, shown, palette);
+        drawLabels(graphics, shown, hoveredLabel, palette);
         drawPicker(graphics, mouseX, mouseY, palette, menus);
-        drawReach(graphics, mouseX, mouseY, palette, menus);
+        drawNumberGrid(graphics, mouseX, mouseY, palette, menus);
         graphics.disableScissor();
     }
 
@@ -1151,20 +1228,44 @@ public final class WeaveOverview {
         PatternDrawBatch.drawCourse(mat, points, LINK_PIECE, start, end, 0.1f, 0);
     }
 
-    private void drawLabels(GuiGraphics graphics, List<ThreadDraft> shown, LoomPalette palette) {
+    private Component label(int id) {
+        return scale >= 2.5f ? Component.translatable("gui.hexwright.hex_loom.label", id)
+            : Component.literal(String.valueOf(id));
+    }
+
+    private Vec2 labelCorner(int id) {
+        WeaveLayout.Position at = weave.position(id);
+        Vec2 corner = toScreen(at.x() - OUTLINE_REACH / 2, at.y() - OUTLINE_REACH * SQRT_3 / 2);
+        return new Vec2((int) corner.x, (int) corner.y - 15);
+    }
+
+    private @Nullable Integer labelAt(double x, double y) {
+        Font font = Minecraft.getInstance().font;
+        for (ThreadDraft thread : weave.threads()) {
+            if (!shown(thread.id())) {
+                continue;
+            }
+            Vec2 at = labelCorner(thread.id());
+            int width = font.width(label(thread.id()));
+            if (x >= at.x - 2 && x < at.x + width + 2 && y >= at.y - 2 && y < at.y + font.lineHeight + 1) {
+                return thread.id();
+            }
+        }
+        return null;
+    }
+
+    private void drawLabels(GuiGraphics graphics, List<ThreadDraft> shown, @Nullable Integer hoveredLabel,
+                            LoomPalette palette) {
         Font font = Minecraft.getInstance().font;
         PoseStack pose = graphics.pose();
         pose.pushPose();
         pose.translate(0, 0, 10);
         for (ThreadDraft thread : shown) {
-            WeaveLayout.Position at = weave.position(thread.id());
-            Vec2 corner = toScreen(at.x() - OUTLINE_REACH / 2, at.y() - OUTLINE_REACH * SQRT_3 / 2);
-            Component text = scale >= 2.5f
-                ? Component.translatable("gui.hexwright.hex_loom.label", thread.id())
-                : Component.literal(String.valueOf(thread.id()));
+            Vec2 at = labelCorner(thread.id());
             int colour = Node.thread(thread.id()).equals(selected) ? 0xFF000000 | palette.selected()
+                : Objects.equals(hoveredLabel, thread.id()) ? 0xFF000000 | palette.label()
                 : 0xC0000000 | palette.label();
-            graphics.drawString(font, text, (int) corner.x, (int) corner.y - 15, colour);
+            graphics.drawString(font, label(thread.id()), (int) at.x, (int) at.y, colour);
         }
         for (int trigger : weave.triggers()) {
             WeaveLayout.Position at = weave.triggerPosition(trigger);
@@ -1190,11 +1291,16 @@ public final class WeaveOverview {
             return null;
         }
         validate();
-        if (picking != null || reaching != null) {
+        if (picking != null || reaching != null || numbering != null) {
             return null;
         }
         if (busy()) {
             return null;
+        }
+        Integer labelled = labelAt(x, y);
+        if (labelled != null) {
+            return List.of(Component.translatable("gui.hexwright.hex_loom.label", labelled),
+                Component.translatable("gui.hexwright.hex_loom.hover.number").withStyle(ChatFormatting.DARK_GRAY));
         }
         Integer tail = tailAt(x, y);
         if (tail != null) {
@@ -1258,6 +1364,7 @@ public final class WeaveOverview {
             lines.add(Component.translatable("gui.hexwright.hex_loom.hover.unreached").withStyle(ChatFormatting.GOLD));
         }
         lines.add(Component.translatable("gui.hexwright.hex_loom.hover.open").withStyle(ChatFormatting.DARK_GRAY));
+        lines.add(Component.translatable("gui.hexwright.hex_loom.hover.renumber").withStyle(ChatFormatting.DARK_GRAY));
         return lines;
     }
 

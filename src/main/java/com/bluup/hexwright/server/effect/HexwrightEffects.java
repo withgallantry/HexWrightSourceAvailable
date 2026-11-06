@@ -56,6 +56,9 @@ public final class HexwrightEffects {
     public static final MobEffect FIRM_REALITY = registerStatus("firm_reality",
         new StatusEffect(MobEffectCategory.NEUTRAL, 0x8E9BC4));
 
+    public static final MobEffect DIVINE_STRAIN = registerStatus("divine_strain",
+        new StatusEffect(MobEffectCategory.HARMFUL, 0xC9A23A));
+
     public static final MobEffect SOUL_CLEAVED = register("soul_cleaved", new SoulCleavedEffect());
 
     public static final MobEffect MEDIA_BURN = register("media_burn", new MediaBurnEffect());

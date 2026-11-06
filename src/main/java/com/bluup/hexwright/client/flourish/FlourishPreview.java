@@ -345,6 +345,9 @@ public final class FlourishPreview {
             case GLYPHS -> pen.band(style, Vec3.ZERO, r * 0.85, r * 0.3, progress);
             case FLAME -> pen.band(style, new Vec3(0.0, -r * 0.1, 0.0), r * 0.8, r * 0.45, progress);
             case CHAINS -> pen.band(style, Vec3.ZERO, r * 0.8, r * 0.4, progress);
+            case AURORA -> pen.band(style, Vec3.ZERO, r * 0.8, r * 0.5, progress);
+            case BRIAR -> pen.band(style, Vec3.ZERO, r * 0.8, r * 0.5, progress);
+            case WILDFLOWER, DANDELION, WORLD_TREE -> FlourishLooks.plant(pen, style, new Vec3(0.0, -r, 0.0), r * 2.0, progress);
             case BLADE -> pen.segment(0.0f, 0.25f, 0.0f, 0.0f)
                 .axial(style, new Vec3(0.0, r * 2.0, 0.0), new Vec3(0.0, -r * 0.75, 0.0), r * 1.7, r * 0.4, r * 0.4, progress);
             default -> pen.billboard(style, Vec3.ZERO, r, progress);

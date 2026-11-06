@@ -26,7 +26,7 @@ missing = [
     "hexwright:broom_nightsweep", "hexwright:broom_splintered_sweeper", "hexwright:broom_starbeam",
     "hexwright:broom_twin_whisk", "hexwright:broom_whisperwind",
     "hexwright:dungeon_prop", "hexwright:prop_*", "hexwright:weapon_rack",
-    "hexwright:crystal_altar", "hexwright:travel_stone",
+    "hexwright:crystal_altar", "hexwright:travel_stone", "hexwright:ancient_portal_*",
     "hexwright:blossom_staff", "hexwright:dark_forest_staff", "hexwright:dark_forest_tome_staff",
     "hexwright:dark_forest_tome_staff_open", "hexwright:eclipse_staff", "hexwright:eclipse_tome_staff",
     "hexwright:eclipse_tome_staff_open", "hexwright:end_staff", "hexwright:end_tome_staff",
@@ -156,6 +156,26 @@ regex = "{^_pattern_regex}"
 
 [[extra.hexcasting.pattern_stubs]]
 path = "{$_common.src}/main/java/com/bluup/hexwright/server/constructshand/ConstructsGrasp.java"
+regex = "{^_pattern_regex}"
+
+[[extra.hexcasting.pattern_stubs]]
+path = "{$_common.src}/main/java/com/bluup/hexwright/server/hexpatterns/InternalizeActions.java"
+regex = "{^_pattern_regex}"
+
+[[extra.hexcasting.pattern_stubs]]
+path = "{$_common.src}/main/java/com/bluup/hexwright/server/malediction/MaledictionActions.java"
+regex = "{^_pattern_regex}"
+
+[[extra.hexcasting.pattern_stubs]]
+path = "{$_common.src}/main/java/com/bluup/hexwright/server/path/PathActions.java"
+regex = "{^_pattern_regex}"
+
+[[extra.hexcasting.pattern_stubs]]
+path = "{$_common.src}/main/java/com/bluup/hexwright/server/region/RegionProjection.java"
+regex = "{^_pattern_regex}"
+
+[[extra.hexcasting.pattern_stubs]]
+path = "{$_common.src}/main/java/com/bluup/hexwright/compat/hexic/HexicViews.java"
 regex = "{^_pattern_regex}"
 
 [template]

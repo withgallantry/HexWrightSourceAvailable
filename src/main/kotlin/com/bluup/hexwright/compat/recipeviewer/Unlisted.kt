@@ -8,5 +8,6 @@ object Unlisted {
 
     fun items(): List<Item> =
         listOf<Item>(HexwrightItems.TEALS_STAFF) + AncientPortals.unlisted() + HexwrightItems.FLOURISHES.values +
-            HexwrightItems.CANTILLATIONS.values
+            HexwrightItems.CANTILLATIONS.values + HexwrightItems.MALEDICTION_FORMS.values +
+            HexwrightItems.MALEDICTION_FINISHES.values
 }

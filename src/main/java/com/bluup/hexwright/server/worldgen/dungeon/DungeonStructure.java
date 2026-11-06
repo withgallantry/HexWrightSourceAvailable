@@ -111,17 +111,19 @@ public class DungeonStructure extends Structure {
 
     List<DungeonPiece> layOut(StructureTemplateManager templates, BlockPos origin, RandomSource random,
                               RandomSource extras, String rune) {
-        return pieces(templates, origin, plan(templates, random, extras), rune);
+        return pieces(templates, origin, plan(templates, random, extras, false), rune);
     }
 
-    List<DungeonPlanner.Placement> plan(StructureTemplateManager templates, RandomSource random, RandomSource extras) {
+    List<DungeonPlanner.Placement> plan(StructureTemplateManager templates, RandomSource random, RandomSource extras,
+                                        boolean keystoneStudy) {
         int floors = this.minFloors + random.nextInt(this.maxFloors - this.minFloors + 1);
         int[] roomsPer = DungeonPlanner.roomsPerFloor(floors, this.lowerRooms, this.upperRooms);
         return DungeonPlanner.plan(random, floors, roomsPer, this.traps,
             module -> DungeonFittings.titanRoom(templates, module), extras, this.corruptChance, List.of(
                 new DungeonPlanner.SideRoom(DungeonModules.FLOURISH_STUDY, this.flourishStudyChance),
                 new DungeonPlanner.SideRoom(DungeonModules.MALEDICTION_STUDY, this.maledictionStudyChance),
-                new DungeonPlanner.SideRoom(DungeonModules.STASIS_VAULT, this.stasisVaultChance)));
+                new DungeonPlanner.SideRoom(DungeonModules.STASIS_VAULT, this.stasisVaultChance),
+                new DungeonPlanner.SideRoom(DungeonModules.KEYSTONE_STUDY, keystoneStudy ? 1.0F : 0.0F)));
     }
 
     List<DungeonPiece> pieces(StructureTemplateManager templates, BlockPos origin,

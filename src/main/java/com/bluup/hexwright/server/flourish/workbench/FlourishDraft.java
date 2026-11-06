@@ -20,6 +20,8 @@ public final class FlourishDraft {
     private Flourish chime;
     private FlourishDesign.Motes motes = FlourishDesign.Motes.NONE;
     private WorkbenchPage page = WorkbenchPage.LAYERS;
+    @Nullable
+    private WorkbenchOption openList;
 
     private int replays;
 
@@ -52,6 +54,7 @@ public final class FlourishDraft {
 
     public void page(WorkbenchPage page) {
         this.page = page;
+        openList = null;
     }
 
 
@@ -75,6 +78,7 @@ public final class FlourishDraft {
         if (index >= 0 && index < layers.size() && index != selected) {
             selected = index;
             selectedRing = 0;
+            openList = null;
         }
     }
 
@@ -144,6 +148,7 @@ public final class FlourishDraft {
     public void selectRing(int index) {
         if (ring(index) != null) {
             selectedRing = index;
+            openList = null;
         }
     }
 
@@ -198,6 +203,10 @@ public final class FlourishDraft {
 
 
     public boolean applies(WorkbenchOption option) {
+        if (option == WorkbenchOption.COUNT) {
+            FlourishFigure.Ring ring = ring(selectedRing);
+            return ring != null && ring.counted();
+        }
         return !option.ofFigure() || figure() != null;
     }
 
@@ -236,6 +245,98 @@ public final class FlourishDraft {
         }
     }
 
+    public int choices(WorkbenchOption option) {
+        FlourishFigure.Ring ring = ring(selectedRing);
+        if (option.ofFigure() && option != WorkbenchOption.HUE && ring == null) {
+            return 0;
+        }
+        return switch (option) {
+            case PLACEMENT -> selectedLayer().motif().placements().size();
+            case CHIME -> Flourish.values().length + 1;
+            case MOTES -> FlourishDesign.Motes.values().length;
+            case SIZE -> FlourishDesign.SIZES;
+            case DELAY -> FlourishDesign.MAX_DELAY + 1;
+            case SHADE -> FlourishDesign.SHADES;
+            case COUNT -> FlourishFigure.MAX_COUNT - ring.shape().minCount() + 1;
+            case FORM -> ring.shape().forms(ring.count());
+            case RADIUS -> FlourishFigure.RADII;
+            case WEIGHT -> FlourishFigure.WEIGHTS;
+            case SPIN -> FlourishFigure.MAX_SPIN * 2 + 1;
+            case TURN -> FlourishFigure.TURNS;
+            case HUE -> FlourishFigure.HUES;
+            case ENTRANCE -> FlourishFigure.Entrance.values().length;
+            case EXIT -> FlourishFigure.Exit.values().length;
+            case TEMPO -> FlourishFigure.TEMPOS;
+            default -> 0;
+        };
+    }
+
+    public int choice(WorkbenchOption option) {
+        FlourishDesign.Layer layer = selectedLayer();
+        FlourishFigure.Ring ring = ring(selectedRing);
+        if (option.ofFigure() && ring == null) {
+            return 0;
+        }
+        return switch (option) {
+            case PLACEMENT -> Math.max(0, layer.motif().placements().indexOf(layer.placement()));
+            case CHIME -> chime == null ? 0 : chime.ordinal() + 1;
+            case MOTES -> motes.ordinal();
+            case SIZE -> layer.size();
+            case DELAY -> layer.delay();
+            case SHADE -> layer.shade();
+            case COUNT -> ring.count() - ring.shape().minCount();
+            case FORM -> ring.form();
+            case RADIUS -> ring.radius() - 1;
+            case WEIGHT -> ring.weight();
+            case SPIN -> FlourishFigure.MAX_SPIN - ring.spin();
+            case TURN -> ring.turn();
+            case HUE -> ring.hue();
+            case ENTRANCE -> figure().entrance().ordinal();
+            case EXIT -> figure().exit().ordinal();
+            case TEMPO -> figure().tempo();
+            default -> 0;
+        };
+    }
+
+    public void choose(WorkbenchOption option, int index) {
+        int step = index - choice(option);
+        if (step != 0) {
+            cycle(option, option == WorkbenchOption.SPIN ? -step : step);
+        }
+    }
+
+    public Component choiceName(WorkbenchOption option, int index) {
+        FlourishFigure.Ring ring = ring(selectedRing);
+        return switch (option) {
+            case PLACEMENT -> Component.translatable(selectedLayer().motif().placements().get(index).translationKey());
+            case CHIME -> index == 0
+                ? Component.translatable("gui.hexwright.flourish_workbench.chime.silent")
+                : Component.translatable(Flourish.values()[index - 1].nameKey());
+            case MOTES -> Component.translatable(FlourishDesign.Motes.values()[index].translationKey());
+            case SIZE -> Component.translatable("gui.hexwright.flourish_workbench.size." + index);
+            case FORM -> ring != null ? formName(ring.shape(), index) : Component.literal("–");
+            case TURN -> Component.translatable("gui.hexwright.flourish_workbench.turn." + index);
+            case ENTRANCE -> Component.translatable(FlourishFigure.Entrance.values()[index].translationKey());
+            case EXIT -> Component.translatable(FlourishFigure.Exit.values()[index].translationKey());
+            default -> Component.literal(String.valueOf(index + 1));
+        };
+    }
+
+    private static Component formName(FlourishFigure.Shape shape, int form) {
+        return shape == FlourishFigure.Shape.STAR
+            ? Component.translatable(shape.translationKey() + ".form", form + 2)
+            : Component.translatable(shape.translationKey() + ".form." + form);
+    }
+
+
+    public @Nullable WorkbenchOption openList() {
+        return openList;
+    }
+
+    public void openList(@Nullable WorkbenchOption option) {
+        openList = option;
+    }
+
     private static <E extends Enum<E>> E step(E[] values, E current, int step) {
         return values[Math.floorMod(current.ordinal() + step, values.length)];
     }
@@ -261,9 +362,7 @@ public final class FlourishDraft {
                 : Component.translatable(chime.nameKey());
             case MOTES -> Component.translatable(motes.translationKey());
             case COUNT -> count(ring);
-            case FORM -> ring.shape() == FlourishFigure.Shape.STAR
-                ? Component.translatable(ring.shape().translationKey() + ".form", ring.form() + 2)
-                : Component.translatable(ring.shape().translationKey() + ".form." + ring.form());
+            case FORM -> formName(ring.shape(), ring.form());
             case RADIUS -> Component.literal(ring.radius() * 100 / FlourishFigure.RADII + "%");
             case WEIGHT -> Component.translatable("gui.hexwright.flourish_workbench.weight." + ring.weight());
             case SPIN -> ring.spin() == 0

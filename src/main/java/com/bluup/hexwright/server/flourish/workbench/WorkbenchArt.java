@@ -20,6 +20,10 @@ public final class WorkbenchArt {
     public static final int DIM = 0xFF7E6C82;
     public static final int REFUSED = 0xFFD86A64;
     static final int WELL = 0xFF2A1A24;
+    static final int EDGE = 0xFF000000;
+    static final int LIT_FILL = 0xFF4E3D4A;
+    static final int SHEET_RIM = 0xFF604C5E;
+    static final int SHEET_FILL = 0xFF3D2F3D;
     static final int RULE = 0x807E6C82;
     static final int APART_RIM = 0xFF5C6A9A;
     static final int APART = 0xFF2C3052;
@@ -40,6 +44,10 @@ public final class WorkbenchArt {
 
     public static IGuiTexture boxLit() {
         return panel("menu/list-box-select");
+    }
+
+    static IGuiTexture sheet() {
+        return new ResourceBorderTexture("hexwright:textures/gui/flourish_workbench/sheet.png", 180, 180, 4, 4);
     }
 
     static int rarityColour(Rarity rarity) {
@@ -93,6 +101,17 @@ public final class WorkbenchArt {
         graphics.fill(x + 1, y + height - 1, x + width - 1, y + height, colour);
         graphics.fill(x, y + 1, x + 1, y + height - 1, colour);
         graphics.fill(x + width - 1, y + 1, x + width, y + height - 1, colour);
+    }
+
+    @Environment(EnvType.CLIENT)
+    static void disc(GuiGraphics graphics, int x, int y, int size, int colour) {
+        int centre = size / 2;
+        double radius = size / 2.0 - 0.1;
+        for (int row = 0; row < size; row++) {
+            int dy = row - centre;
+            int half = (int) Math.sqrt(Math.max(0, radius * radius - dy * dy));
+            graphics.fill(x + centre - half, y + row, x + centre + half + 1, y + row + 1, colour);
+        }
     }
 
     public static final int LOCK = 7;

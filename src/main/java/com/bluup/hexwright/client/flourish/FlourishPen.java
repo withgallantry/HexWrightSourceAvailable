@@ -51,6 +51,17 @@ public final class FlourishPen {
     public static final int TESSERACT = 29;
     public static final int SERPENT = 30;
     public static final int RIFT = 31;
+    public static final int CLOCK = 32;
+    public static final int SINGULARITY = 33;
+    public static final int EFFIGY = 34;
+    public static final int AURORA = 35;
+    public static final int PRISM = 36;
+    public static final int ROSE_WINDOW = 37;
+    public static final int WILDFLOWER = 38;
+    public static final int DANDELION = 39;
+    public static final int MYCELIUM = 40;
+    public static final int BRIAR = 41;
+    public static final int WORLD_TREE = 42;
 
     public static final Vec3 UP = new Vec3(0.0, 1.0, 0.0);
 

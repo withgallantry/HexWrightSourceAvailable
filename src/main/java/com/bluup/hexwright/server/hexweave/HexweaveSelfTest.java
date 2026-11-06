@@ -1249,6 +1249,7 @@ final class HexweaveSelfTest {
             loomLinkValidation(loom);
             loomDeleteConnected(loom);
             loomTriggers(loom);
+            loomRenumber(loom);
             loomUndo(loom);
             loomEmbedded(loom);
             loomLayout(loom);
@@ -1634,6 +1635,40 @@ final class HexweaveSelfTest {
         check("AH", result.saved() && reopened != null && ids(reopened).equals(List.of(1, 2, 3))
                 && reopened.links().equals(List.of(new WeaveLink(1, 2))),
             "and the weave saved and reopened with Threads 1, 2 and 3 and no dangling link");
+    }
+
+    private void loomRenumber(HexLoomBlockEntity loom) {
+        loom.setOrb(new ItemStack(HexLoom.WOVEN_ORB));
+        WeaveDraft draft = opened("AY", loom);
+        if (draft == null) {
+            return;
+        }
+        boolean woven = weave(draft, "1>2,1>3", List.of(List.of(number(1)), List.of(number(2)), List.of(number(3))));
+        ThreadDraft second = draft.thread(2);
+        ThreadDraft third = draft.thread(3);
+        WeaveLayout.Position thirdAt = draft.position(3);
+        int edits = draft.edits();
+        boolean refused = !draft.setNumber(3, 3) && !draft.setNumber(3, 0) && !draft.setNumber(3, 4)
+            && !draft.setNumber(9, 1) && draft.edits() == edits;
+        boolean moved = draft.setNumber(3, 2) && draft.edits() > edits;
+        check("AY", woven && refused && moved && draft.thread(2) == third && draft.thread(3) == second
+                && third.id() == 2 && second.id() == 3 && thirdAt.equals(draft.position(2))
+                && Set.copyOf(draft.links()).equals(Set.of(new WeaveLink(1, 2), new WeaveLink(1, 3))),
+            "Thread 3 renumbered to 2 swapped places with Thread 2, each keeping its patterns, place and link from 1 "
+                + "(and a no-op or out-of-range number changed nothing): " + draft.links());
+
+        HexLoomEditing.SaveResult result = save(loom, draft);
+        Activation ran = fire(loom.orb());
+        check("AY", result.saved() && ran != null && threadOrder(ran).equals(List.of(1, 2, 3))
+                && value(top(ran.runs().get(1))) == 3.0 && value(top(ran.runs().get(2))) == 2.0,
+            "after saving, 1's Tail ran the old Thread 3 before the old Thread 2: "
+                + (ran == null ? "nothing" : trace(ran)));
+
+        draft.setNumber(1, 3);
+        check("AY", draft.triggerLinks().equals(List.of(new TriggerLink(1, 3)))
+                && Set.copyOf(draft.links()).equals(Set.of(new WeaveLink(3, 1), new WeaveLink(3, 2))),
+            "moving Thread 1 to the end took the trigger's link and its own Tail's links with it: "
+                + draft.triggerLinks() + ", " + draft.links());
     }
 
     private void loomTriggers(HexLoomBlockEntity loom) {

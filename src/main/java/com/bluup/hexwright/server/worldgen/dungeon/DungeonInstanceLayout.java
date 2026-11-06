@@ -30,7 +30,7 @@ public final class DungeonInstanceLayout {
     private DungeonInstanceLayout() {
     }
 
-    public static @Nullable Plan plan(ServerLevel level, int x, int z, long seed) {
+    public static @Nullable Plan plan(ServerLevel level, int x, int z, long seed, boolean keystoneStudy) {
         DungeonStructure dungeon = DungeonStructure.in(level);
         if (dungeon == null) {
             return null;
@@ -39,7 +39,7 @@ public final class DungeonInstanceLayout {
         BlockPos origin = new BlockPos(x, y, z);
         StructureTemplateManager templates = level.getStructureManager();
         List<DungeonPlanner.Placement> placements =
-            dungeon.plan(templates, RandomSource.create(seed), DungeonStructure.extrasFor(seed));
+            dungeon.plan(templates, RandomSource.create(seed), DungeonStructure.extrasFor(seed), keystoneStudy);
         List<DungeonPiece> pieces = dungeon.pieces(templates, origin, withoutWayIn(placements), "");
         for (int index : entranceCandidates(placements)) {
             DungeonPiece room = pieces.get(index);

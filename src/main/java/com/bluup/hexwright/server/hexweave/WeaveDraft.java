@@ -194,11 +194,26 @@ public final class WeaveDraft {
         links.removeIf(link -> link.from() == id || link.to() == id);
         triggerLinks.removeIf(link -> link.thread() == id);
         edits += removed.edits() + 1;
-        renumberThreads();
+        renumberThreads(threads.keySet());
     }
 
-    private void renumberThreads() {
-        Map<Integer, Integer> numbers = numbering(threads.keySet());
+    public boolean setNumber(int id, int number) {
+        if (!threads.containsKey(id) || number < 1 || number > threads.size()) {
+            return false;
+        }
+        List<Integer> order = new ArrayList<>(threads.keySet());
+        if (order.indexOf(id) == number - 1) {
+            return false;
+        }
+        order.remove(Integer.valueOf(id));
+        order.add(number - 1, id);
+        renumberThreads(order);
+        edits++;
+        return true;
+    }
+
+    private void renumberThreads(Collection<Integer> order) {
+        Map<Integer, Integer> numbers = numbering(order);
         List<ThreadDraft> kept = new ArrayList<>(threads.values());
         Map<Integer, WeaveLayout.Position> moved = new HashMap<>();
         threads.clear();
@@ -215,7 +230,7 @@ public final class WeaveDraft {
         nextId = threads.size() + 1L;
     }
 
-    private static Map<Integer, Integer> numbering(Set<Integer> ids) {
+    private static Map<Integer, Integer> numbering(Collection<Integer> ids) {
         Map<Integer, Integer> numbers = new HashMap<>();
         for (int id : ids) {
             numbers.put(id, numbers.size() + 1);

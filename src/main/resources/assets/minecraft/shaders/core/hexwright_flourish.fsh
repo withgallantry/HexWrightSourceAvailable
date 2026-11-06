@@ -58,6 +58,17 @@ const int BLADE = 28;
 const int TESSERACT = 29;
 const int SERPENT = 30;
 const int RIFT = 31;
+const int CLOCK = 32;
+const int SINGULARITY = 33;
+const int EFFIGY = 34;
+const int AURORA = 35;
+const int PRISM = 36;
+const int ROSE_WINDOW = 37;
+const int WILDFLOWER = 38;
+const int DANDELION = 39;
+const int MYCELIUM = 40;
+const int BRIAR = 41;
+const int WORLD_TREE = 42;
 
 float hold = 0.0;
 
@@ -1558,6 +1569,577 @@ vec4 rift(vec2 p) {
     return vec4(hot(col, rims * 0.3 + stars * inside * 0.5 + seal * 0.5), lit * discEdge(length(p)));
 }
 
+vec4 clock(vec2 p) {
+    float t = clamp(Progress, 0.0, 1.0);
+    float done = clamp(Segment.x, 0.0, 1.0);
+    vec2 q = p / max(easeBack(Age / 0.3), 0.02);
+    float r = length(q);
+    float a = fract(atan(q.x, q.y) / TAU + 1.0);
+    float w = 0.018 / Extent.x;
+    float urgency = smoothstep(0.55, 1.0, t);
+    float beat = 0.5 + 0.5 * cos(Age * mix(5.0, 20.0, urgency));
+
+    float lit = line(abs(r - 0.92), w * 1.3) * (0.8 + urgency * beat);
+    lit += line(abs(r - 0.8), w * 0.7) * 0.35;
+
+    float k = floor(a * 12.0 + 0.5);
+    float at = k / 12.0;
+    vec2 dir = vec2(sin(at * TAU), cos(at * TAU));
+    float along = dot(q, dir);
+    float across = abs(q.x * dir.y - q.y * dir.x);
+    float inner = mod(k, 3.0) < 0.5 ? 0.56 : 0.66;
+    float mark = line(length(vec2(across, max(max(inner - along, along - 0.78), 0.0))), w);
+    float ahead = step(t, fract(at - 1e-4) + 1e-4) + step(11.5, k);
+    lit += mark * mix(0.2, 0.85, clamp(ahead, 0.0, 1.0));
+
+    float left = step(t, a) * (1.0 - smoothstep(0.78, 0.8, r));
+    float edge = exp(-pow((a - t) * TAU * max(r, 0.15) / 0.06, 2.0)) * step(t, a);
+    lit += left * (0.05 + 0.05 * urgency * beat) + edge * 0.35 * (1.0 - smoothstep(0.78, 0.8, r));
+
+    vec2 hand = vec2(sin(t * TAU), cos(t * TAU));
+    float stroke = line(segment(q, -hand * 0.12, hand * 0.74), w * 1.3) * 1.1;
+    vec2 toTip = q - hand * 0.74;
+    float tip = exp(-dot(toTip, toTip) / 0.003) * 0.8;
+    float hub = exp(-r * r / 0.002) * 0.8 + line(abs(r - 0.07), w * 0.6) * 0.5;
+    lit += stroke + tip + hub;
+
+    float flare = done * (1.0 - done) * 4.0;
+    lit *= (1.0 - done) + flare * 1.5;
+    vec3 col = palette(a * 0.5 + Age * 0.05);
+    return vec4(hot(col, 0.15 + (stroke + tip) * 0.3 + flare * 0.5), lit * discEdge(r));
+}
+
+vec4 singularity(vec2 p) {
+    float t = Progress;
+    float form = ease((t - 0.1) / 0.22);
+    float evaporate = smoothstep(0.76, 0.93, t);
+    float R = 0.24 * form * (1.0 - evaporate);
+    float r = length(p);
+    float w = 0.016 / Extent.x;
+    float aa = fwidth(r) + 1e-5;
+    float horizon = (1.0 - smoothstep(R - aa, R + aa, r)) * step(0.002, R);
+    hold = horizon * 0.95 * Intensity;
+
+    vec2 d = vec2(p.x, p.y / 0.24);
+    float rd = length(d);
+    vec2 dir = d / max(rd, 1e-4);
+    float inner = max(R * 1.6, 0.04);
+    float outer = 0.95 * form * (1.0 - evaporate * 0.6);
+    float band = smoothstep(inner, inner + 0.05, rd) * (1.0 - smoothstep(outer * 0.55, outer, rd));
+    vec2 spun = rot(Age * 1.6 / pow(max(rd, 0.2), 1.5)) * dir;
+    float streaks = noise(spun * 2.5 + rd * 8.0) * 0.6 + noise(spun * 6.0 + rd * 19.0) * 0.4;
+    float toward = 0.6 - 0.4 * dir.x;
+    float heat = exp(-(rd - inner) * 5.0);
+    float disc = band * (0.25 + streaks * 0.9) * toward * (0.6 + heat * 1.2);
+    disc *= 1.0 - horizon * step(0.0, p.y);
+
+    float a = atan(p.y, p.x);
+    vec2 heading = vec2(cos(a), sin(a));
+    float arch = exp(-pow((r - R * 1.28) / (R * 0.16 + 1e-3), 2.0)) * step(0.002, R) * 1.3;
+    float archStreaks = noise(rot(Age * 2.5) * heading * 3.0 + 5.0);
+    float above = smoothstep(-0.4, 0.6, p.y / max(r, 1e-3));
+    float lensed = arch * (0.3 + 0.7 * above) * (0.5 + archStreaks) * (0.6 - 0.4 * heading.x);
+    float photon = line(abs(r - R * 1.06), w * 0.6) * step(0.002, R) * 0.8;
+
+    float infall = 1.0 - smoothstep(0.12, 0.38, t);
+    float wind = fract((a + log(max(r, 1e-3)) * 2.5 + Age * 5.0) * 3.0 / TAU);
+    float arms = exp(-pow((wind - 0.5) / 0.12, 2.0)) * smoothstep(0.95, 0.5, r) * smoothstep(0.02, 0.15, r)
+        * infall * 0.8;
+    float swallow = exp(-r * r / 0.004) * infall * smoothstep(0.0, 0.1, t);
+
+    float pop = exp(-pow((t - 0.94) / 0.025, 2.0));
+    float flash = exp(-r * r / 0.006) * pop * 3.0;
+    float shock = line(abs(r - ease((t - 0.93) / 0.07) * 0.9), w * 2.0) * step(0.93, t) * (1.0 - smoothstep(0.93, 1.0, t));
+
+    float lit = disc + lensed + photon + arms + swallow + flash + shock;
+    vec3 col = palette(rd * 0.5 - Age * 0.08);
+    return vec4(hot(col, heat * band * 0.5 + photon * 0.4 + flash * 0.5 + 0.08), lit * discEdge(r));
+}
+
+float effigyFace(vec2 q) {
+    vec2 h = (q - vec2(0.0, -0.02)) / vec2(0.42, 0.56);
+    float head = abs(length(h) - 1.0) * 0.42;
+    vec2 e = rot(-0.25) * vec2(abs(q.x) - 0.17, q.y - 0.02);
+    float eye = abs(length(e / vec2(0.1, 0.06)) - 1.0) * 0.06;
+    float brow = segment(vec2(abs(q.x), q.y), vec2(0.06, 0.15), vec2(0.3, 0.25));
+    float mouth = abs(length((q - vec2(0.0, -0.3)) / vec2(0.1, 0.12)) - 1.0) * 0.1;
+    float cheek = segment(vec2(abs(q.x), q.y), vec2(0.2, -0.12), vec2(0.24, -0.32));
+    return min(min(min(head, eye), min(brow, mouth)), cheek);
+}
+
+vec4 effigy(vec2 p) {
+    float t = Progress;
+    float w = 0.022 / Extent.x;
+    float kindle = ease(t / 0.18);
+    float flow = Age * 3.0;
+    vec2 q = p + vec2(noise(vec2(p.y * 6.0 - flow, 1.7)) - 0.5, noise(vec2(p.x * 6.0, p.y * 4.0 - flow)) - 0.5) * 0.03;
+    float face = line(effigyFace(q), w);
+
+    float tongues = 0.0;
+    for (int k = 0; k < 3; k++) {
+        float fk = float(k);
+        float n = noise(vec2(q.x * (6.0 + fk * 4.0) + fk * 7.3, q.y * (3.0 + fk * 2.0) - flow * (1.4 + fk * 0.5)));
+        n = n * n;
+        vec2 s = q - vec2((n - 0.25) * 0.04, n * (0.45 - fk * 0.1) * kindle);
+        float d = effigyFace(s);
+        tongues += exp(-d / (0.018 + n * 0.03)) * smoothstep(0.05, 0.4, n) * (0.7 - fk * 0.15);
+    }
+
+    vec2 e = rot(-0.25) * vec2(abs(q.x) - 0.17, q.y - 0.02);
+    float eyes = exp(-dot(e, e) / 0.003) * 1.4;
+    float inside = 1.0 - smoothstep(0.95, 1.0, length((p - vec2(0.0, -0.02)) / vec2(0.42, 0.56)));
+    float fill = inside * (0.06 + 0.06 * noise(p * 8.0 - vec2(0.0, flow)));
+
+    float burn = mix(-0.15, 1.1, smoothstep(0.42, 0.92, t));
+    float f = clamp((p.y + 0.6) / 1.3, 0.0, 1.0) * 0.75 + noise(p * 5.0 + 3.0) * 0.25;
+    float left = smoothstep(burn, burn + 0.04, f);
+    float ember = exp(-pow((f - burn) / 0.025, 2.0)) * step(0.0, burn) * step(burn, 1.0)
+        * (1.0 - smoothstep(0.95, 1.08, length((p - vec2(0.0, -0.02)) / vec2(0.42, 0.56))));
+
+    float shown = smoothstep(0.0, 0.05, t) * (1.0 - smoothstep(0.88, 1.0, t));
+    float lit = ((face * 0.9 * kindle + tongues + fill + eyes * kindle) * left + ember * 1.6) * shown;
+    vec3 col = palette(clamp(p.y * 0.5 + 0.5, 0.0, 1.0) * 0.5 - Age * 0.1);
+    return vec4(hot(col, tongues * 0.25 + eyes * 0.5 + ember * 0.6 + 0.05), lit * discEdge(length(p)));
+}
+
+vec4 aurora(vec2 uv) {
+    float t = Progress;
+    float period = max(floor(Extent.x * 0.6) * 2.0, 4.0);
+    float x = uv.x / Extent.x * period;
+    float y = uv.y / Extent.y;
+    float drift = Age * 0.35;
+    float hem = -0.7 + (periodicNoise(vec2(x * 0.5 + drift, Age * 0.25), period * 0.5) - 0.5) * 0.9
+        + (periodicNoise(vec2(x * 1.5 - drift * 1.7, 3.0 + Age * 0.4), period * 1.5) - 0.5) * 0.35;
+    float above = y - hem;
+    float tall = 0.9 * ease(t / 0.3);
+    float curtain = smoothstep(-0.05, 0.03, above) * exp(-max(above, 0.0) / max(tall, 0.05));
+    float rays = periodicNoise(vec2(x * 6.0 + drift * 3.0, Age * 0.7), period * 6.0);
+    rays = 0.3 + 0.7 * rays * rays;
+    float hemGlow = exp(-pow(above / 0.07, 2.0)) * 0.6;
+    float shimmer = 0.75 + 0.25 * sin(Age * 5.0 + x / period * TAU * 7.0);
+    float shown = smoothstep(0.0, 0.15, t) * (1.0 - smoothstep(0.65, 1.0, t)) * (1.0 - smoothstep(1.1, 1.55, y));
+    float lit = (curtain * rays * 0.85 + hemGlow) * shimmer * shown;
+    vec3 col = palette(max(above, 0.0) * 0.3 + x / period);
+    return vec4(hot(col, hemGlow * 0.3), lit);
+}
+
+vec4 prism(vec2 p) {
+    float t = Progress;
+    float w = 0.018 / Extent.x;
+    float fade = 1.0 - smoothstep(0.7, 1.0, t);
+    vec2 q = p / max(easeBack(t / 0.14), 0.02);
+    vec2 A = vec2(0.0, 0.36);
+    vec2 B = vec2(-0.31, -0.18);
+    vec2 C = vec2(0.31, -0.18);
+    float edges = min(min(segment(q, A, B), segment(q, B, C)), segment(q, C, A));
+    float inside = step(0.0, q.y + 0.18) * step(abs(q.x) * 1.742 + q.y, 0.36);
+    float glass = line(edges, w * 1.2) + inside * 0.07;
+    float glint = exp(-pow((dot(q, vec2(0.7071)) - mix(-0.5, 0.5, fract(Age * 0.6))) / 0.04, 2.0)) * inside * 0.3;
+
+    vec2 entry = vec2(-0.172, 0.06);
+    vec2 exit = vec2(0.172, 0.06);
+    vec2 source = entry + vec2(-1.01, 0.43);
+    vec2 head = mix(source, entry, ease((t - 0.1) / 0.16));
+    float beam = line(segment(p, source, head), w * 1.5) * step(0.1, t);
+    vec2 crossing = mix(entry, exit, clamp((t - 0.26) / 0.06, 0.0, 1.0));
+    beam += line(segment(p, entry, crossing), w * 1.2) * step(0.26, t) * 0.8;
+    float sparks = (exp(-dot(p - entry, p - entry) / 0.002) * step(0.25, t)
+        + exp(-dot(p - exit, p - exit) / 0.002) * step(0.32, t)) * 0.8;
+
+    vec2 fanned = p - exit;
+    float dist = length(fanned);
+    float across = (atan(fanned.y, fanned.x) + 0.8) / 0.6;
+    float reach = ease((t - 0.3) / 0.22) * 1.05;
+    float within = step(0.0, across) * step(across, 1.0) * (1.0 - smoothstep(reach - 0.08, reach, dist));
+    float k = clamp(floor(across * 4.0), 0.0, 3.0);
+    float u = fract(across * 4.0);
+    float fan = within * smoothstep(0.0, 0.12, u) * (1.0 - smoothstep(0.88, 1.0, u))
+        * (0.5 + 0.5 * smoothstep(1.1, 0.1, dist)) * smoothstep(0.0, 0.05, dist) * 0.7;
+
+    vec3 glassCol = palette(Age * 0.05);
+    vec3 rgb = hot(glassCol, 0.3) * (glass + glint) + vec3(1.0) * (beam + sparks) + palette(k * 0.25) * fan;
+    float lit = glass + glint + beam + sparks + fan;
+    return vec4(rgb / max(lit, 1e-4), lit * fade * discEdge(length(p)));
+}
+
+vec4 roseWindow(vec2 p) {
+    float t = Progress;
+    vec2 q = p / max(easeBack(t / 0.15), 0.02);
+    float r = length(q);
+    float a = atan(q.x, q.y);
+    float w = 0.012 / Extent.x;
+
+    float ring = -1.0;
+    float index = 0.0;
+    float border = -1.0;
+    if (r < 0.17) {
+        ring = 0.0;
+        border = 0.17 - r;
+    } else if (r > 0.2 && r < 0.43) {
+        float sector = TAU / 8.0;
+        float u = mod(a, sector) - sector * 0.5;
+        ring = 1.0;
+        index = floor(mod(a, TAU) / sector);
+        border = min(min(r - 0.2, 0.43 - r), r * sin(sector * 0.5 - abs(u)) - 0.012);
+    } else if (r > 0.46 && r < 0.9) {
+        float sector = TAU / 12.0;
+        float u = mod(a, sector) - sector * 0.5;
+        float lateral = r * sin(abs(u));
+        float halfWidth = 0.075 * sqrt(clamp((0.86 - r) / 0.14, 0.0, 1.0));
+        float lancet = min(halfWidth - lateral, r - 0.46);
+        float between = mod(a + sector * 0.5, sector) - sector * 0.5;
+        vec2 roundelAt = vec2(r * sin(between), r * cos(between) - 0.8);
+        float roundel = 0.055 - length(roundelAt);
+        if (lancet > roundel) {
+            ring = 2.0;
+            index = floor(mod(a, TAU) / sector);
+            border = lancet;
+        } else {
+            ring = 3.0;
+            index = floor(mod(a + sector * 0.5, TAU) / sector);
+            border = roundel;
+        }
+    }
+    float aa = fwidth(r) + 1e-5;
+    float pane = smoothstep(0.0, aa * 1.5, border) * step(0.0, ring);
+    float id = ring * 16.0 + index;
+    float litAt = 0.1 + ring * 0.08 + hash11(id) * 0.05;
+    float darkAt = 0.62 + (3.0 - ring) * 0.05;
+    float glow = smoothstep(litAt, litAt + 0.05, t) * (1.0 - smoothstep(darkAt, darkAt + 0.06, t));
+    float mottle = 0.7 + 0.3 * noise(q * 14.0 + id * 3.1);
+    float sweep = mix(-1.4, 1.4, smoothstep(0.3, 0.6, t));
+    float glint = exp(-pow((dot(q, vec2(0.7071)) - sweep) / 0.1, 2.0));
+    float glass = pane * glow * (mottle * (0.35 + 0.25 * smoothstep(0.0, 0.05, border)) + glint * 0.6);
+
+    float frame = 1.0 - smoothstep(0.96 - aa, 0.96 + aa, r);
+    float stone = smoothstep(0.0, 0.08, t) * (1.0 - smoothstep(0.82, 1.0, t));
+    hold = frame * (1.0 - pane * glow) * 0.8 * stone * Intensity;
+    float edges = (line(abs(border), w) * step(0.0, ring) * 0.3 + line(abs(r - 0.96), w * 1.6) * 0.8
+        + line(abs(r - 0.93), w) * 0.4) * stone;
+
+    vec3 glassCol = palette(index * 0.25 + ring * 0.125);
+    vec3 rgb = glassCol * glass + hot(palette(Age * 0.05), 0.5) * edges;
+    float lit = glass + edges;
+    return vec4(rgb / max(lit, 1e-4), lit * discEdge(r));
+}
+
+
+float leafEdge(vec2 q, vec2 base, vec2 dir, float len) {
+    vec2 rel = q - base;
+    float u = dot(rel, dir);
+    float v = dot(rel, vec2(-dir.y, dir.x));
+    float halfWidth = len * 0.26 * sin(PI * clamp(u / max(len, 1e-4), 0.0, 1.0));
+    return max(abs(v) - halfWidth, max(-u, u - len));
+}
+
+float petalEdge(vec2 q, vec2 centre, vec2 dir, float a, float b) {
+    vec2 rel = q - centre - dir * a;
+    vec2 local = vec2(dot(rel, dir), dot(rel, vec2(-dir.y, dir.x)));
+    return (length(local / vec2(a, b)) - 1.0) * b;
+}
+
+float lineAt(float d, float w, float aa) {
+    float core = 1.0 - smoothstep(w - aa, w + aa, d);
+    float halo = exp(-(d * d) / (w * w * 18.0)) * 0.45;
+    return core + halo;
+}
+
+vec3 withered(vec3 c, float k) {
+    float lum = dot(c, vec3(0.3, 0.5, 0.2));
+    return mix(c, vec3(0.62, 0.46, 0.28) * (0.45 + lum * 0.6), k);
+}
+
+float wildflowerStem(float y, float droop, float sway) {
+    float up = y / 0.66;
+    return 0.022 * sin(y * 7.0 + Seed) * up + sway * up + droop * 0.2 * up * up * up;
+}
+
+vec4 wildflower(vec2 uv) {
+    float t = Progress;
+    vec2 q = vec2(uv.y, uv.x) / Extent.x;
+    float w = 0.014 / Extent.x;
+    float wither = smoothstep(0.66, 0.88, t);
+    float sway = sin(Age * 1.3 + Seed) * 0.012;
+    float top = 0.66 * ease((t - 0.08) / 0.32);
+    float wind = hash11(9.0) > 0.5 ? 1.0 : -1.0;
+
+    float yc = clamp(q.y, 0.0, top);
+    float stem = line(length(vec2(q.x - wildflowerStem(yc, wither, sway), q.y - yc)), w * 1.3) * step(0.002, top);
+    vec2 head = vec2(wildflowerStem(top, wither, sway), top - wither * 0.1);
+
+    float leaves = 0.0;
+    for (int k = 0; k < 2; k++) {
+        float at = k == 0 ? 0.2 : 0.34;
+        float side = k == 0 ? 1.0 : -1.0;
+        float len = 0.17 * ease((top - at) / 0.14);
+        vec2 dir = normalize(vec2(side, mix(0.75, -0.6, wither)));
+        vec2 base = vec2(wildflowerStem(at, wither, sway), at);
+        float d = leafEdge(q, base, dir, len);
+        float inside = 1.0 - smoothstep(-w, w, d);
+        float rib = line(abs(dot(q - base, vec2(-dir.y, dir.x))), w * 0.6) * inside;
+        leaves += (line(abs(d), w) + inside * 0.14 + rib * 0.4) * step(0.001, len);
+    }
+
+    float bud = ease((t - 0.34) / 0.12) * (1.0 - smoothstep(0.5, 0.58, t));
+    float budLit = line(abs(petalEdge(q, head - vec2(0.0, 0.03), vec2(0.0, 1.0), 0.04 * bud + 1e-3, 0.026 * bud + 1e-3)), w)
+        * step(0.01, bud);
+    float open = ease((t - 0.48) / 0.12);
+    float petals = 0.0;
+    float spin = Seed * 0.7 + 0.3;
+    for (int k = 0; k < 6; k++) {
+        float fk = float(k);
+        float angle = fk * TAU / 6.0 + spin;
+        vec2 dir = vec2(cos(angle), sin(angle));
+        vec2 centre = head;
+        float fallAt = 0.72 + hash11(fk * 1.7) * 0.16;
+        float fallen = max(t - fallAt, 0.0);
+        if (fallen > 0.0) {
+            centre += vec2(wind * fallen * 0.9 + sin(fallen * 30.0 + fk) * 0.03, -fallen * 2.2);
+            dir = rot(fallen * 9.0 * (fk - 2.5)) * dir;
+        }
+        float d = petalEdge(q, centre, dir, 0.075 * open + 1e-3, 0.034 * open + 1e-3);
+        float shown = step(0.01, open) * (1.0 - smoothstep(0.0, 0.18, fallen));
+        petals += (line(abs(d), w) + (1.0 - smoothstep(-w, w, d)) * 0.3) * shown;
+    }
+    vec2 toHeart = q - head;
+    float heart = exp(-dot(toHeart, toHeart) / 0.0008) * open * 1.2;
+    vec2 toSeed = q - vec2(0.0, 0.01);
+    float seed = exp(-dot(toSeed, toSeed) / 0.0006) * (1.0 - smoothstep(0.1, 0.2, t)) * (0.8 + 0.4 * sin(Age * 12.0)) * 1.5;
+
+    float shown = smoothstep(0.0, 0.04, t) * (1.0 - smoothstep(0.88, 1.0, t)) * (1.0 - wither * 0.4);
+    vec3 green = withered(palette(0.25), wither);
+    vec3 bloom = withered(palette(0.7 + Age * 0.04), wither * 0.8);
+    vec3 rgb = green * (stem + leaves + budLit) + bloom * petals + hot(bloom, 0.6) * heart + vec3(1.0) * seed;
+    float lit = stem + leaves + budLit + petals + heart + seed;
+    return vec4(rgb / max(lit, 1e-4), lit * shown);
+}
+
+vec4 dandelion(vec2 uv) {
+    float t = Progress;
+    vec2 q = vec2(uv.y, uv.x) / Extent.x;
+    float w = 0.01 / Extent.x;
+    float top = 0.6 * ease(t / 0.2);
+    float sway = sin(Age * 1.1 + Seed) * 0.015;
+    float yc = clamp(q.y, 0.0, top);
+    float stemAt = 0.018 * sin(yc * 5.0 + Seed) + sway * yc / 0.6;
+    float stem = line(length(vec2(q.x - stemAt, q.y - yc)), w * 1.4) * step(0.002, top);
+    vec2 head = vec2(0.018 * sin(top * 5.0 + Seed) + sway * top / 0.6, top);
+    float puff = ease((t - 0.14) / 0.18);
+    float wind = hash11(9.0) > 0.5 ? 1.0 : -1.0;
+
+    float stalks = 0.0;
+    float down = 0.0;
+    for (int k = 0; k < 36; k++) {
+        float fk = float(k);
+        float z = 1.0 - 2.0 * (fk + 0.5) / 36.0;
+        float ring = sqrt(1.0 - z * z);
+        float phi = fk * 2.39996 + Seed;
+        vec2 spoke = vec2(ring * cos(phi), z) * 0.17 * puff;
+        float near = 0.6 + 0.4 * sin(phi);
+        float leaveAt = 0.38 + hash11(fk * 1.7) * 0.42;
+        float flown = max(t - leaveAt, 0.0);
+        float gone = 1.0 - smoothstep(0.15, 0.4, flown);
+        vec2 tip = head + spoke;
+        if (flown > 0.0) {
+            tip += vec2(wind * flown * 1.7, flown * 0.9 + sin(flown * 14.0 + fk) * 0.03);
+            vec2 body = tip - normalize(spoke + vec2(0.0, -0.05)) * 0.05;
+            stalks += line(segment(q, tip, body), w * 0.7) * 0.6 * gone;
+        } else {
+            stalks += line(segment(q, head, tip), w * 0.6) * 0.35 * near * step(0.01, puff);
+        }
+        vec2 d = q - tip;
+        float tuft = exp(-dot(d, d) / 0.0005) * 0.6 + line(abs(length(d) - 0.016), w * 0.6) * 0.35;
+        down += tuft * near * step(0.01, puff) * gone;
+    }
+    vec2 toHead = q - head;
+    float receptacle = exp(-dot(toHead, toHead) / 0.0006) * puff;
+
+    float shown = smoothstep(0.0, 0.05, t) * (1.0 - smoothstep(0.85, 1.0, t));
+    vec3 stemCol = palette(0.25);
+    vec3 downCol = palette(0.6 + Age * 0.04);
+    vec3 rgb = stemCol * (stem + receptacle) + downCol * stalks + hot(downCol, 0.5) * down;
+    float lit = stem + receptacle + stalks + down;
+    return vec4(rgb / max(lit, 1e-4), lit * shown);
+}
+
+const float HYPHAE = 7.0;
+
+float hyphaAngle(float root, float s1, float s2, float r) {
+    float sector = TAU / HYPHAE;
+    float first = smoothstep(0.28, 0.42, r);
+    float second = smoothstep(0.56, 0.68, r);
+    float a = (root + 0.5) * sector + (noise(vec2(root * 3.7, r * 4.0)) - 0.5) * 0.6;
+    a += (s1 * sector * 0.24 + (noise(vec2(root * 5.1 + s1, r * 6.0)) - 0.5) * 0.25) * first;
+    a += (s2 * sector * 0.12 + (noise(vec2(root * 7.3 + s1 * 2.0 + s2, r * 8.0)) - 0.5) * 0.18) * second;
+    return a;
+}
+
+vec4 mycelium(vec2 p) {
+    float t = Progress;
+    float r = length(p);
+    float a = atan(p.y, p.x);
+    float reach = ease(t / 0.55) * 0.92;
+    float w = 0.012 / Extent.x;
+    float sector = TAU / HYPHAE;
+    float nearest = floor(mod(a, TAU) / sector);
+    float threads = 0.0;
+    float tips = 0.0;
+    float caps = 0.0;
+    float sprout = smoothstep(0.5, 0.62, t);
+    float aa = fwidth(r) * 1.2 + 1e-5;
+    for (int di = -1; di <= 1; di++) {
+        float root = mod(nearest + float(di), HYPHAE);
+        for (int f = 0; f < 4; f++) {
+            float s1 = f < 2 ? -1.0 : 1.0;
+            float s2 = mod(float(f), 2.0) < 0.5 ? -1.0 : 1.0;
+            float off = mod(a - hyphaAngle(root, s1, s2, r) + PI, TAU) - PI;
+            float width = w * mix(1.6, 0.7, r);
+            threads = max(threads, lineAt(r * abs(off), width, aa) * step(r, reach) * smoothstep(0.02, 0.06, r));
+            vec2 toTip = p - polar(reach, hyphaAngle(root, s1, s2, reach));
+            tips += exp(-dot(toTip, toTip) / 0.0006) * (1.0 - smoothstep(0.45, 0.6, t)) * step(0.05, reach);
+            vec2 toCap = p - polar(0.92, hyphaAngle(root, s1, s2, 0.92));
+            float capR = 0.035 * (0.7 + 0.6 * hashCell(vec2(root * 4.0 + float(f), 3.0))) * sprout;
+            caps += (lineAt(abs(length(toCap) - capR), w, aa) + exp(-dot(toCap, toCap) / (capR * capR * 0.3 + 1e-5)) * 0.4)
+                * step(0.001, capR);
+        }
+    }
+    float pulse = 0.6 + 0.9 * exp(-pow((r - fract(Age * 0.55) * 1.3) / 0.07, 2.0));
+    float knot = exp(-r * r / 0.003) * 0.9;
+    float fade = 1.0 - smoothstep(0.78, 1.0, t);
+    float lit = (threads * pulse + tips + caps + knot) * fade;
+    vec3 col = palette(r * 0.6 - Age * 0.08);
+    return vec4(hot(col, tips * 0.4 + knot * 0.3 + 0.05), lit * discEdge(r));
+}
+
+float briarVineX(float k, float vine, float along, float spacing, float slope) {
+    return k * spacing + (along + 0.05 * sin(along * 5.0 + vine * 1.7)) / slope;
+}
+
+vec4 briar(vec2 uv) {
+    float t = Progress;
+    float H = Extent.y;
+    float C = Extent.x;
+    float count = max(floor(C / 0.9), 3.0);
+    float spacing = C / count;
+    float slope = 1.4;
+    float w = 0.016;
+    float wither = smoothstep(0.66, 0.86, t);
+    float climbed = min(2.0 * H * ease(t / 0.45), 2.0 * H);
+
+    float along = uv.y + H;
+    float k = floor((uv.x - along / slope) / spacing + 0.5);
+    float vine = mod(k, count);
+    float off = uv.x - briarVineX(k, vine, along, spacing, slope);
+    float within = step(0.0, along) * step(along, climbed);
+    float aa = fwidth(uv.y) * 1.2 + 1e-5;
+    float stems = lineAt(abs(off) * slope / sqrt(1.0 + slope * slope), w, aa) * within;
+
+    vec2 up = normalize(vec2(1.0 / slope, 1.0));
+    vec2 across = vec2(up.y, -up.x);
+    float thorns = 0.0;
+    float leaves = 0.0;
+    float n = floor(along / 0.2);
+    for (int j = -1; j <= 1; j++) {
+        float m = n + float(j);
+        float at = (m + 0.5) * 0.2;
+        if (at < 0.0 || at > climbed) {
+            continue;
+        }
+        vec2 onVine = vec2(briarVineX(k, vine, at, spacing, slope), at - H);
+        float side = mod(m, 2.0) < 0.5 ? 1.0 : -1.0;
+        if (mod(m, 3.0) < 0.5) {
+            float grown = ease((climbed - at) / 0.4);
+            vec2 dir = normalize(across * side + up * 0.6);
+            float fallen = max(t - (0.72 + hashCell(vec2(vine, m)) * 0.14), 0.0);
+            vec2 base = onVine + vec2(sin(fallen * 20.0 + m) * 0.05, -fallen * 5.0);
+            dir = rot(fallen * 8.0 * side) * dir;
+            float leaf = leafEdge(uv, base, dir, 0.22 * grown);
+            leaves += (lineAt(abs(leaf), w * 0.8, aa) + (1.0 - smoothstep(-w, w, leaf)) * 0.15)
+                * step(0.01, grown) * (1.0 - smoothstep(0.0, 0.1, fallen));
+        } else {
+            thorns += lineAt(segment(uv, onVine, onVine + across * side * 0.08 + up * 0.04), w * 0.6, aa) * 0.8;
+        }
+    }
+
+    vec2 rel = uv - vec2(briarVineX(k, vine, 2.0 * H, spacing, slope), H);
+    float open = ease((t - 0.45) / 0.15) * (1.0 - wither * 0.5);
+    float rose = 0.0;
+    for (int j = 0; j < 5; j++) {
+        float angle = float(j) * TAU / 5.0 + vine;
+        float petal = petalEdge(rel, vec2(0.0), vec2(cos(angle), sin(angle)), 0.1 * open + 1e-3, 0.06 * open + 1e-3);
+        rose += lineAt(abs(petal), w * 0.8, aa) + (1.0 - smoothstep(-w, w, petal)) * 0.2;
+    }
+    rose = (rose + exp(-dot(rel, rel) / 0.0008) * 0.8) * step(0.01, open);
+
+    float shown = smoothstep(0.0, 0.05, t) * (1.0 - smoothstep(0.86, 1.0, t)) * (1.0 - wither * 0.35);
+    vec3 green = withered(palette(0.25 + vine / count * 0.25), wither);
+    vec3 bloom = withered(palette(0.7), wither);
+    vec3 rgb = green * (stems + thorns + leaves) + hot(bloom, 0.15) * rose;
+    float lit = stems + thorns + leaves + rose;
+    return vec4(rgb / max(lit, 1e-4), lit * shown);
+}
+
+const int TREE_BRANCHES = 63;
+
+vec4 worldTree(vec2 uv) {
+    float t = Progress;
+    vec2 q = vec2(uv.y, uv.x) / Extent.x;
+    float w = 0.012 / Extent.x;
+    vec2 tips[TREE_BRANCHES];
+    float heading[TREE_BRANCHES];
+    float depth[TREE_BRANCHES];
+    float wood = 0.0;
+    float woodDepth = 0.0;
+    float pulseAt = (t - 0.5) / 0.2 * 6.0;
+    float pulsing = step(0.5, t) * (1.0 - step(0.72, t));
+    for (int i = 0; i < TREE_BRANCHES; i++) {
+        float fi = float(i);
+        vec2 from = vec2(0.0);
+        if (i == 0) {
+            heading[i] = PI * 0.5;
+            depth[i] = 0.0;
+        } else {
+            int parent = (i - 1) / 2;
+            float side = (i & 1) == 1 ? 1.0 : -1.0;
+            from = tips[parent];
+            depth[i] = depth[parent] + 1.0;
+            heading[i] = heading[parent] + side * (0.38 + 0.22 * hash11(fi)) + (hash11(fi + 70.0) - 0.5) * 0.2
+                + sin(Age * 1.4 + depth[i]) * 0.025 * depth[i];
+        }
+        float d = depth[i];
+        float len = 0.3 * pow(0.72, d) * (0.85 + 0.3 * hash11(fi + 50.0));
+        float grown = clamp((t - (0.03 + d * 0.055)) / 0.075, 0.0, 1.0);
+        tips[i] = from + vec2(cos(heading[i]), sin(heading[i])) * len * grown;
+        if (grown > 0.0) {
+            float b = line(segment(q, from, tips[i]), w * mix(2.6, 0.8, d / 5.0))
+                * (1.0 + 1.2 * exp(-pow(d - pulseAt, 2.0)) * pulsing);
+            if (b > wood) {
+                wood = b;
+                woodDepth = d;
+            }
+        }
+    }
+    float wind = hash11(9.0) > 0.5 ? 1.0 : -1.0;
+    float bloom = smoothstep(0.42, 0.52, t);
+    float leaves = 0.0;
+    for (int i = 31; i < TREE_BRANCHES; i++) {
+        float fi = float(i);
+        float fallen = max(t - (0.7 + hash11(fi * 1.3) * 0.15), 0.0);
+        vec2 at = tips[i] + vec2(wind * fallen * 0.8 + sin(fallen * 24.0 + fi) * 0.03, -fallen * 1.6);
+        vec2 d = q - at;
+        leaves += exp(-dot(d, d) / 0.0007) * bloom * (1.0 - smoothstep(0.0, 0.2, fallen)) * 0.9;
+    }
+    vec2 toRoot = q - vec2(0.0, 0.01);
+    float seed = exp(-dot(toRoot, toRoot) / 0.002) * (1.0 - smoothstep(0.05, 0.2, t)) * 1.5;
+
+    float shown = smoothstep(0.0, 0.03, t) * (1.0 - smoothstep(0.86, 1.0, t));
+    vec3 barkCol = palette(woodDepth / 6.0 * 0.5 + Age * 0.04);
+    vec3 leafCol = palette(0.65 + Age * 0.05);
+    vec3 rgb = hot(barkCol, 0.1) * wood + hot(leafCol, 0.3) * leaves + vec3(1.0) * seed;
+    float lit = wood + leaves + seed;
+    return vec4(rgb / max(lit, 1e-4), lit * shown);
+}
+
 void main() {
     vec2 disc = localPos / Extent.x;
     vec4 c;
@@ -1623,6 +2205,28 @@ void main() {
         c = tesseract(disc);
     } else if (Style == SERPENT) {
         c = serpent(disc);
+    } else if (Style == CLOCK) {
+        c = clock(disc);
+    } else if (Style == SINGULARITY) {
+        c = singularity(disc);
+    } else if (Style == EFFIGY) {
+        c = effigy(disc);
+    } else if (Style == AURORA) {
+        c = aurora(localPos);
+    } else if (Style == PRISM) {
+        c = prism(disc);
+    } else if (Style == ROSE_WINDOW) {
+        c = roseWindow(disc);
+    } else if (Style == WILDFLOWER) {
+        c = wildflower(localPos);
+    } else if (Style == DANDELION) {
+        c = dandelion(localPos);
+    } else if (Style == MYCELIUM) {
+        c = mycelium(disc);
+    } else if (Style == BRIAR) {
+        c = briar(localPos);
+    } else if (Style == WORLD_TREE) {
+        c = worldTree(localPos);
     } else {
         c = rift(disc);
     }

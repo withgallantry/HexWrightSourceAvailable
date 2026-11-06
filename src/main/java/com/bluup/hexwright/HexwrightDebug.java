@@ -36,9 +36,15 @@ public final class HexwrightDebug {
 
     public static final String PROVENANCE = "provenance";
 
+    public static final String INVERSION = "inversion";
+
+    public static final String HEXAHEDRON = "hexahedron";
+
+    public static final String MAINTENANCE = "maintenance";
+
     public static final Set<String> AREAS =
         Set.of(PORTAL, VAULT, CASTING, CONTENT, RENDER, WEAPON, CLOAK, WEAVE, FORGE, DUNGEON, SOULFORGE, BOSS,
-            BINDSTONE, GOLEM, INSPIRATION, TABLET, QUOTA, PROVENANCE);
+            BINDSTONE, GOLEM, INSPIRATION, TABLET, QUOTA, PROVENANCE, INVERSION, HEXAHEDRON, MAINTENANCE);
 
     private static final String PROPERTY = "hexwright.debug";
 

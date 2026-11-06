@@ -16,7 +16,7 @@ abstract class WorkbenchTabWidget extends WorkbenchWidget {
     @Configurable(name = "gui.hexwright.editor.name.flourish_tab")
     private IGuiTexture tabTexture = WorkbenchArt.box();
     @Configurable(name = "gui.hexwright.editor.name.flourish_tab_selected")
-    private IGuiTexture selectedTexture = WorkbenchArt.boxLit();
+    private IGuiTexture selectedTexture = WorkbenchArt.sheet();
 
     protected WorkbenchTabWidget(int width, int height) {
         super(width, height);
@@ -57,6 +57,14 @@ abstract class WorkbenchTabWidget extends WorkbenchWidget {
         return index() == count() && canAdd();
     }
 
+    private int addSize() {
+        return getSizeHeight() - 2;
+    }
+
+    private boolean overAdd(double mouseX, double mouseY) {
+        return isMouseOver(getPositionX(), getPositionY(), addSize(), addSize(), mouseX, mouseY);
+    }
+
     @Override
     @Environment(EnvType.CLIENT)
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
@@ -73,7 +81,7 @@ abstract class WorkbenchTabWidget extends WorkbenchWidget {
                 return true;
             }
             playButtonClickSound();
-        } else if (button == 0 && adds()) {
+        } else if (button == 0 && adds() && overAdd(mouseX, mouseY)) {
             add();
             playButtonClickSound();
         }
@@ -88,18 +96,43 @@ abstract class WorkbenchTabWidget extends WorkbenchWidget {
         int y = getPositionY();
         int width = getSizeWidth();
         int height = getSizeHeight();
-        boolean hovered = isMouseOverElement(mouseX, mouseY);
         if (!shown()) {
             if (adds()) {
-                (hovered ? selectedTexture : tabTexture).draw(graphics, mouseX, mouseY, x, y, width, height);
-                WorkbenchArt.centred(graphics, addLabel(), x, y + (height - 8) / 2, width,
-                    hovered ? WorkbenchArt.GOLD : WorkbenchArt.DIM);
+                drawAdd(graphics, mouseX, mouseY, x, y, addSize());
             }
             return;
         }
         boolean selected = selected() == index();
-        (selected || hovered ? selectedTexture : tabTexture).draw(graphics, mouseX, mouseY, x, y, width, height);
+        if (selected) {
+            selectedTexture.draw(graphics, mouseX, mouseY, x, y, width, height);
+            drawJoin(graphics, x, y + height, width);
+        } else {
+            (isMouseOverElement(mouseX, mouseY) ? selectedTexture : tabTexture)
+                .draw(graphics, mouseX, mouseY, x, y, width, height + 1);
+        }
         drawShown(graphics, x, y, width, height, selected);
+    }
+
+    @Environment(EnvType.CLIENT)
+    private void drawAdd(GuiGraphics graphics, int mouseX, int mouseY, int x, int y, int size) {
+        boolean hovered = overAdd(mouseX, mouseY);
+        if (hovered) {
+            tabTexture.draw(graphics, mouseX, mouseY, x, y, size, size);
+        }
+        WorkbenchArt.centred(graphics, Component.literal("+"), x + 1, y + (size - 8) / 2, size,
+            hovered ? WorkbenchArt.GOLD : WorkbenchArt.DIM);
+    }
+
+    @Environment(EnvType.CLIENT)
+    private static void drawJoin(GuiGraphics graphics, int x, int seam, int width) {
+        int right = x + width;
+        graphics.fill(x + 2, seam - 2, right - 2, seam + 2, WorkbenchArt.SHEET_FILL);
+        graphics.fill(x + 1, seam - 2, x + 2, seam + 2, WorkbenchArt.SHEET_RIM);
+        graphics.fill(right - 2, seam - 2, right - 1, seam + 2, WorkbenchArt.SHEET_RIM);
+        graphics.fill(x, seam - 2, x + 1, seam + 1, WorkbenchArt.EDGE);
+        graphics.fill(right - 1, seam - 2, right, seam + 1, WorkbenchArt.EDGE);
+        graphics.fill(x, seam + 1, x + 1, seam + 2, WorkbenchArt.SHEET_RIM);
+        graphics.fill(right - 1, seam + 1, right, seam + 2, WorkbenchArt.SHEET_RIM);
     }
 
     @Override
@@ -108,6 +141,8 @@ abstract class WorkbenchTabWidget extends WorkbenchWidget {
         super.drawInForeground(graphics, mouseX, mouseY, partialTicks);
         if (shown() && isMouseOverElement(mouseX, mouseY)) {
             showTooltip(tooltip(mouseX, mouseY));
+        } else if (adds() && overAdd(mouseX, mouseY)) {
+            showTooltip(List.of(addLabel()));
         }
     }
 }

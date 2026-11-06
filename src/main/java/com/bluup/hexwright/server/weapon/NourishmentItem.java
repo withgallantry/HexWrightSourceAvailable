@@ -79,9 +79,11 @@ public class NourishmentItem extends SoulforgedBladeItem {
         }
         HexwrightNetworking.sendPlayerAnimation(wielder, PlayerAnimationLayer.ONE_SHOT,
             wielder.isSprinting() ? BattleHammerItem.SPRINT_SLAM_CLIP : BattleHammerItem.SLAM_CLIP);
+        boolean forPlanterAlone = wielder.isShiftKeyDown();
         SlamWindUp.schedule(level.getServer(), BattleHammerItem.WIND_UP_TICKS, () -> {
             ItemStack blade = wielder.getMainHandItem();
-            BloodTreeEntity tree = blade.is(this) ? BloodTreeEntity.plant(level, wielder, blood(blade)) : null;
+            BloodTreeEntity tree = blade.is(this)
+                ? BloodTreeEntity.plant(level, wielder, blood(blade), forPlanterAlone) : null;
             if (tree == null) {
                 wielder.getCooldowns().removeCooldown(this);
                 return;

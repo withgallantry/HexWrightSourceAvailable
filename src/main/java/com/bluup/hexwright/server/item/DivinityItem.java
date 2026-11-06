@@ -219,6 +219,8 @@ public class DivinityItem extends ItemHexwrightStaff implements SoulforgedItem, 
             (int) EXPOSURE_RADIUS, (int) AIRBORNE_EXPOSURE_RADIUS), ChatFormatting.RED);
         WeaponTooltips.add(tooltip, Component.translatable("tooltip.hexwright.divinity.struck",
             GROUNDED_TICKS / 20), ChatFormatting.RED);
+        WeaponTooltips.add(tooltip, Component.translatable("tooltip.hexwright.divinity.strain",
+            DivineStrain.MAX_STRAIN_TICKS / 1200), ChatFormatting.RED);
 
         tooltip.add(Component.empty());
         WeaponTooltips.add(tooltip, Component.translatable("tooltip.hexwright.divinity.recall",

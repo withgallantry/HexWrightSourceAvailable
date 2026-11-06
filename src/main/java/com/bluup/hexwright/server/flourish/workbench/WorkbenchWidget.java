@@ -44,7 +44,8 @@ public abstract class WorkbenchWidget extends Widget implements IConfigurableWid
 
     @Environment(EnvType.CLIENT)
     protected void showTooltip(List<Component> lines) {
-        if (FlourishWorkbenchOptions.tooltips() && gui != null && gui.getModularUIGui() != null) {
+        if (FlourishWorkbenchOptions.tooltips() && draft().openList() == null && gui != null
+            && gui.getModularUIGui() != null) {
             gui.getModularUIGui().setHoverTooltip(lines, ItemStack.EMPTY, null, null);
         }
     }

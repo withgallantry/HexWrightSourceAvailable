@@ -18,14 +18,20 @@ import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import it.unimi.dsi.fastutil.longs.LongSet;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.Holder;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.MobSpawnType;
+import net.minecraft.world.entity.decoration.Painting;
+import net.minecraft.world.entity.decoration.PaintingVariant;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.ServerLevelAccessor;
 import net.minecraft.world.level.StructureManager;
@@ -50,11 +56,13 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 public class DungeonPiece extends TemplateStructurePiece {
 
     private static final String SPAWN_MARKER = "spawn/";
+    private static final String PAINTING_MARKER = "painting/";
 
     private static final Map<ResourceLocation, EntityType<?>> GARRISON = Map.of(
         new ResourceLocation("minecraft", "pillager"), HexwrightMobEntities.EXPERIMENTAL_CONSTRUCT);
@@ -535,6 +543,10 @@ public class DungeonPiece extends TemplateStructurePiece {
     protected void handleDataMarker(String marker, BlockPos pos, ServerLevelAccessor level,
                                     RandomSource random, BoundingBox box) {
         level.setBlock(pos, Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
+        if (marker.startsWith(PAINTING_MARKER)) {
+            hangPainting(marker.substring(PAINTING_MARKER.length()), pos, level);
+            return;
+        }
         if (!marker.startsWith(SPAWN_MARKER) || random.nextFloat() >= this.mobChance) {
             return;
         }
@@ -555,5 +567,19 @@ public class DungeonPiece extends TemplateStructurePiece {
         mob.finalizeSpawn(level, level.getCurrentDifficultyAt(pos), MobSpawnType.STRUCTURE, null, null);
         mob.setPersistenceRequired();
         level.addFreshEntity(mob);
+    }
+
+    private void hangPainting(String spec, BlockPos pos, ServerLevelAccessor level) {
+        int split = spec.lastIndexOf('/');
+        ResourceLocation id = split < 0 ? null : ResourceLocation.tryParse(spec.substring(0, split));
+        Direction facing = split < 0 ? null : Direction.byName(spec.substring(split + 1));
+        Optional<Holder.Reference<PaintingVariant>> variant = id == null ? Optional.empty()
+            : BuiltInRegistries.PAINTING_VARIANT.getHolder(ResourceKey.create(Registries.PAINTING_VARIANT, id));
+        if (variant.isEmpty() || facing == null || facing.getAxis() == Direction.Axis.Y) {
+            Hexwright.LOGGER.warn("Dungeon module {} asks for a painting '{}' that cannot be hung", this.templateName, spec);
+            return;
+        }
+        level.addFreshEntity(new Painting(level.getLevel(), pos, this.placeSettings.getRotation().rotate(facing),
+            variant.get()));
     }
 }
